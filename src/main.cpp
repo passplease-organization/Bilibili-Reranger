@@ -23,7 +23,7 @@ int main(){
         return 1;
     }
 
-    PluginHandler::forEachPlugin([](PluginHandler plugin) -> PluginStatus {
+    PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
 
@@ -42,9 +42,8 @@ int main(){
         cout << "运行成功，现在将退出程序！";
         clean();
         return 0;
-    }else {
-        cout << "运行失败，请检查具体原因！";
-        clean();
-        return 1;
     }
+    cout << "运行失败，请检查具体原因！";
+    clean();
+    return 1;
 }

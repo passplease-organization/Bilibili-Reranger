@@ -1,11 +1,11 @@
 #include "Util.h"
 #include "pluginInterface.h"
 
-crawlTask::Group political("political",0);
-crawlTask::Group math("math",0);
-crawlTask::Group physical("physical",0);
-crawlTask::Group chemistry("chemistry",0);
-crawlTask::Group biological("biological",0);
+crawlTask::Group political("political");
+crawlTask::Group math("math");
+crawlTask::Group physical("physical");
+crawlTask::Group chemistry("chemistry");
+crawlTask::Group biological("biological");
 
 #define EXAMPLE_PATH "ExampleConfig"
 #define EXAMPLE_NAME "example_for_example_plugin"
@@ -13,7 +13,7 @@ crawlTask::Group biological("biological",0);
 
 void initGroups(){
     crawlTask::Task* a = nullptr;
-    a = new crawlTask::Task{"波士顿圆脸",10,crawlTask::WorkingMode::SUBSCRIBE};
+    a = new crawlTask::Task("波士顿圆脸",10,crawlTask::WorkingMode::SUBSCRIBE);
     political.registerTask(a);
     a = new crawlTask::Task("军情D7处",10,crawlTask::WorkingMode::SUBSCRIBE);
     political.registerTask(a);
@@ -40,7 +40,7 @@ void initGroups(){
 void exampleConfig(){
     char* path;
     defaultOutputChar(&path);
-    toConfigPath(path,EXAMPLE_PATH);
+    toConfigPath(path, EXAMPLE_PATH);
     if(!fileExists(path) && createConfig(path,EXAMPLE_PATH)) {
         initGroups();
         auto example = dataStore::Data::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);

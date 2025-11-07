@@ -1,11 +1,10 @@
 .vs/
-*/.idea/
+.idea/
 cmake-build*/
 excluded/
 build/
 release/
 DebugShells/
-DockerTest
 */test/
 */env.list
 generate.stamp*

@@ -42,9 +42,9 @@ WorkingMode crawlTask::byName(const char *name) {
     string mode(name);
     if(mode == "搜索模式")
         return WorkingMode::SEARCH;
-    else if(mode == "关注列表匹配模式")
+    if(mode == "关注列表匹配模式")
         return WorkingMode::SUBSCRIBE;
-    else if(mode == "视频标签匹配模式")
+    if(mode == "视频标签匹配模式")
         return WorkingMode::TAG;
     warn("未匹配的模式名称");
     return WorkingMode::SEARCH;
@@ -58,18 +58,15 @@ Nullable Group* crawlTask::getGroup(const char* groupName) noexcept{
                 return group;
         }
         return nullptr;
-    }else{
-        if(validIndex())
-            return groups[workingIndex()];
-        else {
-//            string error("Wrong working Index of ");
-//            error += std::to_string(workingIndex());
-//            error += ", but groups size is ";
-//            error += std::to_string(groups.size());
-//            throwError(error.c_str());
-            return nullptr;
-        }
     }
+    if(validIndex())
+        return groups[workingIndex()];
+    //            string error("Wrong working Index of ");
+    //            error += std::to_string(workingIndex());
+    //            error += ", but groups size is ";
+    //            error += std::to_string(groups.size());
+    //            throwError(error.c_str());
+    return nullptr;
 }
 
 Nullable Group* crawlTask::nextGroup(){
@@ -112,23 +109,20 @@ Task* Group::nextTask(bool move) {
     if(validIndex(workingIndex + 1)){
         workingIndex += move;
         return tasks[workingIndex];
-    }else {
-        workingIndex += move;
-        return nullptr;
     }
+    workingIndex += move;
+    return nullptr;
 }
 
 Task *Group::nowTask() {
     if(validIndex())
         return tasks[workingIndex];
-    else {
-        string error("Wrong working Index of ");
-        error += std::to_string(workingIndex);
-        error += ", but tasks size is ";
-        error += std::to_string(tasks.size());
-        throwError(error.c_str());
-        return nullptr;
-    }
+    string error("Wrong working Index of ");
+    error += std::to_string(workingIndex);
+    error += ", but tasks size is ";
+    error += std::to_string(tasks.size());
+    throwError(error.c_str());
+    return nullptr;
 }
 
 bool Group::validIndex() const {
@@ -187,8 +181,9 @@ Nullable Task *crawlTask::nextTask(bool move) {
             auto _next = nextGroup();
             if(_next == nullptr)
                 return nullptr;
-            else return _next -> nowTask();
-        }else return next;
+            return _next -> nowTask();
+        }
+        return next;
     }
     return nullptr;
 }
@@ -197,10 +192,9 @@ Task *crawlTask::nowTask() noexcept(false){
     auto group = getGroup();
     if(group != nullptr){
         return group -> nowTask();
-    }else {
-//        throwError("Wrong working status !");
-        return nullptr;
     }
+    //        throwError("Wrong working status !");
+    return nullptr;
 }
 
 unsigned int crawlTask::workingIndex() {

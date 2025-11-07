@@ -1,4 +1,4 @@
-#include <map>
+#pragma once
 #include "APIStatus.h"
 #include "Util.h"
 
@@ -48,7 +48,7 @@ namespace crawlTask{
         const char* name;
         int videoCount;
 
-        API explicit Group(const char* name,unsigned int videoCount,bool regi = false);
+        API explicit Group(const char* name,unsigned int videoCount = 0,bool regi = false);
 
         API Group* operator+= (Group& other);
 

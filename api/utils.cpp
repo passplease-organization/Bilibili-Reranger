@@ -1,19 +1,17 @@
 #include <nlohmann/json.hpp>
-#include <direct.h>
+#include <filesystem>
 #include "Util.h"
-
-#define MAX_BUFFER_SIZE 100
 
 using namespace std;
 using Json = nlohmann::json;
 namespace fs = std::filesystem;
 
 const string ConfigPath = "config";
-map<string,Json> storedJson = map<string,Json>();
+auto storedJson = map<string,Json>();
 
 bool endWith(const char* target,const char* substring){
-    string t = string(target);
-    string s = string(substring);
+    auto t = string(target);
+    auto s = string(substring);
     if(t.size() < s.size())
         return false;
     return t.substr(t.size() - s.size()) == s;
@@ -31,12 +29,12 @@ string removeEnd(const string& target,const string& substring){
     return endWith(target.c_str(),substring.c_str()) ? target.substr(0,target.size() - substring.size()) : target;
 }
 
-void removeEnd(const char* target,const char* substring,char** buffer){
+int removeEnd(const char* target,const char* substring,char** buffer){
     string t = string(target);
     string s = string(substring);
     string back = removeEnd(t,s);
     defaultOutputChar(buffer);
-    strcpy_s(*buffer,back.size() + 1,back.c_str());
+    return snprintf(*buffer,MAX_BUFFER_SIZE,"%s",back.c_str());
 }
 
 bool fileExists(const char* name, bool absolute){
@@ -56,12 +54,14 @@ void say(const char* message,bool endl,const char* color){
         cout << '\n';
 }
 
-void warn(const char* warn,bool endl){
+inline void warn(const char* warn,bool endl){
     say(warn,endl,YELLOW);
 }
 
-bool convertToInt(const char* str, int& num){
-    return sscanf_s(str, "%d", &num) == 1;
+inline bool convertToInt(const char* str, int& num){
+    istringstream stream(str);
+    stream >> num;
+    return stream.fail();
 }
 
 Json getJson(const char* name, const char* path){
@@ -70,7 +70,8 @@ Json getJson(const char* name, const char* path){
         ifstream file(path);
         file >> json;
         return json;
-    }else if(name != nullptr){
+    }
+    if(name != nullptr){
         auto json = storedJson.find(name);
         if(json != storedJson.end())
             return json -> second;
@@ -78,43 +79,43 @@ Json getJson(const char* name, const char* path){
     return nullptr;
 }
 
-void defaultOutputChar(char** output){
+inline void defaultOutputChar(char** output){
     *output = new char[MAX_BUFFER_SIZE];
 }
 
-void freeOutputChar(char** output){
-    delete *output;
+inline void freeOutputChar(char** output){
+    delete[] *output;
 }
 
 void deleteConfig(const char* filePath,bool absolute, const char* fileType){
     char* back;
     defaultOutputChar(&back);
     if(absolute){
-        strcpy_s(back, strlen(filePath) + 1,filePath);
-    }else toConfigPath(back,filePath,fileType);
+        snprintf(back,MAX_BUFFER_SIZE,"%s",filePath);
+    }else toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
     string path(back);
     freeOutputChar(&back);
     remove(path.c_str());
 }
 
-bool createConfig(char* output,const char* filePath, const char* fileType){
+bool createConfig(char* output, const char* filePath,const size_t maxLength,const char* fileType){
     try{
         if(!fileExists(ConfigPath.c_str())){
-            _mkdir(ConfigPath.c_str());
+            filesystem::create_directory(ConfigPath);
         }
         char* back;
         defaultOutputChar(&back);
-        toConfigPath(back,filePath,fileType);
+        toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
         string path(back);
         freeOutputChar(&back);
         ofstream file(path.c_str());
         if(file.is_open()){
             file << "{}";
             file.close();
-            strcpy_s(output, strlen(path.c_str()) + 1,path.c_str());
+            snprintf(output,maxLength,"%s",path.c_str());
             return true;
         }else {
-            cout << "创建文件失败！请检查具体原因！" << endl;
+            warn("创建文件失败！请检查具体原因！");
             throwError("Failed at creating file !");
         }
         return false;
@@ -123,7 +124,7 @@ bool createConfig(char* output,const char* filePath, const char* fileType){
     }
 }
 
-bool getConfig(char* output,const char* filePath, const char* fileType){
+bool getConfig(char* output, const char* filePath,const size_t maxLength, const char* fileType){
     try{
         string path;
         if(startWith(filePath,ConfigPath.c_str())){
@@ -131,35 +132,37 @@ bool getConfig(char* output,const char* filePath, const char* fileType){
         }else {
             char* back = nullptr;
             defaultOutputChar(&back);
-            toConfigPath(back,filePath,fileType);
+            toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
             path = string(back);
             freeOutputChar(&back);
         }
         if(fileExists(path.c_str())) {
-            strcpy_s(output, strlen(path.c_str()) + 1,path.c_str());
+            snprintf(output,maxLength,"%s",path.c_str());
             return true;
-        }else {
-            char* out;
-            defaultOutputChar(&out);
-            if(createConfig(out,filePath, fileType) && fileExists(path.c_str())) {
-                strcpy_s(output, strlen(out) + 1,out);
-                freeOutputChar(&out);
-                return true;
-            }else {
-                freeOutputChar(&out);
-                throwError("Failed at creating file !");
-            }
         }
+        char* out;
+        defaultOutputChar(&out);
+        if(createConfig(out,filePath,MAX_BUFFER_SIZE,fileType) && fileExists(path.c_str())) {
+            snprintf(output,maxLength,"%s",out);
+            freeOutputChar(&out);
+            return true;
+        }
+        freeOutputChar(&out);
+        throwError("Failed at creating file !");
         return false;
     }catch (...){
         return false;
     }
 }
 
-void toConfigPath(char* back,const char* filePath,const char* fileType){
+void toConfigPath(char* back, const char* filePath,const size_t maxLength, const char* fileType){
     string path{};
-    path = path.append(ConfigPath).append("\\").append(filePath).append(fileType);
-    strcpy_s(back, strlen(path.c_str()) + 1,path.c_str());
+    #ifdef WIN32
+        path = path.append(ConfigPath).append("\\").append(filePath).append(fileType);
+    #elifdef __linux__
+        path = path.append(ConfigPath).append("/").append(filePath).append(fileType);
+    #endif
+    snprintf(back,maxLength,"%s",path.c_str());
 }
 
 bool saveToFile(const char* name,const char* path,bool recover){
@@ -171,7 +174,7 @@ bool saveToFile(const char* name,const char* path,bool recover){
         if(!dir.empty() && !fs::exists(dir)){
             fs::create_directories(dir);
         }
-        ofstream file(path,0x02);
+        ofstream file(path,ios::out);
         if(recover)
             file.clear();
         file << json;
@@ -203,6 +206,11 @@ namespace dataStore{
 
     Data::Data(const dataStore::Data* other){
         *this = other;
+    }
+
+    Data::Data(dataStore::Data&& old) noexcept{
+        *this = old;
+        old.clear();
     }
 
     Data::~Data(){

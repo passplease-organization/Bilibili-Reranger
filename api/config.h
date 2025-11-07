@@ -11,6 +11,7 @@
 #define SEARCH_PAGE_SIZE "search_page_size"
 #define WAIT_TIME "pause_time_between_crawls"
 #define MAX_CRAWL_COUNT "max_crawl_count_per_work"
+#define MAX_AI_TOKENS "max_tokens"
 
 extern API map<const string,std::any> defaultConfigs;
 

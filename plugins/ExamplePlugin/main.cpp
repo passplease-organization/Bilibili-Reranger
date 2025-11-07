@@ -8,11 +8,10 @@ using namespace crawlTask;
 
 #if DEVELOP
 #define CONFIG_PATH EXAMPLE_PATH
-#define NAME EXAMPLE_NAME
 #else
 #define CONFIG_PATH "Targets"
-#define NAME "Example Plugin"
 #endif
+#define NAME "Example Plugin"
 
 dataStore::Data* CONFIG = nullptr;
 
@@ -31,10 +30,9 @@ PluginStatus load(){
         if(CONFIG -> valid()) {
             CONFIG -> NeverSave();
             return PluginStatus::SUCCESS;
-        }else{
-            warn(NAME,false);
-            warn("Open config failed !");
         }
+        warn(NAME,false);
+        warn("Open config failed !");
     }else{
         warn(NAME,false);
         warn(" Config file create failed ! Now path: ",false);
@@ -61,3 +59,16 @@ VideoStatus roughJudge(){
 VideoStatus judge(){
     return VideoStatus::UNKNOWN;
 }
+
+#ifdef DEVELOP
+const char* getURL(){
+    say("Example Plugin Working For getURL ...");
+    return "";
+}
+
+bool dealJson(const char* data){
+    string tempData(data);
+    say("Example Plugin Working For dealJson");
+    return false;
+}
+#endif

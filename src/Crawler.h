@@ -1,4 +1,5 @@
-﻿#include <curl/curl.h>
+﻿#pragma once
+#include <curl/curl.h>
 #include <sstream>
 #include <regex>
 #include "Util.h"
@@ -11,11 +12,13 @@ using namespace std;
 
 extern bool roughCheckVideo();
 extern bool finalCheckVideo();
+extern bool pluginDealJson(string&);
+extern string pluginGetURL();
 
-string getURL(crawlTask::Task* task = crawlTask::nowTask());
+string getURL(const crawlTask::Task* task = crawlTask::nowTask());
 
 class CurlHelper{
-friend string getURL(crawlTask::Task* task);
+friend string getURL(const crawlTask::Task* task);
 public:
     CurlHelper(){
         curl = curl_easy_init();
@@ -33,7 +36,8 @@ public:
             throwError("创建CURL失败");
             return;
         }
-        curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,CurlHelper::saveData,this);
+        curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,CurlHelper::saveData);
+        curl_easy_setopt(curl,CURLOPT_WRITEDATA,this);
         curl_easy_setopt(curl,CURLOPT_WRITEDATA,this);
         curl_easy_setopt(curl,CURLOPT_COOKIE,cookie);
         curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent);
@@ -85,6 +89,8 @@ public:
             warn("Dealing Json encounters problem !");
             say("Json content: ",false,RED);
             say(to_string(json).c_str(),true,RED);
+            say("Now url: ",false,RED);
+            say(url.c_str(),true,RED);
             throwError(e.what());
             return false;
         }
@@ -93,19 +99,22 @@ public:
     CURL* getCurl(){
         return curl;
     }
-    bool dealJson(){// TODO 允许插件根据自己的需求单独处理爬取下来的数据
+    bool dealJson(){
 
         #if MORE_DETAILS
         say("爬取中");
         #endif
 
         if(!tempData.empty()) {
+            if(pluginDealJson(tempData))
+                return true;
+
             #ifdef DEVELOP
             try {
             #endif
                 json = Json::parse(tempData);
             #ifdef DEVELOP
-                dataStore::Data data = json.get<dataStore::Data>();
+                auto data = json.get<dataStore::Data>();
                 data.setPath(tempDataPath);
                 data.setName(tempDataName);
                 say("保存此次爬取临时数据");
@@ -137,7 +146,6 @@ public:
                         #endif
 
                         if (getSubscriberName(up) == task->keyword) {
-                            cout << up << endl;
                             clearURL();
                             string url(videoByUser);
                             url += "?vmid=";
@@ -180,12 +188,11 @@ public:
                 if(bilibili::enoughVideo()) {
                     clearURL();
                     return crawlTask::nextTask(true) != nullptr;
-                }else {
-                    cout << getDataFromJson(json)["next"] << endl;
-                    int page = getDataFromJson(json)["next"].get<int>();
-                    nextPage(page);
-                    return true;
                 }
+                cout << getDataFromJson(json)["next"] << endl;
+                int page = getDataFromJson(json)["next"].get<int>();
+                nextPage(page);
+                return true;
             }
             case crawlTask::WorkingMode::SEARCH : {
                 forEachVideo(json,ofSearch){
@@ -198,11 +205,10 @@ public:
                 if(bilibili::enoughVideo()) {
                     clearURL();
                     return crawlTask::nextTask(true) != nullptr;
-                }else {
-                    int page = getDataFromJson(json)["next"].get<int>();
-                    nextPage(page);
-                    return true;
                 }
+                int page = getDataFromJson(json)["next"].get<int>();
+                nextPage(page);
+                return true;
             }
             default: return false;
         }
@@ -241,11 +247,22 @@ private:
     static unsigned int getPages(string& url){
         regex regular(".*?pn=([0-9]*).*?");
         smatch result;
-        if(regex_match(url,result,regular)){
-            unsigned int back;
-            sscanf_s(result[1].str().c_str(),"%d",&back);
-            return back;
-        }else return (unsigned int)1;
+        if(regex_match(url,result,regular)) {
+            try {
+                return stoi(result[1].str());
+            } catch (const std::invalid_argument& ia) {
+                // 捕获异常：当字符串内容无法被解析为数字时（例如 "abc"）
+                std::cerr << "Invalid argument: " << ia.what() << '\n';
+                // 在这里添加错误处理逻辑，比如设置 back 为一个默认的错误值
+                return 1;
+            } catch (const std::out_of_range& oor) {
+                // 捕获异常：当转换后的数字超出了 int 类型的表示范围时
+                std::cerr << "Out of Range error: " << oor.what() << '\n';
+                // 添加相应的错误处理逻辑
+                return INT_MAX;
+            }
+        }
+        return 1;
     }
     void nextPage(unsigned int nowPage){
         string pn = "pn=";
@@ -260,14 +277,14 @@ private:
         _crawlNext = true;
     }
 public:
-    bool finishCrawl(){
+    [[nodiscard]] bool finishCrawl() const{
         return url.empty() && crawlTask::nowTask() == nullptr;
     }
-    void nextSearch(string url){
+    void nextSearch(const string& url){
         if(CurlHelper::url.empty())
             CurlHelper::url = url;
     }
-    void refreshSubscribers(bool force = false){
+    void refreshSubscribers(const bool force = false){
         #if MORE_DETAILS
         say("开始准备关注博主名单");
         #endif
@@ -330,10 +347,14 @@ bool crawl(){
     int count = 0;
     do{
         count++;
-        say("等待中...");
 
         #if SLEEP_CRAWL
-        Sleep(config<int>(WAIT_TIME));
+        say("等待中...");
+            #ifdef WIN32
+                Sleep(config<int>(WAIT_TIME));
+            #elifdef __linux__
+                sleep(config<int>(WAIT_TIME));
+            #endif
         #endif
 
         auto task = crawlTask::nowTask();
@@ -345,7 +366,10 @@ bool crawl(){
     return helper.finishCrawl();
 }
 
-string getURL(crawlTask::Task* task){// TODO 允许插件根据自己的需求返回特定的URL
+string getURL(const crawlTask::Task* task){
+    auto url = pluginGetURL();
+    if(!url.empty())
+        return url;
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE: {
             string back = mySubscribers;

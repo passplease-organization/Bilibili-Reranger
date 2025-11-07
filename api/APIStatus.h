@@ -1,7 +1,17 @@
+#pragma once
 #ifdef API_DLL
-#define API __declspec(dllexport)
+#ifdef WIN32
+    #define API __declspec(dllexport)
+#elifdef __linux__
+    #define API __attribute__((visibility("default")))
+#endif
+
 #else
-#define API __declspec(dllimport)
+#ifdef WIN32
+    #define API __declspec(dllimport)
+#elifdef __linux__
+    #define API __attribute__((visibility("default")))
+#endif
 #endif
 
 #define Nullable /*This can be null*/

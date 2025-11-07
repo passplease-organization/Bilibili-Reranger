@@ -1,6 +1,33 @@
 #include "BilibiliInterface.h"
 #include "pluginInterface.h"
 
+string toReadableTime(long long publishTime){
+    auto pubTime = static_cast<std::time_t>(publishTime);
+    std::time_t current = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    double seconds = std::difftime(current,pubTime);
+    auto days = static_cast<long long>(seconds / 86400.0);
+    std::stringstream stream;
+    if(days > 1){
+        if(days > 365){
+            stream << std::put_time(std::localtime(&pubTime), "%F");
+        }else {
+            stream << std::put_time(std::localtime(&pubTime), "%M-%D");
+        }
+        return stream.str();
+    }
+    if(days == 1){
+        return "昨天";
+    }
+    auto hours = static_cast<long long>(seconds / 3600.0);
+    if(hours > 1){
+        return to_string(hours) + "小时前";
+    }
+    auto second = static_cast<long long>(seconds);
+    if(second > 0)
+        return to_string(second) + "秒前";
+    return "刚刚";
+}
+
 namespace bilibili{
     const Video* _nowVideo;
 
@@ -21,6 +48,9 @@ namespace bilibili{
             _description = getDescription(json);
             _mid = getMid(json);
             _url = getVideoURL(json);
+            _duration = getVideoDuration(json);
+            _image = getImageURL(json);
+            _string_publishTime = toReadableTime(publishTime());
         #ifdef DEVELOP
         }catch (exception e){
             warn("Invalid json format ! Now json content :");
@@ -43,10 +73,10 @@ namespace bilibili{
         return video.json.get<dataStore::Data>();
     }
 
-    string Video::getURLFromJson(const Json &json) {
+    string Video::getVideoURLFromJson(const Json &json) {
         if(json.contains("arcurl"))
             return json["arcurl"].get<std::string>();
-        else if(json.contains("three_point")){
+        if(json.contains("three_point")){
             return json["three_point"][1]["short_link"];
         }
         string error("Invalid Json Format !!! Json :\n");
@@ -55,7 +85,20 @@ namespace bilibili{
         return "";
     }
 
-    int const& Video::publishTime() const{
+    string Video::getImageURLFromJson(const Json &json) {
+        if(json.contains("pic")){
+            string back = json["pic"].get<string>();
+            if(startWith(back.c_str(),"https:"))
+                return back;
+            return "https:" + back;
+        }
+        string error("Invalid Json Format !!! Json :\n");
+        error += to_string(json);
+        throwError(error.c_str());
+        return "";
+    }
+
+    long long const& Video::publishTime() const{
         return _publishTime;
     }
 
@@ -87,13 +130,28 @@ namespace bilibili{
         return _url.c_str();
     }
 
+    const char* Video::duration() const {
+        return _duration.c_str();
+    }
+
+    const char* Video::image() const {
+        return _image.c_str();
+    }
+
+    const char* Video::string_PublishTime() const {
+        return _string_publishTime.c_str();
+    }
+
     void Video::write_necessary(Json& json) const{
         json["title"] = _title;
-        json["publishTime"] = publishTime();
+        json["publishTime"] = string_PublishTime();
+//        json["ctime"] = publishTime();
         json["author"] = _author;
         json["description"] = _description;
-        json["mid"] = _mid;
+//        json["mid"] = _mid;
         json["url"] = _url;
+        json["duration"] = _duration;
+        json["image"] = _image;
     }
 
     void Video::write_all(Json& json) const{
