@@ -20,3 +20,4 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install CURL
+RUN apt update && apt install -y libboost-all-dev
