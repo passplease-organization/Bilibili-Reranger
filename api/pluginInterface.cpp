@@ -87,7 +87,15 @@ bool crawlTask::registerTask(const char* groupName,Task* task,bool create){
     return group -> registerTask(task);
 }
 
+string groupFilter;
+void crawlTask::GroupFilter(const string &target) {
+    groupFilter = target;
+}
+
+
 bool crawlTask::registerGroup(Group *group, const char *groupName) {
+    if (!groupFilter.empty() && (groupName != groupFilter || group -> name != groupFilter))
+        return true;
     if(groupName == nullptr){
         groupName = group -> name;
         goto reg;

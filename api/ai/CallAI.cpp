@@ -38,11 +38,13 @@ const char* post(AI& ai,const string& body){
         if (response_json.contains("choices") && !response_json["choices"].empty()) {
             return to_string(response_json["choices"][0]["message"]["content"]).c_str();
         }
-        std::cerr << "Invalid JSON response format." << std::endl;
-        std::cerr << "Full response: " << response.text << std::endl;
+        warn("Invalid JSON response format.");
+        warn("Full response: ",false);
+        warn(response.text.c_str());
         return "";
     } catch (const Json::parse_error& e) {
-        std::cerr << "Failed to parse JSON response: " << e.what() << std::endl;
+        warn("Failed to parse JSON response: ");
+        warn(e.what());
         return "";
     }
 }

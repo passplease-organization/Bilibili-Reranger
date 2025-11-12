@@ -1,5 +1,6 @@
-#include <nlohmann/json.hpp>
 #include <filesystem>
+#include <iostream>
+#include <fstream>
 #include "Util.h"
 
 using namespace std;
@@ -201,16 +202,25 @@ namespace dataStore{
     }
 
     Data::Data(const dataStore::Data &other) {
-        *this = other;
+        if (other.valid()) {
+            *this = other;
+            this -> _valid = true;
+        }
     }
 
     Data::Data(const dataStore::Data* other){
-        *this = other;
+        if (other -> valid()) {
+            *this = other;
+            this -> _valid = true;
+        }
     }
 
     Data::Data(dataStore::Data&& old) noexcept{
-        *this = old;
-        old.clear();
+        if (old.valid()) {
+            *this = old;
+            old.clear();
+            this -> _valid = true;
+        }
     }
 
     Data::~Data(){
@@ -341,23 +351,23 @@ namespace dataStore{
     Data *Data::operator+=(const dataStore::Data *other) {
         if(valid() && other != nullptr && other -> valid()) {
             data.insert(other->data.begin(), other->data.end());
-            for(auto temp : other -> dataArrays){
+            for(const auto& temp : other -> dataArrays){
                 dataStore::put<Data>(this,temp.first.c_str(),&(temp.second));
             }
             strings.insert(other->strings.begin(), other->strings.end());
-            for(auto temp : other -> stringArrays){
+            for(const auto& temp : other -> stringArrays){
                 dataStore::put<string>(this,temp.first.c_str(),&(temp.second));
             }
             ints.insert(other->ints.begin(), other->ints.end());
-            for(auto temp : other -> intArrays){
+            for(const auto& temp : other -> intArrays){
                 dataStore::put<int>(this,temp.first.c_str(),&(temp.second));
             }
             floats.insert(other->floats.begin(), other->floats.end());
-            for(auto temp : other -> floatArrays){
+            for(const auto& temp : other -> floatArrays){
                 dataStore::put<float>(this,temp.first.c_str(),&(temp.second));
             }
             bools.insert(other->bools.begin(), other->bools.end());
-            for(auto temp : other -> boolArrays){
+            for(const auto& temp : other -> boolArrays){
                 dataStore::put<bool>(this,temp.first.c_str(),&(temp.second));
             }
             saved = false;
@@ -395,7 +405,7 @@ namespace dataStore{
         _neverSave = true;
     }
 
-    void setSaved(dataStore::Data* data, bool saved = false){
+    inline void setSaved(dataStore::Data* data, bool saved = false){
         data -> saved = saved;
     }
 
@@ -535,7 +545,7 @@ namespace dataStore{
     }
 
     template<typename T>
-    void getMap(Data* data,const char *label,T** input,bool copy){
+    void getMap(Data* data,const char *label,T** input,const bool copy){
         auto m = dataStore::getMap<T>(data);
         if(copy)
             **input = m -> at(label);
@@ -543,26 +553,26 @@ namespace dataStore{
     }
 
     template<typename T>
-    void getVector(Data* data,const char *label,vector<T>** input,bool copy){
+    void getVector(Data* data,const char *label,vector<T>** input,const bool copy){
         auto v = dataStore::getVector<T>(data);
         if(copy)
             **input = v -> at(label);
         else *input = &(v -> at(label));
     }
 
-    void Data::get(const char *label, dataStore::Data **data,bool copy) {
+    void Data::get(const char *label, dataStore::Data **data,const bool copy) {
         dataStore::getMap<Data>(this,label,data,copy);
     }
 
-    void Data::get(const char *label, vector<dataStore::Data> **data,bool copy) {
+    void Data::get(const char *label, vector<dataStore::Data> **data,const bool copy) {
         dataStore::getVector<Data>(this,label,data,copy);
     }
 
-    void Data::get(const char *label,const char **string, bool) {
+    void Data::get(const char *label,const char **string, bool) const{
         *string = this -> strings.at(label).c_str();
     }
 
-    void Data::get(const char *label, vector<const char *> **string, bool copy) {
+    void Data::get(const char *label, vector<const char *> **string,const bool copy) const {
         if(string == nullptr)
             return;
         auto s = this -> stringArrays.at(label);

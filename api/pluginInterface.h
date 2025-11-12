@@ -1,4 +1,5 @@
 #pragma once
+
 #include "APIStatus.h"
 #include "Util.h"
 
@@ -102,4 +103,11 @@ namespace crawlTask{
     API void group_to_data(dataStore::Data& data, const Group* group);
 }
 
+}
+
+namespace crawlTask {
+    /**
+     * For network request which has specific target
+     */
+    API void GroupFilter(NotNull const string& target);
 }

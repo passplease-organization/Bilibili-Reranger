@@ -27,6 +27,8 @@ void createConfig(){
         config.put(SEARCH_PAGE_SIZE, 50,false, FORCE_GENERATE_CONFIG);
         config.put(MAX_CRAWL_COUNT,10000,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_AI_TOKENS,2000,false,FORCE_GENERATE_CONFIG);
+        config.put(PORT,23223,false,FORCE_GENERATE_CONFIG);
+        config.put(TIMEOUT,60000,false,FORCE_GENERATE_CONFIG);
         config.writeToJson();
     }
     freeOutputChar(&path);
@@ -76,4 +78,6 @@ void _readConfig() noexcept(false){
     getAndStore<int>(&config, SEARCH_PAGE_SIZE);
     getAndStore<int>(&config, MAX_CRAWL_COUNT);
     getAndStore<int>(&config, MAX_AI_TOKENS);
+    getAndStore<int>(&config, PORT);
+    getAndStore<int>(&config, TIMEOUT);
 }

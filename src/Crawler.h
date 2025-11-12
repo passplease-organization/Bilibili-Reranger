@@ -357,7 +357,7 @@ bool crawl(){
             #endif
         #endif
 
-        auto task = crawlTask::nowTask();
+        const auto task = crawlTask::nowTask();
         if(task == nullptr)
             break;
         helper.nextSearch(getURL(task));

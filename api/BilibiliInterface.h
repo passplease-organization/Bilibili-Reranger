@@ -17,7 +17,11 @@
 
 extern "C" {
 
-#define OUTPUT_PATH "output\\crawl_output.json"
+#ifdef WIN32
+    #define OUTPUT_PATH "output\\crawl_output.json"
+#elifdef  __linux__
+    #define OUTPUT_PATH "output/crawl_output.json"
+#endif
 #define OUTPUT_NAME "crawl_output"
 
 namespace bilibili {

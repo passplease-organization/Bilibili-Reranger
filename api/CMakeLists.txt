@@ -11,20 +11,19 @@ endif ()
 set(API ${PROJECT_NAME} PARENT_SCOPE)
 
 add_library(${PROJECT_NAME} SHARED
-        utils.cpp
         Util.h
         pluginInterface.h
         APIStatus.h
         pluginInterface.cpp
-        interface.h
         config.h
-        mainConfig.cpp
         bilibiliAPIs.h
-        BilibiliInterface.cpp
         BilibiliInterface.h
         ai/CallAI.h
         ai/CallAI.cpp
-#        bilibili_wbi/wbi.cpp
+        utils.cpp
+        BilibiliInterface.cpp
+        mainConfig.cpp
+        #        bilibili_wbi/wbi.cpp
 #        bilibili_wbi/wbi.h
 )
 

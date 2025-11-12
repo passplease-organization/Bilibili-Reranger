@@ -1,11 +1,8 @@
-#include <string>
+#pragma once
+
 #include <map>
 #include <nlohmann/json.hpp>
-#include <iostream>
-#include <fstream>
 #include "APIStatus.h"
-
-#pragma once
 
 #define MAX_BUFFER_SIZE 100
 
@@ -85,12 +82,12 @@ namespace dataStore{
     class Data {
         friend void setSaved(Data *data, bool saved);
     private:
-        bool _valid;
+        bool _valid = false;
 
         bool saved = true;
         bool _neverSave = false;
     public:
-        map<const string,Data> data = map<const string,Data>();
+        map<const string,Data> data = map<const string,Data>();// TODO 动态初始化
         const static string DATA;
         map<const string,vector<Data>> dataArrays = map<const string,vector<Data>>();
         const static string DATA_ARRAY;
@@ -121,9 +118,9 @@ namespace dataStore{
 
         API explicit Data(bool valid = true);
 
-        API Data(const dataStore::Data& other);
+        API Data(const Data& other);
 
-        API explicit Data(const dataStore::Data* other);
+        API explicit Data(const Data* other);
 
         API Data(Data&& old) noexcept;
 
@@ -203,8 +200,8 @@ namespace dataStore{
         /**
          * @param copy For string, this parameter is invalid, only true is allowed
          * */
-        API Nullable void get(const char* label,const char** string,bool copy = true);
-        API Nullable void get(const char* label,NotNull vector<const char*>** string,bool copy = false);
+        API Nullable void get(const char* label,const char** string,bool copy = true) const;
+        API Nullable void get(const char* label,NotNull vector<const char*>** string,bool copy = false) const;
 
         API Nullable void get(const char* label,int** ints,bool copy = false);
         API Nullable void get(const char* label,vector<int>** ints,bool copy = false);

@@ -10,7 +10,8 @@ if(WIN32)
 endif ()
 
 add_executable(${PROJECT_NAME} src/main.cpp
-        src/develop/flags.h)
+        src/develop/flags.h
+        src/PortListener.h)
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 # Include
@@ -25,6 +26,7 @@ endif ()
 
 find_package(CURL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
+find_package(Boost REQUIRED COMPONENTS system)
 
 add_custom_target(
         COPY_ALL_DLLS

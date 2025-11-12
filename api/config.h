@@ -1,6 +1,6 @@
-#include "Util.h"
-
 #pragma once
+
+#include "Util.h"
 
 #define CONFIG_PATH "mainConfig"
 #define CONFIG_NAME "MainConfig"
@@ -12,6 +12,8 @@
 #define WAIT_TIME "pause_time_between_crawls"
 #define MAX_CRAWL_COUNT "max_crawl_count_per_work"
 #define MAX_AI_TOKENS "max_tokens"
+#define PORT "port"
+#define TIMEOUT "timeout"
 
 extern API map<const string,std::any> defaultConfigs;
 
