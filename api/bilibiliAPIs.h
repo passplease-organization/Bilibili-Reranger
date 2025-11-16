@@ -1,3 +1,4 @@
+#pragma once
 
 #define videoByUser "https://app.biliapi.com/x/v2/space/archive/cursor"
 #define mySubscribers "https://api.bilibili.com/x/relation/followings"

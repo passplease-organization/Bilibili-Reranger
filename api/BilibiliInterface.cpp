@@ -203,7 +203,7 @@ namespace bilibili{
             for(int i = 0;i < group.second.size();i++) {
                 group.second[i].write_necessary(json[group.first][i]);
                 #ifdef DEVELOP
-                group.second[i].write_all(json[group.first][i]["all_json"]);
+                    group.second[i].write_all(json[group.first][i]["all_json"]);
                 #endif
             }
         if(storeJson(OUTPUT_NAME,OUTPUT_PATH,json)) {

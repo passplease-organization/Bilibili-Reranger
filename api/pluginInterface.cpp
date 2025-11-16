@@ -94,7 +94,7 @@ void crawlTask::GroupFilter(const string &target) {
 
 
 bool crawlTask::registerGroup(Group *group, const char *groupName) {
-    if (!groupFilter.empty() && (groupName != groupFilter || group -> name != groupFilter))
+    if (!groupFilter.empty() && (groupName == nullptr || groupName != groupFilter) && group -> name != groupFilter)
         return true;
     if(groupName == nullptr){
         groupName = group -> name;

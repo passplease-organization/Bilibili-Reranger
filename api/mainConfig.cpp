@@ -29,6 +29,11 @@ void createConfig(){
         config.put(MAX_AI_TOKENS,2000,false,FORCE_GENERATE_CONFIG);
         config.put(PORT,23223,false,FORCE_GENERATE_CONFIG);
         config.put(TIMEOUT,60000,false,FORCE_GENERATE_CONFIG);
+        #ifdef DEVELOP
+            config.put(DETAILS,false,false,FORCE_GENERATE_CONFIG);
+        #else
+            config.put(DETAILS,false,false,FORCE_GENERATE_CONFIG);
+        #endif
         config.writeToJson();
     }
     freeOutputChar(&path);
@@ -80,4 +85,5 @@ void _readConfig() noexcept(false){
     getAndStore<int>(&config, MAX_AI_TOKENS);
     getAndStore<int>(&config, PORT);
     getAndStore<int>(&config, TIMEOUT);
+    getAndStore<bool>(&config, DETAILS);
 }

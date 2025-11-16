@@ -14,6 +14,7 @@
 #define MAX_AI_TOKENS "max_tokens"
 #define PORT "port"
 #define TIMEOUT "timeout"
+#define DETAILS "debug"
 
 extern API map<const string,std::any> defaultConfigs;
 

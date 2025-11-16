@@ -1,4 +1,5 @@
-#include "bilibiliAPIs.h"
+#pragma once
+
 #include "Util.h"
 #include "pluginInterface.h"
 #include "bilibili_wbi/wbi.h"

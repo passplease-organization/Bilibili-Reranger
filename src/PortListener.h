@@ -1,7 +1,5 @@
 #pragma once
 
-#include <boost/asio.hpp>
+void startWork();
 
-#if NEED_PORT
-int work(Group* target);
-#endif
+void sendMessage();
