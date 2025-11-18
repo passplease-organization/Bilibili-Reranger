@@ -1,5 +1,4 @@
 ﻿#include <iostream>
-#include <utility>
 #include <chrono>
 #include "Crawler.h"
 #include "PluginHandler.h"
@@ -8,6 +7,7 @@
 #include "config.h"
 #if NEED_PORT
     #include "PortListener.h"
+    #include <boost/asio.hpp>
 #else
     #include <atomic>
 #endif
@@ -21,7 +21,7 @@ inline void clean(){
 }
 
 #if NEED_PORT
-int work(const string& target,const map<const string,std::any>& config,const std::atomic<bool>& cancel){
+int work(const string& target, const map<const string,std::any>& config, const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
     defaultConfigs = config;
 #else
 int main(int argc, char** argv){
@@ -55,9 +55,16 @@ int main(int argc, char** argv){
     #endif
 
     setup();
-    if(crawl(cancel)) {
+#if NEED_PORT
+    if(crawl(cancel,socket)) {
+#else
+    if (crawl(cancel))
+#endif
         #if NEED_PORT
-            say("运行成功，本进程即将结束");
+            if (cancel)
+                say("运行失败，本进程自动退出");
+            else
+                say("运行成功，本进程即将结束");
         #else
             say("运行成功，现在将退出程序！");
         #endif

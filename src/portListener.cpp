@@ -1,4 +1,3 @@
-#include <boost/asio.hpp>
 #include "PortListener.h"
 #include "PluginHandler.h"
 #include "BilibiliInterface.h"
@@ -6,26 +5,34 @@
 #include "config.h"
 #include <iostream>
 #include "develop/flags.h"
+#include "PortListener.h"
+#include <boost/beast/http/write.hpp>
+#include <boost/beast/http/string_body.hpp>
+
+#define SERVER_HEADER "BiliBili_Reranger/"
+
+namespace http = boost::beast::http;
+namespace ip = boost::asio::ip;
 
 #if NEED_PORT
-int work(const string& target,const map<const string,std::any>& config,const std::atomic<bool>& cancel);
-int (*WorkFunction)(const string&,const map<const string,std::any>&,const std::atomic<bool>&) = &work;
+int work(const string& target, const map<const string,std::any>& config, const std::atomic<bool>& cancel, ip::tcp::socket& socket);
+int (*WorkFunction)(const string&,const map<const string,std::any>&,const std::atomic<bool>&,ip::tcp::socket&) = &work;
 
 void startWork() {
-    say("Litstening thread start");
     readConfig();
     PluginHandler::loadAll();
     auto* tempHelper = new CurlHelper();
     tempHelper -> curlSetup(cookie,user_agent);
     tempHelper -> refreshSubscribers();
     delete tempHelper;
+    say("Litstening thread start");
     try {
         boost::asio::io_context io;
-        boost::asio::ip::tcp::acceptor acceptor(io,boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(),config<int>(PORT)));
+        ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));
         long long id = 0;
         const bool details = config<bool>(DETAILS);
         while(true) {
-            boost::asio::ip::tcp::socket socket(io);
+            ip::tcp::socket socket(io);
             acceptor.accept(socket);
             say("Create thread for client from",false);
             if (details) {
@@ -44,7 +51,7 @@ void startWork() {
                 }
             }
 
-            std::thread newThread([](boost::asio::ip::tcp::socket socket,const map<const string,std::any>& config,const long long& timeout,const long long& id) {
+            std::thread newThread([](ip::tcp::socket socket,const map<const string,std::any>& config,const long long& timeout,const long long& id) {
                 std::atomic<bool> cancel(false);
                 auto working = std::async(std::launch::async,WorkFunction,"a",config,std::ref(cancel));
                 say("Thread has created.",false);
@@ -75,7 +82,24 @@ void startWork() {
     }
 }
 
-void sendMessage() {
-    const auto& videos = bilibili::getVideos();
+void sendMessage(ip::tcp::socket& socket) {
+    Json json;
+    for(const auto& group : bilibili::getVideos())
+        for(int i = 0;i < group.second.size();i++) {
+            group.second[i].write_necessary(json[group.first][i]);
+        }
+    http::response<http::string_body> response;
+    response.version(11);
+    response.result(http::status::ok);
+    response.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+    response.set(http::field::content_type, "application/json; charset=utf-8");
+    response.set(http::field::connection, "close"); // 告知客户端我们将关闭连接
+    boost::system::error_code ec;
+    boost::asio::write(socket,,ec);
+    if (ec) {
+        warn("Error to send response, error code: ",false);
+        warn(ec.message().c_str());
+    }
+    socket.shutdown(ip::tcp::socket::shutdown_both,ec);
 }
 #endif

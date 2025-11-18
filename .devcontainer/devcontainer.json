@@ -22,6 +22,8 @@
     "jetbrains" : {
       "backend" : "CLion",
       "settings": {
+        "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
+        "com.intellij:app:GeneralSettings.inactiveTimeout": 60,
         "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; env.list",
         "com.intellij:app:BuiltInServerOptions.builtInServerPort": 59617,
         "com.intellij:app:HttpConfigurable.use_proxy_pac": true

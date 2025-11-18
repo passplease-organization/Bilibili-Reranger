@@ -2,6 +2,10 @@
 #include <atomic>
 #include <curl/curl.h>
 #include "pluginInterface.h"
+#include "develop/flags.h"
+#if NEED_PORT
+    #include <boost/asio.hpp>
+#endif
 
 using namespace std;
 
@@ -75,7 +79,11 @@ const string liked = "https://api.bilibili.com/x/space/like/video?vmid=349310598
 extern const char* cookie;
 extern const char* user_agent;
 
+#if NEED_PORT
+bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket);
+#else
 bool crawl(const std::atomic<bool>& cancel);
+#endif
 
 string getURL(const crawlTask::Task* task = crawlTask::nowTask());
 

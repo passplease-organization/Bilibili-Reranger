@@ -3,12 +3,12 @@
 #include <iostream>
 #include <sstream>
 #include "Crawler.h"
-#include "develop/flags.h"
 #include "config.h"
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
 #if NEED_PORT
     #include "PortListener.h"
+    #include <boost/asio.hpp>
 #endif
 
 CurlHelper::CurlHelper(){
@@ -333,7 +333,11 @@ dataStore::Data CurlHelper::subscribers = dataStore::Data{};
 const char* cookie = getenv(COOKIE);
 const char* user_agent = getenv(USERAGENT);
 
+#if NEED_PORT
+bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
+#else
 bool crawl(const std::atomic<bool>& cancel){
+#endif
     CurlHelper helper = CurlHelper();
     helper.curlSetup(cookie,user_agent);
     #if NEED_PORT
@@ -361,7 +365,7 @@ bool crawl(const std::atomic<bool>& cancel){
     }while(!cancel && helper.connect() && count < max_count);
 
     #if NEED_PORT
-        sendMessage();
+        sendMessage(socket);
     #else
         bilibili::saveVideos();
     #endif
