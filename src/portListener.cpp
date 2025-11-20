@@ -6,11 +6,11 @@
 #include <iostream>
 #include "develop/flags.h"
 #include "PortListener.h"
-#include <boost/beast/http/write.hpp>
-#include <boost/beast/http/string_body.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/url.hpp>
+#include <boost/beast/core.hpp>
 
-#define SERVER_HEADER "BiliBili_Reranger/"
-
+#define SERVER_HEADER NAME_STR "/" VERSION_STR
 namespace http = boost::beast::http;
 namespace ip = boost::asio::ip;
 
@@ -34,12 +34,25 @@ void startWork() {
         while(true) {
             ip::tcp::socket socket(io);
             acceptor.accept(socket);
-            say("Create thread for client from",false);
+            boost::system::error_code error;
+            boost::beast::flat_buffer buffer;
+            http::request<http::string_body> request;
+            http::read(socket, buffer, request);
+            boost::urls::url_view p = *boost::urls::parse_uri_reference(request.target());
+
+            std::string category;
+            if (p.has_query())
+                for (auto const& param : p.params()) {
+                    if (param.key == URL_PARAMS_CATEGORY)
+                        category = param.value;
+                }
             if (details) {
+                say("Create thread for client from",false);
                 cout << socket.remote_endpoint() << endl;
+                say("Request URL: ",false);
+                cout << request.target() << endl;
                 boost::asio::streambuf request_buffer;
-                boost::system::error_code ec;
-                if (!ec || ec == boost::asio::error::eof) {
+                if (!error || error == boost::asio::error::eof) {
                     // EOF 可能意味着客户端发送完数据后断开连接
                     std::istream request_stream(&request_buffer);
                     std::string line;
@@ -51,9 +64,9 @@ void startWork() {
                 }
             }
 
-            std::thread newThread([](ip::tcp::socket socket,const map<const string,std::any>& config,const long long& timeout,const long long& id) {
+            std::thread newThread([](ip::tcp::socket socket,const map<const string,std::any>& config,const long long& timeout,const long long& id,const std::string& category) {
                 std::atomic<bool> cancel(false);
-                auto working = std::async(std::launch::async,WorkFunction,"a",config,std::ref(cancel));
+                auto working = std::async(std::launch::async,WorkFunction,category,config,std::ref(cancel),std::ref(socket));
                 say("Thread has created.",false);
                 say("Id: ",false,BLUE);
                 say(to_string(id).c_str(),true,BLUE);
@@ -63,15 +76,15 @@ void startWork() {
                     cancel = true;
                 }
 
-                try {
-                    working.get();
-                    socket.close();
-                }catch (std::exception& e) {
-                    socket.close();
-                    warn("Cannot close the thread ! Details below: ");
-                    throwError(e.what());
-                }
-            },std::move(socket),defaultConfigs,config<int>(TIMEOUT),id);
+                // try {
+                //     working.get();
+                //     socket.close();
+                // }catch (std::exception& e) {
+                //     socket.close();
+                //     warn("Cannot close the thread ! Details below: ");
+                //     throwError(e.what());
+                // }
+            },std::move(socket),defaultConfigs,config<int>(TIMEOUT),id,category);
             id++;
 
             newThread.detach();
@@ -83,7 +96,7 @@ void startWork() {
 }
 
 void sendMessage(ip::tcp::socket& socket) {
-    Json json;
+    Json json = "{}";
     for(const auto& group : bilibili::getVideos())
         for(int i = 0;i < group.second.size();i++) {
             group.second[i].write_necessary(json[group.first][i]);
@@ -91,15 +104,18 @@ void sendMessage(ip::tcp::socket& socket) {
     http::response<http::string_body> response;
     response.version(11);
     response.result(http::status::ok);
-    response.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+    response.set(http::field::server,SERVER_HEADER);
     response.set(http::field::content_type, "application/json; charset=utf-8");
-    response.set(http::field::connection, "close"); // 告知客户端我们将关闭连接
-    boost::system::error_code ec;
-    boost::asio::write(socket,,ec);
-    if (ec) {
+    response.set(http::field::connection, "close");
+    response.body() = json;
+    response.prepare_payload();
+    boost::system::error_code error;
+    http::write(socket,response,error);
+    if (error) {
         warn("Error to send response, error code: ",false);
-        warn(ec.message().c_str());
+        warn(error.message().c_str());
     }
-    socket.shutdown(ip::tcp::socket::shutdown_both,ec);
+    socket.shutdown(ip::tcp::socket::shutdown_both,error);
+    socket.close();
 }
 #endif

@@ -4,6 +4,12 @@
 
 #define CONFIG_PATH "mainConfig"
 #define CONFIG_NAME "MainConfig"
+#define STR_IMPL(x) #x
+#define STR(x) STR_IMPL(x)
+#define NAME BiliBili_Reranger
+#define NAME_STR STR(NAME)
+#define VERSION 1.0
+#define VERSION_STR STR(VERSION)
 
 #define VMID "mid"
 #define SUBSCRIBE_PUBLISH_TIME "subscriber_publish_time"

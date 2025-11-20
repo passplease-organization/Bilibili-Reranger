@@ -365,11 +365,14 @@ bool crawl(const std::atomic<bool>& cancel){
     }while(!cancel && helper.connect() && count < max_count);
 
     #if NEED_PORT
-        sendMessage(socket);
+        const auto& back = helper.finishCrawl();
+        if (back)
+            sendMessage(socket);
+        return back;
     #else
         bilibili::saveVideos();
-    #endif
-    return helper.finishCrawl();
+        return helper.finishCrawl();
+#endif
 }
 
 string getURL(const crawlTask::Task* task){

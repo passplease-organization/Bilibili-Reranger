@@ -27,7 +27,8 @@ endif ()
 
 find_package(CURL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system url)
+target_link_libraries(BiliBili_Reranger PRIVATE Boost::url)
 
 add_custom_target(
         COPY_ALL_DLLS

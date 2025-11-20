@@ -49,3 +49,5 @@ typedef const char* (FUNCTION_CALLER *GETURL)();
  * */
 OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
+
+#define URL_PARAMS_CATEGORY "category"
