@@ -10,6 +10,13 @@ namespace fs = std::filesystem;
 const string ConfigPath = "config";
 auto storedJson = map<string,Json>();
 
+thread_local long long id = NONE_THREAD_ID;
+
+void setThreadId(const long long& _id) {
+    if (id == NONE_THREAD_ID)
+        id = _id;
+}
+
 bool endWith(const char* target,const char* substring){
     auto t = string(target);
     auto s = string(substring);
@@ -18,12 +25,24 @@ bool endWith(const char* target,const char* substring){
     return t.substr(t.size() - s.size()) == s;
 }
 
+bool endWith(const string& target,const string& substring) {
+    if (target.size() < substring.size())
+        return false;
+    return target.substr(target.size() - substring.size()) == substring;
+}
+
 bool startWith(const char* target,const char* substring){
     string t = string(target);
     string s = string(substring);
     if(t.size() < s.size())
         return false;
     return t.substr(0, s.size()) == s;
+}
+
+bool startWith(const string& target,const string& substring) {
+    if(target.size() < substring.size())
+        return false;
+    return target.substr(0, substring.size()) == substring;
 }
 
 string removeEnd(const string& target,const string& substring){
@@ -43,7 +62,9 @@ bool fileExists(const char* name, bool absolute){
 }
 
 void throwError(const char* error) noexcept(false){
-    cout << RED << error << RESET << endl;
+    if (id != NONE_THREAD_ID)
+        cout << RED << "Thread ID: " << id << endl;
+    cout << error << RESET << endl;
     throw runtime_error(error);
 }
 
@@ -80,11 +101,11 @@ Json getJson(const char* name, const char* path){
     return nullptr;
 }
 
-inline void defaultOutputChar(char** output){
+void defaultOutputChar(char** output){
     *output = new char[MAX_BUFFER_SIZE];
 }
 
-inline void freeOutputChar(char** output){
+void freeOutputChar(char** output){
     delete[] *output;
 }
 
@@ -835,3 +856,5 @@ const string dataStore::Data::BOOL = "bool_";
 const string dataStore::Data::BOOL_ARRAY = "bool_array_";
 
 template void dataStore::getMap<string>(dataStore::Data*,const char *,string** ,bool);
+template void dataStore::getMap<int>(dataStore::Data*,const char *,int** ,bool);
+template void dataStore::getMap<bool>(dataStore::Data*,const char *,bool** ,bool);

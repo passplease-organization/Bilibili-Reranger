@@ -5,9 +5,9 @@
 #define searchVideos "https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video"
 
 #define getDataFromJson(json) json["data"]
-#define getSubscribers(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
-#define getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()
-#define getSubscriberName(json) up.value().at("uname").get<string>()
+#define _getSubscribers(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
+#define _getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()
+#define _getSubscriberName(json) json.value().at("uname").get<string>()
 #define forEachVideo(json,label) for(const auto& videoData : getDataFromJson(json)[label])
 #define ofPerson "item"
 #define ofSearch "result"

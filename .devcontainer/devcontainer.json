@@ -9,13 +9,17 @@
     "--name","Bilibili-Backend-devcontainer","--env-file","${localWorkspaceFolder}/.devcontainer/env.list"
   ],
   // Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
+//	 "features": {
+//       "ghcr.io/devcontainers/features/node:1": {
+//         "version": "22"
+//       }
+//     },
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	 "forwardPorts": [23223],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "gcc -v",
+//	 "postCreateCommand": "npm install -g @google/gemini-cli",
 
 	// Configure tool-specific properties.
   "customizations" : {
@@ -24,7 +28,7 @@
       "settings": {
         "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
         "com.intellij:app:GeneralSettings.inactiveTimeout": 60,
-        "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; env.list",
+        "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; *.list",
         "com.intellij:app:BuiltInServerOptions.builtInServerPort": 59617,
         "com.intellij:app:HttpConfigurable.use_proxy_pac": true
       },

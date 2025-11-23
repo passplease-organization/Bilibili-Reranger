@@ -16,6 +16,15 @@ bool contains(const Label& label,map<const Label,T> map){
 
 Json getJson(const char* name, const char* path);
 
+#define NONE_THREAD_ID 0
+API void setThreadId(const long long& id);
+
+API bool endWith(const string& target,const string& substring);
+
+API bool startWith(const string& target,const string& substring);
+
+API string removeEnd(const string& target,const string& substring);
+
 extern "C"{
 
 #define RESET "\033[0m" // 重置颜色
@@ -248,4 +257,8 @@ namespace dataStore{
 
     template<typename T>
     map<const string,vector<T>>* getVector(Data* data);
+}
+
+constexpr bool needCrawlURL(const std::string& url){
+    return !url.contains('.');
 }

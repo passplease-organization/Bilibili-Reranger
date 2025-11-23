@@ -45,13 +45,13 @@ target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 
 add_custom_target(
         "${PROJECT_NAME}_COPY_DLL"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> ${DEBUG_OUTPUT_PATH} # copy
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> ${OUTPUT_PATH} # copy
         COMMENT "dealing with plugin dll files ..."
 )
 if(WIN32)
     add_custom_target(
         "${PROJECT_NAME}_COPY_PDB"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PDB_FILE:${PROJECT_NAME}> ${DEBUG_OUTPUT_PATH} # copy
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PDB_FILE:${PROJECT_NAME}> ${OUTPUT_PATH} # copy
         COMMENT "dealing with plugin pdb files ..."
     )
 endif ()

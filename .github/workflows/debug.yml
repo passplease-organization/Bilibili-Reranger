@@ -7,7 +7,7 @@ on:
       - Dockerfile
 jobs:
   Debug:
-    runs-on: windows-2019
+    runs-on: ubuntu-latest
     container:
       # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
       image: ghcr.io/${{ github.repository }}:latest

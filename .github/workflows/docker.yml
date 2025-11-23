@@ -8,7 +8,7 @@ on:
 
 jobs:
   CreateContainer:
-    runs-on: windows-2019
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -28,7 +28,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: .devcontainer/
           push: true
           # 镜像的命名格式：ghcr.io/所有者/仓库名:标签
           # 使用 github.sha 可以确保每个 commit 都有一个唯一的镜像

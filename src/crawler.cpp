@@ -133,15 +133,15 @@ bool CurlHelper::dealJson() {
                 say(task->keyword);
             #endif
 
-                json = subscribers;
-                for (auto &up: getSubscribers(json, false).items()) {
+                Json json_subs = getSubscribers();
+                for (auto &up: _getSubscribers(json_subs, false).items()) {
 
                 #if MORE_DETAILS
                     say("当前比对up名：", false);
-                    say(getSubscriberName(up).c_str(), true, YELLOW);
+                    say(_getSubscriberName(up).c_str(), true, YELLOW);
                 #endif
 
-                    if (getSubscriberName(up) == task->keyword) {
+                    if (_getSubscriberName(up) == task->keyword) {
                         clearURL();
                         string url(videoByUser);
                         url += "?vmid=";
@@ -209,7 +209,7 @@ bool CurlHelper::dealJson() {
     }
 }
 
-void CurlHelper::dealJson(Json &_json) {
+void CurlHelper::dealJson(const Json& _json) {
     clear();
     this -> json = _json;
     dealJson();
@@ -282,6 +282,7 @@ void CurlHelper::nextSearch(const string &url) {
         CurlHelper::url = url;
 }
 
+//TODO 未来支持前端向后端传输COOKIE后做成线程内私有，这样对不同的请求的COOKIE可以分开支持，能不仅限于个人不熟部署
 void CurlHelper::refreshSubscribers(const bool force) {
     #if MORE_DETAILS
         say("开始准备关注博主名单");
@@ -297,11 +298,13 @@ void CurlHelper::refreshSubscribers(const bool force) {
             json = Json::parse(tempData);
 
         #ifdef DEVELOP
-            dataStore::Data data = json.get<dataStore::Data>();
+            auto _json = to_string(json);
         #endif
 
-            subscribers += getDataFromJson(json).get<dataStore::Data>();
-            int count = getSubscriberCount(json);
+            // 使用线程安全的方法添加订阅者
+            auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
+            setSubscriber(newSubscribers);
+            int count = _getSubscriberCount(json);
             int pages = count / 50 + 1;
             unsigned int nowPage = getPages(url);
 
@@ -328,7 +331,31 @@ bool CurlHelper::crawlNext() const {
     return _crawlNext || (crawlTask::nowTask() -> mode != crawlTask::WorkingMode::SUBSCRIBE);
 }
 
+void CurlHelper::setSubscriber(const dataStore::Data& _subscribers) {
+    std::lock_guard<std::mutex> lock(subscribers_mutex);
+    subscribers = _subscribers;
+}
+
+void CurlHelper::clearSubscriber() {
+    std::lock_guard<std::mutex> lock(subscribers_mutex);
+    subscribers.clear();
+}
+
+dataStore::Data CurlHelper::getSubscribers(const string& name) {
+    std::lock_guard<std::mutex> lock(subscribers_mutex);
+    if (name.empty())
+        return subscribers;
+    Json sub = subscribers;
+    std::lock_guard<std::mutex> unlock(subscribers_mutex);
+    for (auto &up: _getSubscribers(sub, false).items()) {
+        if (_getSubscriberName(up) == name)
+            return up.value().get<dataStore::Data>();
+    }
+    return dataStore::Data();
+}
+
 dataStore::Data CurlHelper::subscribers = dataStore::Data{};
+std::mutex CurlHelper::subscribers_mutex = std::mutex{};
 
 const char* cookie = getenv(COOKIE);
 const char* user_agent = getenv(USERAGENT);

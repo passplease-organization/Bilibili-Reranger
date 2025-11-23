@@ -6,6 +6,6 @@ build/
 release/
 DebugShells/
 */test/
-*/env.list
+env.list
 generate.stamp*
 desktop.ini

@@ -29,7 +29,7 @@ string toReadableTime(long long publishTime){
 }
 
 namespace bilibili{
-    const Video* _nowVideo;
+    thread_local const Video* _nowVideo;
 
     Video::Video(const dataStore::Data &data) {
         Json j;
@@ -179,7 +179,7 @@ namespace bilibili{
         setVideo(nullptr);
     }
 
-    map<string,vector<Video>> videos = map<string,vector<Video>>();
+    thread_local map<string,vector<Video>> videos = map<string,vector<Video>>();
 
     void keepVideo(const Video& video,const char* label){
         string name(label);

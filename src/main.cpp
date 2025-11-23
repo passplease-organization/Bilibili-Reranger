@@ -1,5 +1,7 @@
 ﻿#include <iostream>
 #include <chrono>
+
+#include "BilibiliInterface.h"
 #include "Crawler.h"
 #include "PluginHandler.h"
 #include "pluginInterface.h"
@@ -21,14 +23,21 @@ inline void clean(){
 }
 
 #if NEED_PORT
-int work(const string& target, const map<const string,std::any>& config, const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
-    defaultConfigs = config;
+int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio::ip::tcp::socket socket){
+    startCrawlForURL(info.target);
+    setThreadId(info.id);
+    crawlInfo = &info;
+    const auto& cache = startCrawlForURL(info.target);
+    if (!cache.empty()) {
+        sendMessage(socket,cache);
+        goto msg;
+    }
 #else
 int main(int argc, char** argv){
     string target;
     readConfig();
     PluginHandler::loadAll();
-    std::atomic cancel(false);
+    auto cancel = make_shared<atomic<bool>>(false);
 #endif
 
 #ifdef WIN32
@@ -39,7 +48,7 @@ int main(int argc, char** argv){
         return 1;
     }
 
-    crawlTask::GroupFilter(target);
+    crawlTask::GroupFilter(info.target);
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
@@ -56,21 +65,26 @@ int main(int argc, char** argv){
 
     setup();
 #if NEED_PORT
-    if(crawl(cancel,socket)) {
+    if(crawl(cancel -> load(),socket)) {
 #else
     if (crawl(cancel))
 #endif
         #if NEED_PORT
-            if (cancel)
-                say("运行失败，本进程自动退出");
-            else
-                say("运行成功，本进程即将结束");
+        msg:
+            say("Thread: ",false);
+            say(std::to_string(info.id).c_str());
+            say("运行成功，本线程即将结束");
         #else
             say("运行成功，现在将退出程序！");
         #endif
         clean();
         return 0;
     }
+
+    #if NEED_PORT
+        if (cancel -> load())
+            warn("运行超时，本线程自动退出");
+    #endif
     warn("运行失败，请检查具体原因！");
     clean();
     return 1;

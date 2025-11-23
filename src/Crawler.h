@@ -28,14 +28,21 @@ public:
 
     bool connect(bool deal = true);
 
-    CURL* getCurl() const;
+    [[nodiscard]] CURL* getCurl() const;
 
     bool dealJson();
 
-    void dealJson(Json& _json);
+    void dealJson(const Json& _json);
+
+    static void setSubscriber(const dataStore::Data& _subscribers);
+
+    static void clearSubscriber();
+
+    static dataStore::Data getSubscribers(const string& name = "");
 
 private:
     static dataStore::Data subscribers;
+    static std::mutex subscribers_mutex;
 
     bool _crawlNext = true;
 

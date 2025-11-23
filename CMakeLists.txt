@@ -4,7 +4,11 @@ project(BiliBili_Reranger)
 set(CMAKE_CXX_STANDARD 23)
 set(DCMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
 set(DEBUG_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Debug")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DEBUG_OUTPUT_PATH})# Debug模式编译文件输出目录
+set(RELEASE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Release")
+set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/$<CONFIG>")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DEBUG_OUTPUT_PATH})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${RELEASE_OUTPUT_PATH})
+
 if(WIN32)
     add_compile_options(/utf-8)
 endif ()
@@ -13,7 +17,10 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/crawler.cpp
         src/portListener.cpp
         src/pluginHandler.cpp)
+
+if(WIN32)
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif ()
 
 # Include
 add_subdirectory(api)
@@ -73,7 +80,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test")
     add_custom_command(
             POST_BUILD
             TARGET ${PROJECT_NAME}
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/test" "${CMAKE_BINARY_DIR}/Debug/testing"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/test" "${CMAKE_BINARY_DIR}/$<CONFIG>/testing"
             COMMENT "copying crawled data for test ..."
     )
 endif ()

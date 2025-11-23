@@ -3,8 +3,8 @@
 
 using namespace crawlTask;
 
-vector<Group*> groups = vector<Group*>();
-unsigned int workingOn = 0;
+thread_local vector<Group*> groups = vector<Group*>();
+thread_local unsigned int workingOn = 0;
 
 Task::Task(const char *keyword,unsigned int videoCount, WorkingMode mode,int publishedDay) {
     this -> keyword = keyword;

@@ -2,11 +2,11 @@
 
 #ifdef DEVELOP
 #define FORCE_GENERATE_CONFIG true
-#elif
+#else
 #define FORCE_GENERATE_CONFIG false
 #endif
 
-map<const string,std::any> defaultConfigs = map<const string,std::any>();
+map<const string,std::any> defaultConfigs = map<const string,std::any>();//TODO 做多线程保护（采用加锁的方法）
 
 void createConfig(){
     char* path;
@@ -30,7 +30,7 @@ void createConfig(){
         config.put(PORT,23223,false,FORCE_GENERATE_CONFIG);
         config.put(TIMEOUT,60000,false,FORCE_GENERATE_CONFIG);
         #ifdef DEVELOP
-            config.put(DETAILS,false,false,FORCE_GENERATE_CONFIG);
+            config.put(DETAILS,true,false,FORCE_GENERATE_CONFIG);
         #else
             config.put(DETAILS,false,false,FORCE_GENERATE_CONFIG);
         #endif
@@ -48,7 +48,7 @@ void readConfig() {
     #ifdef DEVELOP
     if (FORCE_GENERATE_CONFIG) {
 //        deleteConfig(CONFIG_PATH);
-    #elif
+    #else
     if (!fileExists(path) && createConfig(path, CONFIG_PATH)) {
     #endif
         createConfig();

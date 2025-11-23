@@ -27,14 +27,14 @@ set(DLL_NAME ${PROJECT_NAME} PARENT_SCOPE)
 # Copy .dll and .pdb under /plugins, act after each build task
 add_custom_target(
         "${PROJECT_NAME}_COPY_DLL"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${DEBUG_OUTPUT_PATH}/plugins"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> "${DEBUG_OUTPUT_PATH}/plugins" # copy
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_PATH}/plugins"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> "${OUTPUT_PATH}/plugins" # copy
         COMMENT "dealing with plugin dll files ..."
 )
 if(WIN32)
     add_custom_target(
         "${PROJECT_NAME}_COPY_PDB"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PDB_FILE:${PROJECT_NAME}> "${DEBUG_OUTPUT_PATH}/plugins" # copy
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PDB_FILE:${PROJECT_NAME}> "${OUTPUT_PATH}/plugins" # copy
         COMMENT "dealing with plugin pdb files ..."
     )# .pdb file for debug set break point
 endif ()

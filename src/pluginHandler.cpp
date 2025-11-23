@@ -1,4 +1,5 @@
 #include "PluginHandler.h"
+#include "Util.h"
 #include <iostream>
 
 #ifdef WIN32

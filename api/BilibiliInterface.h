@@ -99,4 +99,13 @@ namespace bilibili{
     API map<string,vector<Video>> getVideos();
 
     API void saveVideos();
+
+    inline Json getVideoJson() {
+        Json json;
+        for(const auto& group : getVideos())
+            for(int i = 0;i < group.second.size();i++) {
+                group.second[i].write_necessary(json[group.first][i]);
+            }
+        return json;
+    }
 }

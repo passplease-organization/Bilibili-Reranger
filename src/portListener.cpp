@@ -15,8 +15,15 @@ namespace http = boost::beast::http;
 namespace ip = boost::asio::ip;
 
 #if NEED_PORT
-int work(const string& target, const map<const string,std::any>& config, const std::atomic<bool>& cancel, ip::tcp::socket& socket);
-int (*WorkFunction)(const string&,const map<const string,std::any>&,const std::atomic<bool>&,ip::tcp::socket&) = &work;
+thread_local CrawlInfo const* crawlInfo;
+
+CrawlInfo::CrawlInfo(std::string target, long long id)
+    : target(std::move(target)), id(id) {
+}
+
+
+int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket socket);
+auto WorkFunction = &work;
 
 void startWork() {
     readConfig();
@@ -29,7 +36,7 @@ void startWork() {
     try {
         boost::asio::io_context io;
         ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));
-        long long id = 0;
+        long long id = 1;
         const bool details = config<bool>(DETAILS);
         while(true) {
             ip::tcp::socket socket(io);
@@ -38,7 +45,12 @@ void startWork() {
             boost::beast::flat_buffer buffer;
             http::request<http::string_body> request;
             http::read(socket, buffer, request);
-            boost::urls::url_view p = *boost::urls::parse_uri_reference(request.target());
+            std::string url = request.target();
+            if (!needCrawlURL(url)) {
+                socket.close();
+                continue;
+            }
+            boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
 
             std::string category;
             if (p.has_query())
@@ -50,7 +62,7 @@ void startWork() {
                 say("Create thread for client from",false);
                 cout << socket.remote_endpoint() << endl;
                 say("Request URL: ",false);
-                cout << request.target() << endl;
+                cout << url << endl;
                 boost::asio::streambuf request_buffer;
                 if (!error || error == boost::asio::error::eof) {
                     // EOF 可能意味着客户端发送完数据后断开连接
@@ -64,27 +76,20 @@ void startWork() {
                 }
             }
 
-            std::thread newThread([](ip::tcp::socket socket,const map<const string,std::any>& config,const long long& timeout,const long long& id,const std::string& category) {
-                std::atomic<bool> cancel(false);
-                auto working = std::async(std::launch::async,WorkFunction,category,config,std::ref(cancel),std::ref(socket));
+            CrawlInfo info(category,id);
+            auto cancel = make_shared<atomic<bool>>(false);
+            auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
+            std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
+                setThreadId(id);
                 say("Thread has created.",false);
                 say("Id: ",false,BLUE);
                 say(to_string(id).c_str(),true,BLUE);
-                const auto& status = working.wait_for(std::chrono::milliseconds(timeout));
+                const auto& status = worker.wait_for(std::chrono::milliseconds(timeout));
                 if (status == std::future_status::timeout) {
                     warn("Thread timeout");
-                    cancel = true;
+                    cancel -> store(true);
                 }
-
-                // try {
-                //     working.get();
-                //     socket.close();
-                // }catch (std::exception& e) {
-                //     socket.close();
-                //     warn("Cannot close the thread ! Details below: ");
-                //     throwError(e.what());
-                // }
-            },std::move(socket),defaultConfigs,config<int>(TIMEOUT),id,category);
+            },std::move(working),std::move(cancel),id,config<int>(TIMEOUT));
             id++;
 
             newThread.detach();
@@ -95,19 +100,18 @@ void startWork() {
     }
 }
 
-void sendMessage(ip::tcp::socket& socket) {
-    Json json = "{}";
-    for(const auto& group : bilibili::getVideos())
-        for(int i = 0;i < group.second.size();i++) {
-            group.second[i].write_necessary(json[group.first][i]);
-        }
+void sendMessage(ip::tcp::socket& socket,string data) {
+    if (data.empty()) {
+        Json json = bilibili::getVideoJson();
+        data = json.empty() ? "{}" : to_string(json);
+    }
     http::response<http::string_body> response;
     response.version(11);
     response.result(http::status::ok);
     response.set(http::field::server,SERVER_HEADER);
     response.set(http::field::content_type, "application/json; charset=utf-8");
     response.set(http::field::connection, "close");
-    response.body() = json;
+    response.body() = data;
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);
@@ -117,5 +121,18 @@ void sendMessage(ip::tcp::socket& socket) {
     }
     socket.shutdown(ip::tcp::socket::shutdown_both,error);
     socket.close();
+    if (error) {
+        warn("Cannot close socket");
+        warn(error.message().c_str());
+    }
+    cacheData(crawlInfo -> target,response.body());
+}
+
+string startCrawlForURL(const std::string &url) {
+    return "";
+}
+
+void cacheData(const std::string &url, const std::string &data) {
+
 }
 #endif
