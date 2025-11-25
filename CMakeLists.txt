@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(DCMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
 set(DEBUG_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Debug")
 set(RELEASE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Release")
-set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/$<CONFIG>")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DEBUG_OUTPUT_PATH})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${RELEASE_OUTPUT_PATH})
 
@@ -13,17 +12,34 @@ if(WIN32)
     add_compile_options(/utf-8)
 endif ()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Test")
+    add_compile_definitions(TEST)
+    set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/Test")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_TEST ${OUTPUT_PATH})
+endif ()
+
 add_executable(${PROJECT_NAME} src/main.cpp
         src/crawler.cpp
         src/portListener.cpp
         src/pluginHandler.cpp
+        src/test/testCode.cpp
+        src/test/testCode.h
+        src/pluginHandler.cpp
         src/subFeatures/requestHelper.cpp
         src/subFeatures/requestHelper.h
-        src/exit.h)
+        src/exit.h
+        )
 
 if(WIN32)
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif ()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Test")
+    find_package(cpr REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
+endif()
+
+file(MAKE_DIRECTORY ${OUTPUT_PATH})
 
 # Include
 add_subdirectory(api)
@@ -38,7 +54,7 @@ endif ()
 find_package(CURL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
 find_package(Boost REQUIRED COMPONENTS system url)
-target_link_libraries(BiliBili_Reranger PRIVATE Boost::url)
+target_link_libraries(${PROJECT_NAME} PRIVATE Boost::url)
 
 add_custom_target(
         COPY_ALL_DLLS

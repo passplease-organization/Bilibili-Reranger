@@ -10,6 +10,10 @@
 #include <boost/url.hpp>
 #include <boost/beast/core.hpp>
 
+#ifdef TEST
+    #include "test/testCode.h"
+#endif
+
 #define SERVER_HEADER NAME_STR "/" VERSION_STR
 namespace http = boost::beast::http;
 namespace ip = boost::asio::ip;
@@ -39,7 +43,12 @@ void startWork() {
         ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));
         long long id = 1;
         const bool details = config<bool>(DETAILS);
+    #ifdef TEST
+        startTestThread();
+        while (!testFinished){
+    #else
         while(true) {
+    #endif
             ip::tcp::socket socket(io);
             acceptor.accept(socket);
             boost::beast::flat_buffer buffer;
