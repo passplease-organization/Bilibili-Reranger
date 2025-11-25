@@ -18,10 +18,11 @@
 
 extern "C" {
 
+#define OUTPUT_DIRECTORY "output"
 #ifdef WIN32
-    #define OUTPUT_PATH "output\\crawl_output.json"
+    #define OUTPUT_PATH OUTPUT_DIRECTORY "\\crawl_output.json"
 #elifdef  __linux__
-    #define OUTPUT_PATH "output/crawl_output.json"
+    #define OUTPUT_PATH OUTPUT_DIRECTORY "/crawl_output.json"
 #endif
 #define OUTPUT_NAME "crawl_output"
 

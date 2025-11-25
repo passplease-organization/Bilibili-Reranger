@@ -4,9 +4,10 @@
 #include "../PortListener.h"
 #include "../exit.h"
 #include "interface.h"
+#include "../PluginHandler.h"
 
 int getAllCategories(boost::asio::ip::tcp::socket& socket) {
-    say("Accept URL:" GET_ALL_CATEGORIES);
+    say("Accept URL: " GET_ALL_CATEGORIES);
     say("getAllCategories working for that ...");
     if (stop -> load())
         return failed();

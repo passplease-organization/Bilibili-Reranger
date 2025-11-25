@@ -45,7 +45,7 @@ int main(int argc, char** argv){
         return 1;
     }
 
-    crawlTask::GroupFilter(info.target);
+    GroupFilter(info.target);
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
