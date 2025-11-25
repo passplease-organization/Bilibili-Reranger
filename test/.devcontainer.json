@@ -8,7 +8,7 @@
     "--name",
     "Bilibili-Frontend-devcontainer",
     "--env-file",
-    "${localWorkspaceFolder}/test/env.list"
+    "${localWorkspaceFolder}/env.list"
   ],
 //  "postCreateCommand": "npm install",
   "forwardPorts": [

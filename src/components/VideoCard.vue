@@ -19,15 +19,14 @@ export interface Video{
   popups: string
   author: string
 }
-
-const getProxiedImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return '';
-  // 使用 encodeURIComponent 确保原始URL中的特殊字符（如&）不会破坏我们的API调用
-  const encodedUrl = encodeURIComponent(originalUrl);
-  return `/api/image-proxy?url=${encodedUrl}`;
-};
+export interface Category{
+  videos: Video[]
+  name: string
+}
 </script>
 <script setup lang="ts">
+import {getProxyUrl} from "@/website/App.vue";
+
 const _video = defineProps<{video:Video}>()
 const video: Video = _video.video
 // TODO 视频样式还需调整，以适应不同种类视频封面和主题
@@ -39,7 +38,7 @@ const video: Video = _video.video
       <!-- 顶部的视频封面区域 -->
       <figure class="relative">
         <!-- 封面图片 -->
-        <img :src="getProxiedImageUrl(video.videoImage.url)"  alt="" class="w-full aspect-video object-cover" />
+        <img :src="getProxyUrl(video.videoImage.url,'image-proxy')"  alt="" class="w-full aspect-video object-cover" />
 
         <!-- 视频时长和统计信息 -->
         <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t to-transparent">

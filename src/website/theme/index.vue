@@ -1,14 +1,32 @@
 <script setup lang="ts">
-import ThemeCard from "@/components/ThemeCard.vue";
-import MainContainer from "@/components/MainContainer.vue";
+import ThemeCard from '@/components/ThemeCard.vue'
+import MainContainer from '@/components/MainContainer.vue'
 
-import { useTheme } from '@/website/theme/themesControl.ts';
-const { theme: activeTheme, setTheme, themes: themeList } = useTheme();
+import { useTheme } from '@/website/theme/themesControl.ts'
+const { theme: activeTheme, setTheme, themes: themeList } = useTheme()
+
+import { getBackend, getProxyUrl, setBackend, setProxyUrl } from '@/website/App.vue'
+import { onMounted, ref } from 'vue'
+let proxyURL: string
+const nowProxy = ref('')
+let backendURL: string
+const backend = ref('')
+onMounted(() => {
+  nowProxy.value = getProxyUrl(null, '')
+  backend.value = getBackend()
+})
+function setProxy(url: string | null) {
+  setProxyUrl(url)
+  nowProxy.value = getProxyUrl(null, '')
+  proxyURL = ''
+}
 </script>
 
 <template>
   <MainContainer>
-    <h2 class="text-2xl font-bold text-secondary py-2 px-4 rounded-full">
+    <h1>外观设置</h1>
+    <div class="py-4"></div>
+    <h2>
       <div class="status status-warning animate-bounce status-xl"></div>
       选择一个主题
     </h2>
@@ -17,12 +35,49 @@ const { theme: activeTheme, setTheme, themes: themeList } = useTheme();
         v-for="theme in themeList"
         :key="theme"
         class="overflow-hidden rounded-lg border border-base-content/20 hover:border-base-content/40 cursor-pointer transition-all duration-300"
-        :class="{'outline outline-2 outline-offset-2 outline-primary': activeTheme === theme }"
+        :class="{ 'outline outline-2 outline-offset-2 outline-primary': activeTheme === theme }"
         @click="setTheme(theme)"
       >
         <ThemeCard :theme="theme"></ThemeCard>
       </div>
     </div>
+    <div class="py-6"></div>
+    <h1>代理配置</h1>
+    <div class="py-4"></div>
+    <h2>代理服务器配置</h2>
+    <p>选择您自己的代理服务器用于加载B站视频图片等，若不设置，将使用Vercel的无服务器函数加载图片</p>
+    <input
+      type="url"
+      v-model="proxyURL"
+      :placeholder="nowProxy"
+      class="input input-bordered w-full"
+    />
+    <button @click="setProxy(proxyURL)" class="btn btn-primary">保存</button>
+    <button @click="setProxy(null)" class="btn btn-ghost">重置</button>
+    <div class="py-4"></div>
+    <h2>后端服务配置</h2>
+    <p>配置推荐服务的后端，必须配置！！！若不设置，无法获取推荐的视频！！！</p>
+    <input
+      type="url"
+      v-model="backendURL"
+      :placeholder="backend"
+      class="input input-bordered w-full"
+    />
+    <button @click="setBackend(backendURL)" class="btn btn-primary">保存</button>
+    <button @click="setBackend(null)" class="btn btn-ghost">重置</button>
   </MainContainer>
 </template>
-<style></style>
+<style scoped>
+h1 {
+  @apply text-4xl font-bold text-primary-content rounded-full;
+}
+h2 {
+  @apply text-3xl font-bold text-secondary-content py-2 px-4 rounded-full;
+}
+p {
+  @apply px-4 text-base-content/70 mb-4;
+}
+p {
+  font-size: 1.25rem;
+}
+</style>
