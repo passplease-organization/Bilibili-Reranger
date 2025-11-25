@@ -16,7 +16,10 @@ endif ()
 add_executable(${PROJECT_NAME} src/main.cpp
         src/crawler.cpp
         src/portListener.cpp
-        src/pluginHandler.cpp)
+        src/pluginHandler.cpp
+        src/subFeatures/requestHelper.cpp
+        src/subFeatures/requestHelper.h
+        src/exit.h)
 
 if(WIN32)
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")

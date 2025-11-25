@@ -1,10 +1,11 @@
 name: build docker
 on:
+  workflow_dispatch:
   push:
     branches:
-      - master
+      - backend
     paths:
-      - Dockerfile
+      - .devcontainer/Dockerfile
 
 jobs:
   CreateContainer:
@@ -30,8 +31,5 @@ jobs:
         with:
           context: .devcontainer/
           push: true
-          # 镜像的命名格式：ghcr.io/所有者/仓库名:标签
-          # 使用 github.sha 可以确保每个 commit 都有一个唯一的镜像
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger:backend_test_container

@@ -263,3 +263,8 @@ void crawlTask::group_to_data(dataStore::Data& data, const Group* group){
         data.put("tasks",&a,true);
     }
 }
+
+const vector<Group *> crawlTask::getAllGroups() {
+    return groups;
+}
+

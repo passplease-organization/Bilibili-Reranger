@@ -110,4 +110,6 @@ namespace crawlTask {
      * For network request which has specific target
      */
     API void GroupFilter(NotNull const string& target);
+
+    API const vector<Group*> getAllGroups();
 }

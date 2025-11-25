@@ -16,9 +16,10 @@ namespace ip = boost::asio::ip;
 
 #if NEED_PORT
 thread_local CrawlInfo const* crawlInfo;
+thread_local shared_ptr<const atomic<bool>> stop;
 
-CrawlInfo::CrawlInfo(std::string target, long long id)
-    : target(std::move(target)), id(id) {
+CrawlInfo::CrawlInfo(std::string url,std::string target, long long id)
+    : url(std::move(url)), target(std::move(target)), id(id) {
 }
 
 
@@ -41,10 +42,18 @@ void startWork() {
         while(true) {
             ip::tcp::socket socket(io);
             acceptor.accept(socket);
-            boost::system::error_code error;
             boost::beast::flat_buffer buffer;
             http::request<http::string_body> request;
-            http::read(socket, buffer, request);
+            try {
+                http::read(socket, buffer, request);
+            }catch (boost::system::system_error& e) {
+                if (e.code() != boost::asio::error::eof) {
+                    warn("HTTP read error: ", false);
+                    warn(e.what());
+                }
+                socket.close();
+                continue;
+            }
             std::string url = request.target();
             if (!needCrawlURL(url)) {
                 socket.close();
@@ -64,6 +73,7 @@ void startWork() {
                 say("Request URL: ",false);
                 cout << url << endl;
                 boost::asio::streambuf request_buffer;
+                boost::system::error_code error;
                 if (!error || error == boost::asio::error::eof) {
                     // EOF 可能意味着客户端发送完数据后断开连接
                     std::istream request_stream(&request_buffer);
@@ -76,7 +86,7 @@ void startWork() {
                 }
             }
 
-            CrawlInfo info(category,id);
+            CrawlInfo info(url,category,id);
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
@@ -100,7 +110,7 @@ void startWork() {
     }
 }
 
-void sendMessage(ip::tcp::socket& socket,string data) {
+bool sendMessage(ip::tcp::socket& socket,string data) {
     if (data.empty()) {
         Json json = bilibili::getVideoJson();
         data = json.empty() ? "{}" : to_string(json);
@@ -115,24 +125,19 @@ void sendMessage(ip::tcp::socket& socket,string data) {
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);
+    bool back = true;
     if (error) {
         warn("Error to send response, error code: ",false);
         warn(error.message().c_str());
+        back = false;
     }
     socket.shutdown(ip::tcp::socket::shutdown_both,error);
     socket.close();
     if (error) {
         warn("Cannot close socket");
         warn(error.message().c_str());
+        back = false;
     }
-    cacheData(crawlInfo -> target,response.body());
-}
-
-string startCrawlForURL(const std::string &url) {
-    return "";
-}
-
-void cacheData(const std::string &url, const std::string &data) {
-
+    return back;
 }
 #endif

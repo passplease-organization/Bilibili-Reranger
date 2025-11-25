@@ -392,9 +392,9 @@ bool crawl(const std::atomic<bool>& cancel){
     }while(!cancel && helper.connect() && count < max_count);
 
     #if NEED_PORT
-        const auto& back = helper.finishCrawl();
+        auto back = helper.finishCrawl();
         if (back)
-            sendMessage(socket);
+            back &= sendMessage(socket);
         return back;
     #else
         bilibili::saveVideos();

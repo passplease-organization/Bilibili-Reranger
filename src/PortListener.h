@@ -1,22 +1,18 @@
 #pragma once
 
-#include <boost/asio.hpp>
+#include <boost/asio/ip/tcp.hpp>
 
 struct CrawlInfo {
+    const std::string url;
     const std::string target;
     const long long id;
 
-    CrawlInfo(std::string target, long long id);
+    CrawlInfo(std::string url,std::string target, long long id);
 };
 
 extern thread_local CrawlInfo const* crawlInfo;
+extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 void startWork();
 
-void sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "");
-
-std::string startCrawlForURL(const std::string& url);
-
-void cacheData(const std::string& url,const std::string& data);
-
-std::string getData(const std::string& url);
+bool sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "");

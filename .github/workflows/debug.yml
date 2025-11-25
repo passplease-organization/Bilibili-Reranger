@@ -1,16 +1,18 @@
 name: debug.yml
 on:
+  workflow_dispatch:
   push:
     branches:
-      - master
+      - backend
     paths-ignore:
-      - Dockerfile
+      - .devcontainer/Dockerfile
+
 jobs:
   Debug:
     runs-on: ubuntu-latest
     container:
       # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
-      image: ghcr.io/${{ github.repository }}:latest
+      image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger:backend_test_container
       # 使用 GITHUB_TOKEN 来拉取私有或内部镜像
       credentials:
         username: ${{ github.actor }}
@@ -21,8 +23,9 @@ jobs:
 
       - name: Debug Code
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=vcpkg
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake
           cmake --build build --config Debug
           cmake --build build --target COPY_ALL_PDBS
-          cd build\Debug
+          cd build/Debug
+          chmod +x BiliBili_Reranger
           BiliBili_Reranger.exe
