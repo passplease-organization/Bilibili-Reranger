@@ -5,7 +5,7 @@ excluded/
 build/
 release/
 DebugShells/
-*/test/
+./test/
 env.list
 generate.stamp*
 desktop.ini
