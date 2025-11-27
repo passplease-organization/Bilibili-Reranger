@@ -37,7 +37,7 @@ void startWork() {
     tempHelper -> curlSetup(cookie,user_agent);
     tempHelper -> refreshSubscribers();
     delete tempHelper;
-    say("Litstening thread start");
+    say("Listening thread start");
     try {
         boost::asio::io_context io;
         ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));

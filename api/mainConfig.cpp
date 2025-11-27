@@ -23,7 +23,11 @@ void createConfig(){
         config.put(VMID,"3493105986702255",false,FORCE_GENERATE_CONFIG);
         config.put(SUBSCRIBE_PUBLISH_TIME,3,false,FORCE_GENERATE_CONFIG);
         config.put(SUBSCRIBE_SEARCH_VIDEO_COUNT, 5, false, FORCE_GENERATE_CONFIG);
+    #ifdef WIN32
         config.put(WAIT_TIME,5000,false,FORCE_GENERATE_CONFIG);
+    #elifdef __linux__
+        config.put(WAIT_TIME,2,false,FORCE_GENERATE_CONFIG);
+    #endif
         config.put(SEARCH_PAGE_SIZE, 50,false, FORCE_GENERATE_CONFIG);
         config.put(MAX_CRAWL_COUNT,10000,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_AI_TOKENS,2000,false,FORCE_GENERATE_CONFIG);

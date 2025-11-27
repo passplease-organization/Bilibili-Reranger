@@ -68,7 +68,7 @@ int main(int argc, char** argv){
     }
     if(crawl(stop -> load(),socket)) {
 #else
-    if (crawl(cancel))
+    if (crawl(cancel)){
 #endif
         return success();
     }

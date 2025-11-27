@@ -8,7 +8,7 @@ on:
       - .devcontainer/Dockerfile
 
 jobs:
-  Debug:
+  Test:
     runs-on: ubuntu-latest
     container:
       # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
@@ -21,11 +21,37 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Debug Code
+      - name: Use Cache
+        uses: actions/cache@v4
+        with:
+          path: ./build
+          key: backend_${{ github.workflow_ref }}
+
+      - name: Test Code
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake
-          cmake --build build --config Debug
+          cmake -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Test -B build
+          cmake --build build
           cmake --build build --target COPY_ALL_PDBS
-          cd build/Debug
+          cd build/Test
           chmod +x BiliBili_Reranger
-          BiliBili_Reranger.exe
+          ./BiliBili_Reranger
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Test Output
+          include-hidden-files: true
+          path: ./build/Test/output/
+          retention-days: 7
+        if: always()
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          push: false
+          tags: |
+            test
+
+      - name: Run Image
+        run: docker run test
+        continue-on-error: true

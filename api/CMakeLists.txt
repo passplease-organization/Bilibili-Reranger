@@ -4,7 +4,7 @@ project(BiliBili_Reranger_API)
 set(CMAKE_CXX_STANDARD 23)
 set(DCMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
 set(CMAKE_CXX_EXTENSIONS OFF)
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_compile_options(/utf-8)
 endif ()
 
@@ -27,6 +27,13 @@ add_library(${PROJECT_NAME} SHARED
 #        bilibili_wbi/wbi.h
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+            INSTALL_RPATH "$ORIGIN"
+            BUILD_WITH_INSTALL_RPATH ON
+    )
+endif ()
+
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
 #find_package(cryptopp CONFIG REQUIRED)
@@ -37,10 +44,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
 set_property(TARGET ${PROJECT_NAME} PROPERTY ENABLE_EXPORTS ON)# Allow export
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE API_DLL)
-target_compile_definitions(
-        ${PROJECT_NAME} PRIVATE
-        $<$<CONFIG:Debug>:DEVELOP=true>
-)
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_target(
@@ -48,7 +51,7 @@ add_custom_target(
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> ${OUTPUT_PATH} # copy
         COMMENT "dealing with plugin dll files ..."
 )
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_custom_target(
         "${PROJECT_NAME}_COPY_PDB"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_PDB_FILE:${PROJECT_NAME}> ${OUTPUT_PATH} # copy
@@ -57,10 +60,10 @@ if(WIN32)
 endif ()
 
 add_dependencies("${PROJECT_NAME}_COPY_DLL" ${PROJECT_NAME})
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_dependencies("${PROJECT_NAME}_COPY_PDB" "${PROJECT_NAME}_COPY_DLL")
 endif ()
 set_property(GLOBAL APPEND PROPERTY COPY_ALL_DLLS "${PROJECT_NAME}_COPY_DLL")
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set_property(GLOBAL APPEND PROPERTY COPY_ALL_PDBS "${PROJECT_NAME}_COPY_PDB")
 endif ()

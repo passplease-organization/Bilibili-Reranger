@@ -3,19 +3,11 @@ project(BiliBili_Reranger)
 
 set(CMAKE_CXX_STANDARD 23)
 set(DCMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
-set(DEBUG_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Debug")
-set(RELEASE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/Release")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${DEBUG_OUTPUT_PATH})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${RELEASE_OUTPUT_PATH})
+set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_PATH})
 
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_compile_options(/utf-8)
-endif ()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Test")
-    add_compile_definitions(TEST)
-    set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/Test")
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_TEST ${OUTPUT_PATH})
 endif ()
 
 add_executable(${PROJECT_NAME} src/main.cpp
@@ -30,11 +22,22 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/exit.h
         )
 
-if(WIN32)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+            INSTALL_RPATH "$ORIGIN;$ORIGIN/plugins"
+            BUILD_WITH_INSTALL_RPATH ON
+    )
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif ()
 
+add_compile_definitions(
+        $<$<CONFIG:Debug>:DEVELOP=true>
+        $<$<CONFIG:Test>:DEVELOP=true>
+)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Test")
+    add_compile_definitions(TEST=true)
     find_package(cpr REQUIRED)
     target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
 endif()
@@ -89,11 +92,6 @@ if(NEED_COPY_PDB)
 else ()
     add_dependencies(COPY_ALL_PDBS COPY_ALL_DLLS)
 endif ()
-
-target_compile_definitions(
-        ${PROJECT_NAME} PRIVATE
-        $<$<CONFIG:Debug>:DEVELOP=true>
-)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test")
     add_custom_command(

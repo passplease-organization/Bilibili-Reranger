@@ -16,10 +16,10 @@ namespace fs = std::filesystem;
 PluginHandler::PluginHandler(const string &name) {
     this -> name = std::move(name);
     #ifdef WIN32
-        SetDllDirectoryA(Plugin_Dir.c_str());
+        SetDllDirectoryA(PluginDir);
         dll = LoadLibrary(TEXT((this -> name + DLL).c_str()));
     #elifdef __linux__
-        dll = dlopen((Plugin_Dir + "/" + this -> name + DLL).c_str(),RTLD_LAZY);
+        dll = dlopen((PluginDir "/" + this -> name + DLL).c_str(),RTLD_LAZY);
     #endif
     if(dll == nullptr) {
         say("尝试寻找插件：",false);
@@ -163,9 +163,9 @@ void PluginHandler::loadAll() {
 vector<string> *PluginHandler::searchPlugin(vector<string> *back) {
     string path = string();
 #ifdef WIN32
-    path.append(".\\").append(Plugin_Dir);
+    path.append(".\\").append(PluginDir);
 #elifdef __linux__
-    path.append("./").append(Plugin_Dir);
+    path.append("./").append(PluginDir);
 #endif
     if(fs::exists(fs::absolute(path))){
         string fileName;
@@ -177,7 +177,6 @@ vector<string> *PluginHandler::searchPlugin(vector<string> *back) {
                 back -> emplace_back(buffer);
                 freeOutputChar(&buffer);
                 buffer = nullptr;
-                say("找到插件：",false);
                 say(fileName.c_str());
             }
         }
@@ -185,8 +184,6 @@ vector<string> *PluginHandler::searchPlugin(vector<string> *back) {
     say("插件加载结束，即将退出插件加载进程");
     return back;
 }
-
-const string PluginHandler::Plugin_Dir = "plugins";
 
 const vector<string>* PluginHandler::pluginNames = PluginHandler::searchPlugin(new vector<string>());
 

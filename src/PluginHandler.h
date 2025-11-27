@@ -7,6 +7,8 @@ using namespace std;
 using namespace crawlTask;
 namespace fs = std::filesystem;
 
+#define PluginDir "plugins"
+
 class PluginHandler {
     string name;
 #ifdef WIN32
@@ -16,7 +18,6 @@ class PluginHandler {
     void* dll;
     #define DLL ".so"
 #endif
-    const static string Plugin_Dir;
     static const vector<string>* pluginNames;
     static vector<PluginHandler*>* plugins;
 public:
