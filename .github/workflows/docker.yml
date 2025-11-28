@@ -10,6 +10,7 @@ on:
 jobs:
   CreateContainer:
     runs-on: ubuntu-latest
+    environment: Publish
     permissions:
       contents: read
       packages: write
