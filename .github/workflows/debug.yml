@@ -76,7 +76,7 @@ jobs:
 
       - name: Run Image
         run: |
-          docker run --name run-test -e COOKIE=$COOKIE -e USERAGENT=$USERAGENT -d test
+          docker run --name run-test -e COOKIE -e USERAGENT -d test
           sleep 10
           docker stop run-test
         continue-on-error: true
