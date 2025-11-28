@@ -1,11 +1,1 @@
-.vs/
-.idea/
-cmake-build*/
-excluded/
-plugins/ExamplePlugins/.idea/
-out/
-build/
-DebugShells/
-*/env.list
-generate.stamp*
-desktop.ini
+.idea
