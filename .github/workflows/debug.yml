@@ -8,7 +8,7 @@ on:
       - .devcontainer/Dockerfile
 
 jobs:
-  Test:
+  Test-Code:
     runs-on: ubuntu-latest
     environment: Test
     container:
@@ -44,9 +44,28 @@ jobs:
         with:
           name: Test Output
           include-hidden-files: true
-          path: /build/Test/output/
+          path: ./build/Test/output/
           retention-days: 7
         if: always()
+
+  Test-Docker:
+    runs-on: ubuntu-22.04
+    needs: Test-Code
+    environment: Test
+    env:
+      COOKIE: ${{ secrets.COOKIE }}
+      USERAGENT: ${{ secrets.USERAGENT }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+        # Add support for more platforms with QEMU (optional)
+        # https://github.com/docker/setup-qemu-action
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         uses: docker/build-push-action@v5

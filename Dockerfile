@@ -23,4 +23,4 @@ WORKDIR /bilibili-backend
 RUN apt update && apt install -y libboost-url1.83.0 ca-certificates
 COPY --from=compiler /compiler/build/Release ./
 
-CMD ["sh","-c","./BiliBili_Reranger"]
+CMD ["sh","-c","stdbuf -oL -eL ./BiliBili_Reranger"]

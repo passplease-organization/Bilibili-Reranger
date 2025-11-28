@@ -34,3 +34,4 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/bilibili_reranger:${{ github.event.release.tag_name }}
             docker.io/noname602/bilibili_reranger:${{ github.event.release.tag_name }}
+            docker.io/noname602/bilibili_reranger:latest

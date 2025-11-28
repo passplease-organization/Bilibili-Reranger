@@ -108,6 +108,7 @@ void startWork() {
                     warn("Thread timeout");
                     cancel -> store(true);
                 }
+                cout << endl;
             },std::move(working),std::move(cancel),id,config<int>(TIMEOUT));
             id++;
 

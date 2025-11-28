@@ -376,7 +376,7 @@ bool crawl(const std::atomic<bool>& cancel){
         count++;
 
     #if SLEEP_CRAWL
-        say("等待中...");
+        say("爬取等待...");
         #ifdef WIN32
             Sleep(config<int>(WAIT_TIME));
         #elifdef __linux__

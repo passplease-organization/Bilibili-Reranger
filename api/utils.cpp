@@ -266,6 +266,11 @@ namespace dataStore{
         saved = false;
     }
 
+    bool Data::empty() const {
+        return data.empty() && dataArrays.empty() && strings.empty() && stringArrays.empty() && ints.empty() && intArrays.empty() && floats.empty() && floatArrays.empty() && bools.empty() && boolArrays.empty();
+    }
+
+
     bool Data::valid() const {
         return _valid;
     }
@@ -578,7 +583,9 @@ namespace dataStore{
         auto v = dataStore::getVector<T>(data);
         if(copy)
             **input = v -> at(label);
-        else *input = &(v -> at(label));
+        else {
+            *input = &(v -> at(label));
+        }
     }
 
     void Data::get(const char *label, dataStore::Data **data,const bool copy) {
