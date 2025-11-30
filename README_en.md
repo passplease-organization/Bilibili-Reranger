@@ -24,3 +24,19 @@ Currently, both `COOKIE` and `USERAGENT` are required. The `config` folder store
 ## Plugins
 
 There is an [example plugin](plugins/ExamplePlugin/main.cpp) in the code, providing interfaces in the [API dynamic link library](api/interface.h). All methods exported as C programs in the [API dynamic link library](api) are available for easy plugin development.
+
+## URL Requests
+
+All supported URL requests:
+
+| URL Path      | Meaning                       | Supported Parameters (not mentioned parameters unsupported)          | Other                                                                              |
+|---------------|-------------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| /all_category | Get all registered categories | No additional parameters                                             |                                                                                    |
+| /set_cookie   | Set global COOKIE             | `COOKIE`: Set value, empty means reset to environment variable value | Only valid for this program run, does not change environment variable stored value |
+
+Crawling parameters:
+
+| Parameter  | Meaning                  | Other                                                 |
+|------------|--------------------------|-------------------------------------------------------|
+| category   | Category for this work   |                                                       |
+| cookie_env | Set COOKIE for this work | Only valid for this work (different from /set_cookie) |

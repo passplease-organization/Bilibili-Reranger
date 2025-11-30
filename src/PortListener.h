@@ -5,9 +5,11 @@
 struct CrawlInfo {
     const std::string url;
     const std::string target;
+    const std::string cookie;
+    const bool set_cookie_env;
     const long long id;
 
-    CrawlInfo(std::string url,std::string target, long long id);
+    CrawlInfo(std::string url,std::string target,bool set_cookie_env,std::string newCookie, long long id);
 };
 
 extern thread_local CrawlInfo const* crawlInfo;

@@ -7,7 +7,11 @@
 #define SLEEP_CRAWL false
 #define tempDataPath "tempData"
 #define tempDataName tempDataPath
-#define NEED_PORT true
+    #ifdef TEST
+        #define NEED_PORT true
+    #else
+        #define NEED_PORT true
+    #endif
 #else
 #define CONNECT_INTERNET true
 #define SLEEP_CRAWL true

@@ -1,4 +1,6 @@
 #include "testCode.h"
+
+#if NEED_PORT
 #include "Util.h"
 #include "config.h"
 #include <cpr/cpr.h>
@@ -98,3 +100,5 @@ void test() {
     testFinished = true;
     POST_PARAMS(localhost);// To let main thread get out from listening port
 }
+
+#endif
