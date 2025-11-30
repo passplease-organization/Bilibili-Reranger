@@ -1,7 +1,7 @@
 import {VercelRequest,VercelResponse} from "@vercel/node";
 
-const IMAGE_BROWSER_CACHE_SECONDS = parseInt(process.env.IMAGE_CACHE_BROWSER_SECONDS || '3600', 10);
-const IMAGE_CDN_CACHE_SECONDS = parseInt(process.env.IMAGE_CACHE_CDN_SECONDS || '0', 10);
+const IMAGE_BROWSER_CACHE_SECONDS = parseInt(process.env.VITE_IMAGE_CACHE_BROWSER_SECONDS || '3600', 10);
+const IMAGE_CDN_CACHE_SECONDS = parseInt(process.env.VITE_IMAGE_CACHE_CDN_SECONDS || '0', 10);
 
 export default async function handler(request: VercelRequest, response: VercelResponse){
   try {

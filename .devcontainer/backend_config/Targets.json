@@ -1,0 +1,25 @@
+{
+  "groups": [
+    {
+      "name": "political",
+      "tasks": [
+        {
+          "keyword": "波士顿圆脸",
+          "videoCount": 10,
+          "working_mode": "关注列表匹配模式"
+        },
+        {
+          "keyword": "军情D7处",
+          "videoCount": 10,
+          "working_mode": "关注列表匹配模式"
+        },
+        {
+          "keyword": "巴以冲突",
+          "videoCount": 20,
+          "working_mode": "搜索模式"
+        }
+      ],
+      "videoCount": 40
+    }
+  ]
+}

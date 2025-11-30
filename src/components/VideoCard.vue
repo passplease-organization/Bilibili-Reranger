@@ -10,14 +10,11 @@ export interface Video{
   title: string
   publishTime: string
   videoTime: string
-  videoImage: {
-    url: string
-    width?: string
-    height?: string
-  }
+  videoURL: string
   views: string
   popups: string
   author: string
+  description: string
 }
 export interface Category{
   videos: Video[]
@@ -38,7 +35,7 @@ const video: Video = _video.video
       <!-- 顶部的视频封面区域 -->
       <figure class="relative">
         <!-- 封面图片 -->
-        <img :src="getProxyUrl(video.videoImage.url,'image-proxy')"  alt="" class="w-full aspect-video object-cover" />
+        <img :src="getProxyUrl(video.videoURL,'image-proxy')" alt="" class="w-full aspect-video object-cover" />
 
         <!-- 视频时长和统计信息 -->
         <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t to-transparent">

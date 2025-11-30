@@ -1,21 +1,7 @@
 {
   "name": "Bilibili Reranger Dev Container",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
-  },
-  "runArgs": [
-    "--name",
-    "Bilibili-Frontend-devcontainer",
-    "--env-file",
-    "${localWorkspaceFolder}/env.list"
-  ],
-//  "postCreateCommand": "npm install",
-  "forwardPorts": [
-    5173,
-    9229,
-    4173
-  ],
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "frontend",
   "workspaceFolder": "/bilibili",
   "workspaceMount": "source=${localWorkspaceFolder}/../,target=/bilibili,type=bind,consistency=cached",
   "customizations" : {
@@ -27,7 +13,10 @@
         "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
         "com.intellij:app:GeneralSettings.inactiveTimeout": 60,
         "com.intellij:app:HttpConfigurable.use_proxy_pac": true
-      }
+      },
+      "plugins": [
+        "cn.memoryzy.json"
+      ]
     }
   }
 }

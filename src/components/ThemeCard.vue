@@ -7,10 +7,7 @@ name: "ThemeCard"
 </script>
 <script setup lang="ts">
 const theme = defineProps<{
-  theme: {
-    type: string
-    required: true
-  }
+  theme: string
 }>()
 </script>
 

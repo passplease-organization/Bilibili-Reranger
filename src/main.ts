@@ -5,6 +5,7 @@ import MainPage from './website/App.vue'
 import router from './router'
 import '@/main.css'
 import '@/website/theme/themesControl.ts'
+import '@/backend.ts'
 
 const app = createApp(MainPage)
 

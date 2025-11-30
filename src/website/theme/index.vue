@@ -5,20 +5,27 @@ import MainContainer from '@/components/MainContainer.vue'
 import { useTheme } from '@/website/theme/themesControl.ts'
 const { theme: activeTheme, setTheme, themes: themeList } = useTheme()
 
-import { getBackend, getProxyUrl, setBackend, setProxyUrl } from '@/website/App.vue'
+import { getProxyUrl, setProxyUrl } from '@/website/App.vue'
 import { onMounted, ref } from 'vue'
+import { getBackendUrl, initBackendUrl, setBackendUrl } from '@/website/index.vue'
 let proxyURL: string
 const nowProxy = ref('')
 let backendURL: string
-const backend = ref('')
+const nowBackend = ref('')
 onMounted(() => {
+  initBackendUrl()
   nowProxy.value = getProxyUrl(null, '')
-  backend.value = getBackend()
+  nowBackend.value = getBackendUrl()
 })
 function setProxy(url: string | null) {
   setProxyUrl(url)
   nowProxy.value = getProxyUrl(null, '')
   proxyURL = ''
+}
+function setBackend(url: string | null) {
+  setBackendUrl(url)
+  nowBackend.value = getBackendUrl()
+  backendURL = ''
 }
 </script>
 
@@ -60,7 +67,7 @@ function setProxy(url: string | null) {
     <input
       type="url"
       v-model="backendURL"
-      :placeholder="backend"
+      :placeholder="nowBackend"
       class="input input-bordered w-full"
     />
     <button @click="setBackend(backendURL)" class="btn btn-primary">保存</button>

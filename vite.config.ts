@@ -61,11 +61,12 @@ export default defineConfig({
     host: '0.0.0.0',
     hmr: {
       host: 'localhost',
+      clientPort: 3000
     },
     watch: {
       usePolling: true
     },
-    proxy: {
+    proxy: {// TODO 真的还有用吗
       '/bilibili-image': {
         target: 'https://i0.hdslb.com',
         changeOrigin: true, // 必须设置为 true，这样目标服务器才会认为请求来自同源
