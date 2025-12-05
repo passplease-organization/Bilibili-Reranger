@@ -32,3 +32,4 @@ coverage
 vercel.env.local
 
 env.list
+backend_config

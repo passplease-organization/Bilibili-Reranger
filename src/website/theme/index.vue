@@ -42,7 +42,7 @@ function setBackend(url: string | null) {
         v-for="theme in themeList"
         :key="theme"
         class="overflow-hidden rounded-lg border border-base-content/20 hover:border-base-content/40 cursor-pointer transition-all duration-300"
-        :class="{ 'outline outline-2 outline-offset-2 outline-primary': activeTheme === theme }"
+        :class="{ 'outline outline-offset-2 outline-primary': activeTheme === theme }"
         @click="setTheme(theme)"
       >
         <ThemeCard :theme="theme"></ThemeCard>
@@ -54,10 +54,10 @@ function setBackend(url: string | null) {
     <h2>代理服务器配置</h2>
     <p>选择您自己的代理服务器用于加载B站视频图片等，若不设置，将使用Vercel的无服务器函数加载图片</p>
     <input
-      type="url"
+      type="text"
       v-model="proxyURL"
       :placeholder="nowProxy"
-      class="input input-bordered w-full"
+      class="input input-bordered w-1/2"
     />
     <button @click="setProxy(proxyURL)" class="btn btn-primary">保存</button>
     <button @click="setProxy(null)" class="btn btn-ghost">重置</button>
@@ -65,10 +65,10 @@ function setBackend(url: string | null) {
     <h2>后端服务配置</h2>
     <p>配置推荐服务的后端，必须配置！！！若不设置，无法获取推荐的视频！！！</p>
     <input
-      type="url"
+      type="text"
       v-model="backendURL"
       :placeholder="nowBackend"
-      class="input input-bordered w-full"
+      class="input input-bordered w-1/2"
     />
     <button @click="setBackend(backendURL)" class="btn btn-primary">保存</button>
     <button @click="setBackend(null)" class="btn btn-ghost">重置</button>
