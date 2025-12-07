@@ -1,0 +1,21 @@
+name: test.yml
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .devcontainer/Dockerfile
+
+jobs:
+  Build:
+    runs-on: ubuntu-22.04
+    container:
+      image: node:24
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build

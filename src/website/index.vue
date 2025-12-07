@@ -60,7 +60,7 @@ export function initBackendUrl() {
     <h1 class="text-4xl font-bold text-accent items-center px-3 py-2">
       为您精选视频💕
     </h1>
-    <div class="@container-normal py-2 px-10">
+    <div class="@container-normal py-2 px-8">
       <CategoriesContainer
         :categories="categories"
         :error="categoriesInitError"
@@ -70,4 +70,12 @@ export function initBackendUrl() {
   </MainContainer>
 </template>
 
-<style scoped></style>
+<style>
+@import "@/main.css";
+h1,h2 {
+  @apply text-base-content
+}
+p,span{
+  @apply text-base-content/70
+}
+</style>

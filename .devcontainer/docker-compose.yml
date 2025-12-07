@@ -6,6 +6,8 @@ services:
     domainname: frontend
     env_file:
       - env.list
+    depends_on:
+      - backend
 
   backend:
     image: ghcr.io/passplease/bilibili_reranger:frontend_dev

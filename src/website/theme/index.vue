@@ -31,7 +31,7 @@ function setBackend(url: string | null) {
 
 <template>
   <MainContainer>
-    <h1>外观设置</h1>
+    <h1 class="text-base-content">外观设置</h1>
     <div class="py-4"></div>
     <h2>
       <div class="status status-warning animate-bounce status-xl"></div>
@@ -76,15 +76,13 @@ function setBackend(url: string | null) {
 </template>
 <style scoped>
 h1 {
-  @apply text-4xl font-bold text-primary-content rounded-full;
+  @apply text-4xl font-bold rounded-full;
 }
 h2 {
-  @apply text-3xl font-bold text-secondary-content py-2 px-4 rounded-full;
+  @apply text-3xl font-bold py-2 px-4 rounded-full;
 }
 p {
-  @apply px-4 text-base-content/70 mb-4;
-}
-p {
+  @apply px-4 mb-4;
   font-size: 1.25rem;
 }
 </style>

@@ -29,7 +29,7 @@ const video: Video = _video.video
 // TODO 视频样式还需调整，以适应不同种类视频封面和主题
 </script>
 <template>
-  <a :href="video.url" target="_blank" rel="noopener noreferrer" class="block w-72">
+  <a :href="video.url" target="_blank" rel="noopener noreferrer" class="block w-60">
     <div class="card card-sm bg-base-100 shadow-md rounded-lg overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-transform duration-300">
 
       <!-- 顶部的视频封面区域 -->
