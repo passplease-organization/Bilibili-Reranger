@@ -5,9 +5,13 @@ on:
     paths:
       - Dockerfile
       - express/Dockerfile
+      - .github/workflows/docker.yml
 
 jobs:
   call-workflow-passing-data:
+    permissions:
+      contents: read
+      packages: write
     uses: passplease/Bilibili-Reranger/.github/workflows/docker.yml@master
     with:
       ref: "frontend"
