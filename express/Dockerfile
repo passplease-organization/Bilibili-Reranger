@@ -1,5 +1,4 @@
 FROM node:24
-
 WORKDIR /api
 
 RUN npm install tsx -g
