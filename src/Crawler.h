@@ -24,7 +24,7 @@ public:
 
     void clear();
 
-    void curlSetup(const char* cookie,const char* useragent);
+    void curlSetup(const string &cookie,const string& useragent);
 
     bool connect(bool deal = true);
 
@@ -34,7 +34,7 @@ public:
 
     void dealJson(const Json& _json);
 
-    static void setSubscriber(const dataStore::Data& _subscribers);
+    static void addSubscriber(const dataStore::Data& _subscribers);
 
     static void clearSubscriber();
 
@@ -83,8 +83,8 @@ const string commit = "https://api.bilibili.com/x/v2/reply/main?oid=BV18a411W7ge
 const string subscribe = "https://api.bilibili.com/x/relation/followings?vmid=3493105986702255";
 const string liked = "https://api.bilibili.com/x/space/like/video?vmid=3493105986702255";
 
-extern const char* cookie;
-extern const char* user_agent;
+extern string cookie;
+extern string user_agent;
 
 #if NEED_PORT
 bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket);
@@ -95,3 +95,5 @@ bool crawl(const std::atomic<bool>& cancel);
 string getURL(const crawlTask::Task* task = crawlTask::nowTask());
 
 bool checkEnv();
+
+void setEnv(const string& cookie = "");

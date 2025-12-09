@@ -5,6 +5,7 @@
 #include "config.h"
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
+#include "subFeatures/requestHelper.h"
 #if NEED_PORT
     #include "PortListener.h"
     #include <boost/asio.hpp>
@@ -24,16 +25,15 @@ void CurlHelper::clear() {
     tempData.clear();
 }
 
-void CurlHelper::curlSetup(const char *cookie, const char *useragent){
+void CurlHelper::curlSetup(const string &cookie,const string& useragent){
     if(curl == nullptr){
         throwError("创建CURL失败");
         return;
     }
     curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,CurlHelper::saveData);
     curl_easy_setopt(curl,CURLOPT_WRITEDATA,this);
-    curl_easy_setopt(curl,CURLOPT_WRITEDATA,this);
-    curl_easy_setopt(curl,CURLOPT_COOKIE,cookie);
-    curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent);
+    curl_easy_setopt(curl,CURLOPT_COOKIE,cookie.c_str());
+    curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent.c_str());
 }
 
 bool CurlHelper::connect(bool deal){
@@ -302,7 +302,7 @@ void CurlHelper::refreshSubscribers(const bool force) {
 
             // 使用线程安全的方法添加订阅者
             auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
-            setSubscriber(newSubscribers);
+            addSubscriber(newSubscribers);
             int count = _getSubscriberCount(json);
             int pages = count / 50 + 1;
             unsigned int nowPage = getPages(url);
@@ -330,9 +330,9 @@ bool CurlHelper::crawlNext() const {
     return _crawlNext || (crawlTask::nowTask() -> mode != crawlTask::WorkingMode::SUBSCRIBE);
 }
 
-void CurlHelper::setSubscriber(const dataStore::Data& _subscribers) {
+void CurlHelper::addSubscriber(const dataStore::Data& _subscribers) {
     std::lock_guard<std::mutex> lock(subscribers_mutex);
-    subscribers = _subscribers;
+    subscribers += _subscribers;
 }
 
 void CurlHelper::clearSubscriber() {
@@ -356,8 +356,8 @@ dataStore::Data CurlHelper::getSubscribers(const string& name) {
 dataStore::Data CurlHelper::subscribers = dataStore::Data{};
 std::mutex CurlHelper::subscribers_mutex = std::mutex{};
 
-const char* cookie = getenv(COOKIE);
-const char* user_agent = getenv(USERAGENT);
+string cookie = getenv(COOKIE);
+string user_agent = getenv(USERAGENT);
 
 #if NEED_PORT
 bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
@@ -367,6 +367,7 @@ bool crawl(const std::atomic<bool>& cancel){
     CurlHelper helper = CurlHelper();
     helper.curlSetup(cookie,user_agent);
     #if NEED_PORT
+        dealParams(helper);
     #else
         helper.refreshSubscribers();
     #endif
@@ -376,7 +377,7 @@ bool crawl(const std::atomic<bool>& cancel){
         count++;
 
     #if SLEEP_CRAWL
-        say("等待中...");
+        say("爬取等待...");
         #ifdef WIN32
             Sleep(config<int>(WAIT_TIME));
         #elifdef __linux__
@@ -427,17 +428,23 @@ string getURL(const crawlTask::Task* task){
 
 bool checkEnv(){
     bool error = true;
-    if(cookie == nullptr){
+    if(cookie.empty()){
         string err = "未找到环境变量: ";
         err += COOKIE;
         warn(err.c_str());
         error &= false;
     }
-    if(user_agent == nullptr){
+    if(user_agent.empty()){
         string err = "未找到环境变量: ";
         err += USERAGENT;
         warn(err.c_str());
         error &= false;
     }
     return error;
+}
+
+void setEnv(const string& newCookie) {
+    if (newCookie.empty())
+        cookie = getenv(COOKIE);
+    else cookie = newCookie;
 }

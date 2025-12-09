@@ -51,6 +51,8 @@ namespace bilibili{
             _duration = getVideoDuration(json);
             _image = getImageURL(json);
             _string_publishTime = toReadableTime(publishTime());
+            _views = getViews(json);
+            _popups = getPopup(json);
         #ifdef DEVELOP
         }catch (exception e){
             warn("Invalid json format ! Now json content :");
@@ -142,6 +144,15 @@ namespace bilibili{
         return _string_publishTime.c_str();
     }
 
+    unsigned int const &Video::views() const {
+        return _views;
+    }
+
+    unsigned int const &Video::popups() const {
+        return _popups;
+    }
+
+
     void Video::write_necessary(Json& json) const{
         json["title"] = _title;
         json["publishTime"] = string_PublishTime();
@@ -150,8 +161,10 @@ namespace bilibili{
         json["description"] = _description;
 //        json["mid"] = _mid;
         json["url"] = _url;
-        json["duration"] = _duration;
-        json["image"] = _image;
+        json["videoTime"] = _duration;
+        json["videoURL"] = _image;
+        json["views"] = _views;
+        json["popups"] = _popups;
     }
 
     void Video::write_all(Json& json) const{
@@ -165,6 +178,10 @@ namespace bilibili{
         _description.clear();
         _mid = -1;
         _url.clear();
+        _duration.clear();
+        _image.clear();
+        _string_publishTime.clear();
+        _views = 0;
     }
 
     void setVideo(Nullable const Video* video){

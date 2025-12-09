@@ -137,6 +137,8 @@ namespace dataStore{
 
         API void clear();
 
+        API bool empty() const;
+
         [[nodiscard]] API bool valid() const;
 
         API void broken();

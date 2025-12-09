@@ -51,3 +51,4 @@ OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 
 #define URL_PARAMS_CATEGORY "category"
+#define URL_PARAMS_SET_COOKIE_ENV "cookie_env"

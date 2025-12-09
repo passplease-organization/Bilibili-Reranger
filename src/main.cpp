@@ -45,7 +45,9 @@ int main(int argc, char** argv){
         return 1;
     }
 
-    GroupFilter(info.target);
+    #if NEED_PORT
+        GroupFilter(info.target);
+    #endif
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
@@ -62,9 +64,9 @@ int main(int argc, char** argv){
 
     setup();
 #if NEED_PORT
-    auto handler = checkURL(info.url);
-    if (handler != nullptr) {
-        return handler(socket);
+    if (const auto& handler = checkURL(info.url); handler != nullptr) {
+        if (const int& signal = handler(socket); signal != NEED_NORMAL_HANDLE)
+            return signal;
     }
     if(crawl(stop -> load(),socket)) {
 #else

@@ -27,6 +27,13 @@ PluginStatus load(){
         freeOutputChar(&_path);
         CONFIG = new dataStore::Data(dataStore::Data::readFromJson(CONFIG_PATH,NAME));
         if(CONFIG -> valid()) {
+        #if DEVELOP
+        #else
+            if (CONFIG -> empty()) {
+                say("空配置文件，使用默认配置文件...");
+                *CONFIG = getJson(EXAMPLE_NAME,EXAMPLE_PATH);
+            }
+        #endif
             CONFIG -> NeverSave();
             return PluginStatus::SUCCESS;
         }

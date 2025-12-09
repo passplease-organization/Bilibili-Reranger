@@ -1,4 +1,6 @@
 #include "testCode.h"
+
+#if NEED_PORT
 #include "Util.h"
 #include "config.h"
 #include <cpr/cpr.h>
@@ -13,6 +15,8 @@ atomic<bool> testFinished = false;
 inline void _say(string msg,bool endl = true) {
     say(msg.c_str(),endl,GREEN);
 }
+
+#define EMPTY_WARN(task) warn("Empty Response for " task " !");
 
 void startTestThread() {
     thread testThread(test);
@@ -48,8 +52,10 @@ void test() {
         _say("All categories get: ");
         _say(response.text);
         Json json = Json::parse(response.text);
-        if (json.empty())
+        if (json.empty()) {
             error = true;
+            EMPTY_WARN("Get all categories");
+        }
         if(fileExists(GET_ALL_CATEGORIES_OUTPUT)){
             deleteConfig(GET_ALL_CATEGORIES_OUTPUT,true);
         }
@@ -67,8 +73,10 @@ void test() {
         _say("Crawl for math get: ");
         _say(response.text);
         json = Json::parse(response.text);
-        if (json.empty())
+        if (json.empty()) {
             error = true;
+            EMPTY_WARN("Crawl for math");
+        }
         if (fileExists(MATH_OUTPUT)) {
             deleteConfig(MATH_OUTPUT,true);
         }
@@ -92,3 +100,5 @@ void test() {
     testFinished = true;
     POST_PARAMS(localhost);// To let main thread get out from listening port
 }
+
+#endif

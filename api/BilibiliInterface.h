@@ -15,6 +15,8 @@
 #define getVideoURL(json) Video::getVideoURLFromJson(json)
 #define getVideoDuration(json) json["duration"].get<std::string>()
 #define getImageURL(json) Video::getImageURLFromJson(json)
+#define getViews(json) json["play"].get<unsigned int>()
+#define getPopup(json) json["video_review"].get<unsigned int>()
 
 extern "C" {
 
@@ -39,6 +41,8 @@ namespace bilibili {
         string _duration;
         string _image;
         string _string_publishTime;
+        unsigned int _views;
+        unsigned int _popups;
 
         explicit Video(const dataStore::Data &data);
 
@@ -75,6 +79,10 @@ namespace bilibili {
         [[nodiscard]] API const char* image() const;
 
         [[nodiscard]] API const char* string_PublishTime() const;
+
+        [[nodiscard]] API unsigned int const& views() const;
+
+        API unsigned int const& popups() const;
 
         API void write_necessary(Json& json) const;
 

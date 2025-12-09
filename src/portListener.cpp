@@ -10,6 +10,8 @@
 #include <boost/url.hpp>
 #include <boost/beast/core.hpp>
 
+#include "bilibiliAPIs.h"
+
 #ifdef TEST
     #include "test/testCode.h"
 #endif
@@ -22,8 +24,8 @@ namespace ip = boost::asio::ip;
 thread_local CrawlInfo const* crawlInfo;
 thread_local shared_ptr<const atomic<bool>> stop;
 
-CrawlInfo::CrawlInfo(std::string url,std::string target, long long id)
-    : url(std::move(url)), target(std::move(target)), id(id) {
+CrawlInfo::CrawlInfo(std::string url,std::string target,bool set_cookie_env,std::string newCookie, long long id)
+    : url(std::move(url)), target(std::move(target)), set_cookie_env(set_cookie_env), cookie(newCookie), id(id) {
 }
 
 
@@ -71,10 +73,16 @@ void startWork() {
             boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
 
             std::string category;
+            bool set_cookie_env = false;
+            std::string newCookie;
             if (p.has_query())
                 for (auto const& param : p.params()) {
                     if (param.key == URL_PARAMS_CATEGORY)
                         category = param.value;
+                    else if (param.key == URL_PARAMS_SET_COOKIE_ENV)
+                        set_cookie_env = param.value == "true";
+                    else if (param.key == COOKIE)
+                        newCookie = param.value;
                 }
             if (details) {
                 say("Create thread for client from",false);
@@ -95,7 +103,7 @@ void startWork() {
                 }
             }
 
-            CrawlInfo info(url,category,id);
+            CrawlInfo info(url,category,set_cookie_env,newCookie,id);
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
@@ -108,6 +116,7 @@ void startWork() {
                     warn("Thread timeout");
                     cancel -> store(true);
                 }
+                cout << endl;
             },std::move(working),std::move(cancel),id,config<int>(TIMEOUT));
             id++;
 
