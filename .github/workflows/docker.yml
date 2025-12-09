@@ -8,27 +8,10 @@ on:
       - .devcontainer/Dockerfile
 
 jobs:
-  CreateContainer:
-    runs-on: ubuntu-latest
+  call-workflow-passing-data:
     permissions:
       contents: read
       packages: write
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Log in to the GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .devcontainer/
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/bilibili_reranger:backend_test_container
+    uses: passplease/Bilibili-Reranger/.github/workflows/docker.yml@master
+    with:
+      ref: "backend"
