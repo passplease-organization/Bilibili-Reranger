@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",
+    "@types/express": "^5.0.6",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.2",
@@ -37,7 +38,6 @@
     "daisyui": "^5.5.8",
     "eslint": "^9.39.1",
     "eslint-plugin-vue": "~10.6.2",
-    "express": "^5.2.1",
     "jiti": "^2.6.1",
     "jsdom": "^27.2.0",
     "npm-run-all2": "^8.0.4",

@@ -1,0 +1,13 @@
+name: Dev Container
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile
+      - express/Dockerfile
+
+jobs:
+  call-workflow-passing-data:
+    uses: ./docker.yml@master
+    with:
+      ref: "frontend"

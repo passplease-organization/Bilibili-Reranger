@@ -61,7 +61,7 @@ const load : string[] = Array.from("加载中...")
       <div class="py-2"></div>
       <div v-if="rotate[category.name]">
         <ul
-          class="flex align-top content-start gap-y-1 flex-wrap justify-evenly"
+          class="flex align-top content-start gap-4 gap-y-1 flex-wrap justify-evenly"
           v-if="category.videos.length > 0"
         >
           <li v-for="video in category.videos" :key="video.url">
