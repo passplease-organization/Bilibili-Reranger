@@ -4,8 +4,12 @@ on:
   release:
     types:
       - published
+
 jobs:
   Create-Image:
+    strategy:
+      matrix:
+        image: [backend, frontend]
     runs-on: ubuntu-22.04
     environment: Publish
     permissions:
@@ -15,7 +19,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: backend
+          ref: ${{ image }}
 
       - name: Log in to the GitHub Container Registry
         uses: docker/login-action@v3
@@ -36,6 +40,18 @@ jobs:
           context: ./
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/bilibili_reranger:${{ github.event.release.tag_name }}
-            docker.io/noname602/bilibili_reranger:${{ github.event.release.tag_name }}
-            docker.io/noname602/bilibili_reranger:latest
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_${{ image }}:${{ github.event.release.tag_name }}
+            docker.io/noname602/bilibili_reranger_${{ image }}:${{ github.event.release.tag_name }}
+            docker.io/noname602/bilibili_reranger_${{ image }}:latest
+
+      - name: Build and push Docker image for frontend API
+        uses: docker/build-push-action@v5
+        with:
+          file: ./express/Dockerfile
+          context: ./
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_${{ image }}_api:${{ github.event.release.tag_name }}
+            docker.io/noname602/bilibili_reranger_${{ image }}_api:${{ github.event.release.tag_name }}
+            docker.io/noname602/bilibili_reranger_${{ image }}_api:latest
+        if: matrix.image == 'frontend'
