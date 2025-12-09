@@ -6,6 +6,7 @@ on:
       - backend
     paths:
       - .devcontainer/Dockerfile
+      - .github/workflows/docker.yml
 
 jobs:
   call-workflow-passing-data:
