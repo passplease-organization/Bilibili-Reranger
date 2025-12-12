@@ -6,11 +6,11 @@ import { useTheme } from '@/website/theme/themesControl.ts'
 const { theme: activeTheme, setTheme, themes: themeList } = useTheme()
 
 import { getProxyUrl, setProxyUrl } from '@/website/App.vue'
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { getBackendUrl, initBackendUrl, setBackendUrl } from '@/website/index.vue'
-let proxyURL: string
+const proxyURL = ref('')
 const nowProxy = ref('')
-let backendURL: string
+const backendURL = ref('')
 const nowBackend = ref('')
 onMounted(() => {
   initBackendUrl()
@@ -20,12 +20,12 @@ onMounted(() => {
 function setProxy(url: string | null) {
   setProxyUrl(url)
   nowProxy.value = getProxyUrl(null, '')
-  proxyURL = ''
+  proxyURL.value = ''
 }
 function setBackend(url: string | null) {
   setBackendUrl(url)
   nowBackend.value = getBackendUrl()
-  backendURL = ''
+  backendURL.value = ''
 }
 </script>
 
@@ -54,10 +54,12 @@ function setBackend(url: string | null) {
     <h2>代理服务器配置</h2>
     <p>选择您自己的代理服务器用于加载B站视频图片等，若不设置，将使用Vercel的无服务器函数加载图片</p>
     <input
-      type="text"
+      type="url"
       v-model="proxyURL"
       :placeholder="nowProxy"
       class="input input-bordered w-1/2"
+      @focusin="proxyURL = proxyURL ? proxyURL : nowProxy;nextTick(() => $event.currentTarget.select())"
+      @focusout="proxyURL = proxyURL === nowProxy ? '' : proxyURL"
     />
     <button @click="setProxy(proxyURL)" class="btn btn-primary">保存</button>
     <button @click="setProxy(null)" class="btn btn-ghost">重置</button>
@@ -65,10 +67,15 @@ function setBackend(url: string | null) {
     <h2>后端服务配置</h2>
     <p>配置推荐服务的后端，必须配置！！！若不设置，无法获取推荐的视频！！！</p>
     <input
-      type="text"
+      type="url"
       v-model="backendURL"
       :placeholder="nowBackend"
       class="input input-bordered w-1/2"
+      @click="
+        backendURL = backendURL ? backendURL : nowBackend;
+        nextTick(() => $event.currentTarget.select())
+      "
+      @focusout="backendURL = backendURL === nowBackend ? '' : backendURL"
     />
     <button @click="setBackend(backendURL)" class="btn btn-primary">保存</button>
     <button @click="setBackend(null)" class="btn btn-ghost">重置</button>
