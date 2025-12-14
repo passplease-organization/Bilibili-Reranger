@@ -1,4 +1,7 @@
 #include "BilibiliInterface.h"
+
+#include <regex>
+
 #include "pluginInterface.h"
 
 string toReadableTime(long long publishTime){
@@ -53,6 +56,7 @@ namespace bilibili{
             _string_publishTime = toReadableTime(publishTime());
             _views = getViews(json);
             _popups = getPopup(json);
+            format();
         #ifdef DEVELOP
         }catch (exception e){
             warn("Invalid json format ! Now json content :");
@@ -182,6 +186,10 @@ namespace bilibili{
         _image.clear();
         _string_publishTime.clear();
         _views = 0;
+    }
+
+    void Video::format() {
+        _title = regex_replace(_title,regex("<em[^>]*>|</em>"),"");
     }
 
     void setVideo(Nullable const Video* video){

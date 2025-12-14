@@ -2,12 +2,14 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
 {
   "name": "C++",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "runArgs": [
-    "--name","Bilibili-Backend-devcontainer","--env-file","${localWorkspaceFolder}/.devcontainer/env.list"
-  ],
+  dockerComposeFile: "docker-compose.yml",
+  service: "backend",
+  //  "build": {
+//    "dockerfile": "Dockerfile"
+//  },
+//  "runArgs": [
+//    "--name","Bilibili-Backend-devcontainer","--env-file","${localWorkspaceFolder}/.devcontainer/env.list"
+//  ],
   // Features to add to the dev container. More info: https://containers.dev/features.
 //	 "features": {
 //       "ghcr.io/devcontainers/features/node:1": {

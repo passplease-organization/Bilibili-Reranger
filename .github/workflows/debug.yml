@@ -87,7 +87,7 @@ jobs:
 
       - name: Run Image
         run: |
-          docker run --name run-test -e COOKIE -e USERAGENT -d test
+          docker run --name run-test -e COOKIE -e USERAGENT -d ghcr.io/${{ github.repository_owner }}/bilibili_reranger:frontend_dev
           sleep 10
           docker stop run-test
         continue-on-error: true

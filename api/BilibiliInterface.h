@@ -89,6 +89,8 @@ namespace bilibili {
         API void write_all(Json& json) const;
 
         API void reset();
+
+        API void format();
     };
 
     API void setVideo(Nullable const Video* video);

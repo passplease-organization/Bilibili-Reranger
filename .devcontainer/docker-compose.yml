@@ -1,0 +1,21 @@
+services:
+  website:
+    image: noname602/bilibili_reranger_frontend
+    ports:
+      - '3000:80'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - api
+      - backend
+
+  api:
+    image: noname602/bilibili_reranger_frontend_api
+    domainname: api
+
+  backend:
+    build:
+      dockerfile: Dockerfile
+    domainname: backend
+    env_file:
+      - env.list
