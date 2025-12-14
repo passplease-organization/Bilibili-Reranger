@@ -50,12 +50,12 @@ export default async function onRequest(context){
     // 获取图片的二进制数据
     const imageBuffer = await imageResponse.arrayBuffer();
     // 将图片数据作为响应体发送回前端
-    return new Response(Buffer.from(imageBuffer), {
+    return new Response(imageBuffer, {
       headers: {
         'Cache-Control': `public, s-maxage=${IMAGE_CDN_CACHE_SECONDS}, max-age=${IMAGE_BROWSER_CACHE_SECONDS}, stale-while-revalidate=30`,
         'Content-Type': imageResponse.headers.get('content-type') || 'image/jpeg',
       },
-      status: 200
+      status: 200,
     })
 
   } catch (error) {
