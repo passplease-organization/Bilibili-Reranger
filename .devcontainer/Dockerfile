@@ -17,10 +17,11 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
+RUN apt update && apt install -y libboost-all-dev
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install CURL
-RUN apt update && apt install -y libboost-all-dev
+RUN vcpkg install openssl
 
 RUN apt-get update && apt-get install -y curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

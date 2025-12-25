@@ -2,9 +2,11 @@
 
 #include "Util.h"
 #include "pluginInterface.h"
-#include "bilibili_wbi/wbi.h"
+#include "loginAPI/socialAPI.h"
 
 #pragma once
+
+#define BILIBILI "Bilibili"
 
 #define getPublishTime(json) (json.contains("ctime") ? json["ctime"].get<long long>() : json["pubdate"].get<long long>())
 #define getTitle(json) json["title"].get<std::string>()
@@ -118,5 +120,24 @@ namespace bilibili{
                 group.second[i].write_necessary(json[group.first][i]);
             }
         return json;
+    }
+
+    class bilibiliLogin : public webAPI::socialAPI {
+    public:
+        bilibiliLogin(std::shared_ptr<const std::atomic<bool>>& stop);
+
+        ~bilibiliLogin() override = default;
+
+        bool login(const std::string &name, const std::string &password) override;
+
+        cpr::Response requestVerificationCode() override;
+
+        std::string getCOOKIE() override;
+    };
+
+    inline void registerBilibili() {
+        webAPI::socialAPI::supportPlatform(BILIBILI,[](std::shared_ptr<const std::atomic<bool>>& stop) -> webAPI::socialAPI* {
+            return new bilibiliLogin(stop);
+        });
     }
 }

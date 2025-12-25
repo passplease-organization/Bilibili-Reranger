@@ -21,6 +21,7 @@
 #define PORT "port"
 #define TIMEOUT "timeout"
 #define DETAILS "debug"
+#define KEY_LENGTH "key_length"
 
 extern API map<const string,std::any> defaultConfigs;
 

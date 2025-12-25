@@ -38,6 +38,7 @@ void createConfig(){
         #else
             config.put(DETAILS,false,false,FORCE_GENERATE_CONFIG);
         #endif
+        config.put(KEY_LENGTH,2048,false,FORCE_GENERATE_CONFIG);
         config.writeToJson();
     }
     freeOutputChar(&path);
@@ -90,4 +91,5 @@ void _readConfig() noexcept(false){
     getAndStore<int>(&config, PORT);
     getAndStore<int>(&config, TIMEOUT);
     getAndStore<bool>(&config, DETAILS);
+    getAndStore<int>(&config, KEY_LENGTH);
 }

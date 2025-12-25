@@ -7,6 +7,7 @@
 #include "interface.h"
 #include "../Crawler.h"
 #include "../PluginHandler.h"
+#include "loginAPI/socialAPI.h"
 
 void dealParams(CurlHelper& helper) {
     if (!crawlInfo -> cookie.empty())
@@ -32,11 +33,29 @@ int setCOOKIE(boost::asio::ip::tcp::socket& socket) {
     return back(sendMessage(socket, succeed ? "set cookie succeed" : "set cookie failed"));
 }
 
+int login(boost::asio::ip::tcp::socket& socket) {
+    string platform,username,password;
+    for (auto const& param : crawlInfo -> params) {
+        if (param.key == URL_PARAMS_PLATFORM)
+            platform = param.value;
+        else if (param.key == URL_PARAMS_USERNAME)
+            username = param.value;
+        else if (param.key == URL_PARAMS_PASSWORD)
+            password = param.value;
+    }
+    if (platform.empty() && username.empty() && password.empty())
+        return back(sendMessage(socket,webAPI::socialAPI::allPlatform()));
+    const auto handler = webAPI::socialAPI::instance(platform,stop);
+    return back(handler -> login(username,password));
+}
+
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET_ALL_CATEGORIES))
         return getAllCategories;
     else if (url.starts_with(SET_COOKIE))
         return setCOOKIE;
+    else if (url.starts_with(LOGIN))
+        return login;
     return nullptr;
 }
 #endif

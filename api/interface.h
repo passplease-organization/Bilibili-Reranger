@@ -52,3 +52,6 @@ typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 
 #define URL_PARAMS_CATEGORY "category"
 #define URL_PARAMS_SET_COOKIE_ENV "cookie_env"
+#define URL_PARAMS_PLATFORM "platform"
+#define URL_PARAMS_USERNAME "username"
+#define URL_PARAMS_PASSWORD "password"

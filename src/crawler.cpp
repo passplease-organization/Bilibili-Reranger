@@ -107,7 +107,7 @@ bool CurlHelper::dealJson() {
     #ifdef DEVELOP
         try {
     #endif
-            json = Json::parse(tempData);
+            json = Json::parse(tempData);// TODO COOKIE不合法时的报错信息分析
     #ifdef DEVELOP
             auto data = json.get<dataStore::Data>();
             data.setPath(tempDataPath);

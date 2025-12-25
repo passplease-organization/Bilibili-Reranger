@@ -23,8 +23,8 @@ add_library(${PROJECT_NAME} SHARED
         utils.cpp
         BilibiliInterface.cpp
         mainConfig.cpp
-        #        bilibili_wbi/wbi.cpp
-#        bilibili_wbi/wbi.h
+        loginAPI/socialAPI.cpp
+        loginAPI/socialAPI.h
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -36,8 +36,9 @@ endif ()
 
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
-#find_package(cryptopp CONFIG REQUIRED)
-#target_link_libraries(${PROJECT_NAME} PRIVATE cryptopp::cryptopp)
+find_package(OpenSSL CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::Crypto)
 find_package(cpr CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
 
