@@ -4,6 +4,8 @@ services:
       context: ../
       dockerfile: .devcontainer/Dockerfile
     domainname: frontend
+    volumes:
+      - ./qwen:/root/.qwen
     env_file:
       - env.list
     depends_on:
