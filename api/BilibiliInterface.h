@@ -132,7 +132,7 @@ namespace bilibili{
 
         cpr::Response requestVerificationCode() override;
 
-        std::string getCOOKIE() override;
+        std::string getCOOKIE() const override;
     };
 
     inline void registerBilibili() {

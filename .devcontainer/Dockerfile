@@ -22,6 +22,7 @@ RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install CURL
 RUN vcpkg install openssl
+RUN vcpkg install libsodium
 
 RUN apt-get update && apt-get install -y curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
