@@ -9,8 +9,10 @@
 #include <boost/beast/http.hpp>
 #include <boost/url.hpp>
 #include <boost/beast/core.hpp>
+#include <utility>
 
 #include "bilibiliAPIs.h"
+#include "subFeatures/requestHelper.h"
 
 #ifdef TEST
     #include "test/testCode.h"
@@ -24,8 +26,16 @@ namespace ip = boost::asio::ip;
 thread_local CrawlInfo const* crawlInfo;
 thread_local shared_ptr<const atomic<bool>> stop;
 
-CrawlInfo::CrawlInfo(boost::urls::params_view params,std::string url,std::string target,bool set_cookie_env,std::string newCookie, long long id)
-    : params(std::move(url)), url(std::move(url)), target(std::move(target)), set_cookie_env(set_cookie_env), cookie(newCookie), id(id) {
+CrawlInfo::CrawlInfo(std::string clientId,const string& body,boost::urls::params_view params,std::string url,std::string target,bool set_cookie_env,std::string newCookie, long long id)
+:client(webAPI::client(std::move(clientId))),
+params(std::move(params)),
+url(std::move(url)),
+target(std::move(target)),
+set_cookie_env(set_cookie_env),
+cookie(newCookie),
+id(id) {
+    if (checkClient())
+        this -> body = client -> decrypt(body);
 }
 
 
@@ -35,7 +45,7 @@ auto WorkFunction = &work;
 void startWork() {
     readConfig();
     PluginHandler::loadAll();
-    auto* tempHelper = new CurlHelper();
+    auto* tempHelper = new CrawlerHelper();
     tempHelper -> curlSetup(cookie,user_agent);
     tempHelper -> refreshSubscribers();
     delete tempHelper;
@@ -73,10 +83,13 @@ void startWork() {
             boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
 
             std::string category,newCookie,platform,username,password;
+            string clientId("");
             bool set_cookie_env = false;
             if (p.has_query())
                 for (auto const& param : p.params()) {
-                    if (param.key == URL_PARAMS_CATEGORY)
+                    if (param.key == URL_PARAMS_CLIENT_ID)
+                        clientId = param.value;
+                    else if (param.key == URL_PARAMS_CATEGORY)
                         category = param.value;
                     else if (param.key == URL_PARAMS_SET_COOKIE_ENV)
                         set_cookie_env = param.value == "true";
@@ -102,7 +115,7 @@ void startWork() {
                 }
             }
 
-            CrawlInfo info(p.params(),url,category,set_cookie_env,newCookie,id);
+            CrawlInfo info(clientId,request.body(),p.params(),url,category,set_cookie_env,newCookie,id);
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
@@ -138,7 +151,7 @@ bool sendMessage(ip::tcp::socket& socket,string data) {
     response.set(http::field::server,SERVER_HEADER);
     response.set(http::field::content_type, "application/json; charset=utf-8");
     response.set(http::field::connection, "close");
-    response.body() = data;
+    response.body() = crawlInfo -> client == nullptr ? data : crawlInfo -> client -> encrypt(data);
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);

@@ -7,7 +7,7 @@
 #include "../Crawler.h"
 #include <boost/asio/ip/tcp.hpp>
 
-void dealParams(CurlHelper& helper);
+void dealParams(CrawlerHelper& helper);
 
 typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define GET_ALL_CATEGORIES_NO_SLASH "all_category"
@@ -16,6 +16,10 @@ typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define SET_COOKIE "/" SET_COOKIE_NO_SLASH
 #define LOGIN_NO_SLASH "login"
 #define LOGIN "/" LOGIN_NO_SLASH
+#define KEY_NO_SLASH "key"
+#define KEY "/" KEY_NO_SLASH
+#define TEST_ID_NO_SLASH "test"
+#define TEST_ID "/" TEST_ID_NO_SLASH
 
 #define NEED_NORMAL_HANDLE -1
 handler checkURL(const std::string& url);

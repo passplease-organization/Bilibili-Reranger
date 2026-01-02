@@ -11,32 +11,13 @@
     #include <boost/asio.hpp>
 #endif
 
-CurlHelper::CurlHelper(){
-    curl = curl_easy_init();
-}
-
-CurlHelper::~CurlHelper(){
-    if(curl != nullptr)
-        curl_easy_cleanup(curl);
-}
-
-void CurlHelper::clear() {
-    json.clear();
-    tempData.clear();
-}
-
-void CurlHelper::curlSetup(const string &cookie,const string& useragent){
-    if(curl == nullptr){
-        throwError("创建CURL失败");
-        return;
-    }
-    curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,CurlHelper::saveData);
-    curl_easy_setopt(curl,CURLOPT_WRITEDATA,this);
+void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
+    CurlHelper::curlSetup();
     curl_easy_setopt(curl,CURLOPT_COOKIE,cookie.c_str());
     curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent.c_str());
 }
 
-bool CurlHelper::connect(bool deal){
+bool CrawlerHelper::connect(bool deal){
     if(nextURL().empty())
         return false;
 
@@ -45,21 +26,10 @@ bool CurlHelper::connect(bool deal){
         say(url.c_str(), true, GREEN);
     #endif
 
-    curl_easy_setopt(curl,CURLOPT_URL,nextURL().c_str());
     clear();
     #if CONNECT_INTERNET
-        if(crawlNext()){
-            _crawlNext = false;
-            CURLcode code = curl_easy_perform(curl);
-            if (CURLE_OK != code) {
-                clear();
-                warn("连接链接失败，信息如下：", false);
-                warn(curl_easy_strerror(code), false);
-                warn("错误码：", false);
-                warn(to_string(code).c_str());
-                return false;
-            }
-        }
+        if(crawlNext())
+            CurlHelper::connect(false);
     #else
         if(fileExists(BILIBILI_DATA)) {
             ifstream data(BILIBILI_DATA);
@@ -91,11 +61,7 @@ bool CurlHelper::connect(bool deal){
     #endif
 }
 
-CURL *CurlHelper::getCurl() const{
-    return curl;
-}
-
-bool CurlHelper::dealJson() {
+bool CrawlerHelper::dealJson() {
     #if MORE_DETAILS
         say("爬取中");
     #endif
@@ -208,36 +174,14 @@ bool CurlHelper::dealJson() {
     }
 }
 
-void CurlHelper::dealJson(const Json& _json) {
-    clear();
-    this -> json = _json;
-    dealJson();
-    clear();
-}
-
-size_t CurlHelper::saveData(char *data, size_t size, size_t member, void *userdata) {
-    auto* helper = static_cast<CurlHelper*>(userdata);
-    long sizes = size * member;
-    helper -> tempData += string(data,sizes);
-    return sizes;
-}
-
-const string &CurlHelper::nextURL() const {
-    return url;
-}
-
-void CurlHelper::clearURL() {
-    url = "";
-}
-
-bool CurlHelper::nextPage() {
+bool CrawlerHelper::nextPage() {
     auto task = crawlTask::nowTask();
     switch(task -> mode){
         default : return false;
     }
 }
 
-unsigned int CurlHelper::getPages(const string &url) {
+unsigned int CrawlerHelper::getPages(const string &url) {
     regex regular(".*?pn=([0-9]*).*?");
     smatch result;
     if(regex_match(url,result,regular)) {
@@ -258,7 +202,7 @@ unsigned int CurlHelper::getPages(const string &url) {
     return 1;
 }
 
-void CurlHelper::nextPage(unsigned int nowPage) {
+void CrawlerHelper::nextPage(unsigned int nowPage) {
     string pn = "pn=";
     string now = pn + std::to_string(nowPage++);
     string next = pn + std::to_string(nowPage);
@@ -268,21 +212,21 @@ void CurlHelper::nextPage(unsigned int nowPage) {
     }else url = url.append("&").append(next);
 }
 
-void CurlHelper::nextMustCrawl() {
+void CrawlerHelper::nextMustCrawl() {
     _crawlNext = true;
 }
 
-bool CurlHelper::finishCrawl() const {
+bool CrawlerHelper::finishCrawl() const {
     return url.empty() && crawlTask::nowTask() == nullptr;
 }
 
-void CurlHelper::nextSearch(const string &url) {
-    if(CurlHelper::url.empty())
-        CurlHelper::url = url;
+void CrawlerHelper::nextSearch(const string &url) {
+    if(CrawlerHelper::url.empty())
+        CrawlerHelper::url = url;
 }
 
 //TODO 未来支持前端向后端传输COOKIE后做成线程内私有，这样对不同的请求的COOKIE可以分开支持，能不仅限于个人不熟部署
-void CurlHelper::refreshSubscribers(const bool force) {
+void CrawlerHelper::refreshSubscribers(const bool force) {
     #if MORE_DETAILS
         say("开始准备关注博主名单");
     #endif
@@ -326,21 +270,21 @@ void CurlHelper::refreshSubscribers(const bool force) {
     #endif
 }
 
-bool CurlHelper::crawlNext() const {
+bool CrawlerHelper::crawlNext() const {
     return _crawlNext || (crawlTask::nowTask() -> mode != crawlTask::WorkingMode::SUBSCRIBE);
 }
 
-void CurlHelper::addSubscriber(const dataStore::Data& _subscribers) {
+void CrawlerHelper::addSubscriber(const dataStore::Data& _subscribers) {
     std::lock_guard<std::mutex> lock(subscribers_mutex);
     subscribers += _subscribers;
 }
 
-void CurlHelper::clearSubscriber() {
+void CrawlerHelper::clearSubscriber() {
     std::lock_guard<std::mutex> lock(subscribers_mutex);
     subscribers.clear();
 }
 
-dataStore::Data CurlHelper::getSubscribers(const string& name) {
+dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     std::lock_guard<std::mutex> lock(subscribers_mutex);
     if (name.empty())
         return subscribers;
@@ -353,8 +297,8 @@ dataStore::Data CurlHelper::getSubscribers(const string& name) {
     return dataStore::Data();
 }
 
-dataStore::Data CurlHelper::subscribers = dataStore::Data{};
-std::mutex CurlHelper::subscribers_mutex = std::mutex{};
+dataStore::Data CrawlerHelper::subscribers = dataStore::Data{};
+std::mutex CrawlerHelper::subscribers_mutex = std::mutex{};
 
 string cookie = getenv(COOKIE);
 string user_agent = getenv(USERAGENT);
@@ -364,7 +308,7 @@ bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket)
 #else
 bool crawl(const std::atomic<bool>& cancel){
 #endif
-    CurlHelper helper = CurlHelper();
+    CrawlerHelper helper = CrawlerHelper();
     helper.curlSetup(cookie,user_agent);
     #if NEED_PORT
         dealParams(helper);

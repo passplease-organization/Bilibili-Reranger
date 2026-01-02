@@ -22,6 +22,7 @@
 #define TIMEOUT "timeout"
 #define DETAILS "debug"
 #define KEY_LENGTH "key_length"
+#define MAX_CLIENT "max_client_count"
 
 extern API map<const string,std::any> defaultConfigs;
 

@@ -20,7 +20,9 @@ inline int success() {
     return 0;
 }
 
-inline int failed() {
+inline int failed(const std::string& msg = "") {
+    if (!msg.empty())
+        warn(msg.c_str());
 #if NEED_PORT
     if (stop -> load())
         warn("运行超时，本线程自动退出");

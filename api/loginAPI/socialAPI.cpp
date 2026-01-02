@@ -1,6 +1,7 @@
 #include "socialAPI.h"
 
 #include <map>
+
 #include "../config.h"
 #include "../Util.h"
 
@@ -21,16 +22,16 @@ bool socialAPI::supportPlatform(const std::string& platform,creator function) {
 
 void socialAPI::init() {}
 
-socialAPI* socialAPI::instance(socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
+bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
     if (handler == nullptr)
-        return nullptr;
+        return false;
     if (*handler != nullptr)
-        return *handler;
+        return true;
     if (socials.contains(platform))
-        return nullptr;
+        return false;
     *handler = socials[platform](stop);
     (*handler) -> init();
-    return *handler;
+    return true;
 }
 
 string socialAPI::allPlatform() {
@@ -43,10 +44,9 @@ string socialAPI::allPlatform() {
 
 auto rsa = SimpleRSA();
 
-const SimpleRSA &webAPI::getRSA() {
+const SimpleRSA& webAPI::getRSA() {
     return rsa;
 }
-
 SimpleRSA::SimpleRSA() {
     if (sodium_init() < 0) {
         throwError("Libsodium initialization failed");
@@ -79,7 +79,7 @@ std::string SimpleRSA::decrypt(const std::string &content) const {
     if (sodium_base642bin(cipher_bin.data(), cipher_len,
                           content.c_str(), cipher_len,
                           NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        throw std::runtime_error("Base64 decoding failed");
+        throwError("Base64 decoding failed");
                           }
 
     // 2. 密封盒解密 (Sealed Box Open)
@@ -97,12 +97,56 @@ std::string SimpleRSA::decrypt(const std::string &content) const {
     return string(decrypted.begin(), decrypted.end());
 }
 
+bool SimpleRSA::check() const{
+    return sizeof publickey == sizeof secretkey;
+}
+
+std::string SimpleRSA::encrypt(const std::string &key, const std::string &content) {
+    std::vector<unsigned char> pk_bin(crypto_box_PUBLICKEYBYTES);
+
+    // 2. 将 Base64 公钥解码为二进制
+    // 如果解码失败（比如公钥格式不对），返回空字符串或抛出异常
+    if (sodium_base642bin(pk_bin.data(), crypto_box_PUBLICKEYBYTES,
+                          key.c_str(), key.length(),
+                          NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
+        say("无效的公钥格式");
+        return "";
+                          }
+
+    // 3. 计算密文长度
+    // Libsodium 的密封盒加密，密文长度 = 明文长度 + SEALBYTES (48字节)
+    size_t cipher_len = crypto_box_SEALBYTES + content.length();
+    std::vector<unsigned char> cipher_bin(cipher_len);
+
+    // 4. 执行加密 (Sealed Box)
+    // 只需要：密文容器、明文、明文长度、对方公钥
+    if (crypto_box_seal(cipher_bin.data(),
+                        (const unsigned char*)content.c_str(), content.length(),
+                        pk_bin.data()) != 0) {
+        return ""; // 加密失败
+                        }
+
+    // 5. 将二进制密文转为 Base64 (方便网络传输)
+    size_t b64_len = sodium_base64_ENCODED_LEN(cipher_len, sodium_base64_VARIANT_ORIGINAL);
+    std::vector<char> b64_str(b64_len);
+
+    sodium_bin2base64(b64_str.data(), b64_len,
+                      cipher_bin.data(), cipher_len,
+                      sodium_base64_VARIANT_ORIGINAL);
+
+    return std::string(b64_str.data());
+}
+
 SimpleESA::SimpleESA(const string& key) {
     if (key.length() != crypto_secretbox_KEYBYTES) {
         throwError("Session Key length invalid! Must be 32 bytes.");
     }
 
     std::memcpy(this -> key, key.data(), crypto_secretbox_KEYBYTES);
+}
+
+SimpleESA::SimpleESA(SimpleESA &&other) noexcept {
+    std::memcpy(this -> key, other.key, crypto_secretbox_KEYBYTES);
 }
 
 std::string SimpleESA::decrypt(const std::string &content) const {
@@ -172,13 +216,126 @@ std::string SimpleESA::encrypt(const std::string &content) const {
     return std::string(b64.data());
 }
 
+bool SimpleESA::check() const{
+    string content = (char*)key;
+    return decrypt(encrypt(content)) == content;
+}
+
 Client::Client(const string& key) : esa(key) {
-    char nonce[32];
-    randombytes_buf(nonce, sizeof nonce);
-    ID = nonce;
+    do {
+        char nonce[32];
+        randombytes_buf(nonce, sizeof nonce);
+        ID = nonce;
+    }while (client(ID) == nullptr);
     _handler = nullptr;
+    handlers = vector<socialAPI*>();
+}
+
+Client::Client(Client &&other) noexcept
+: esa(std::move(other.esa)),
+handlers(std::move(other.handlers)),
+ID(std::move(other.ID)),
+_handler(other._handler){}
+
+void Client::getHandler(const std::string& platform, std::shared_ptr<const std::atomic<bool>>& stop){
+    if (_handler != nullptr && _handler -> support(platform))
+        return;
+    _handler = nullptr;
+    socialAPI::instance(&_handler,platform,stop);
+    if (_handler != nullptr) {
+        _handler -> init();
+        handlers.push_back(_handler);
+    }
+}
+
+bool Client::check() const{
+    return esa.check() && client(ID) == this;
 }
 
 const string &Client::getID() const {
     return ID;
+}
+
+auto clients = LinkedMap<string,Client*>(config<int>(MAX_CLIENT));
+auto client_mutex = std::mutex();
+
+Client* webAPI::client(std::string ID){
+    client_mutex.lock();
+    if (!clients.contains(ID))
+        return nullptr;
+    return clients[ID];
+}
+
+bool webAPI::storeClient(Client* client){
+    if (client == nullptr || client -> check())
+        return false;
+    client_mutex.lock();
+    if (clients.contains(client -> getID())) {
+        return false;
+    }
+    clients[client -> getID()] = client;
+    return true;
+}
+
+const std::string &webAPI::createAndStoreClient(const std::string &key) {
+    auto client = new Client(key);
+    if (storeClient(client))
+        return client -> getID();
+    else delete client;
+    return "";
+}
+
+CurlHelper::CurlHelper() {
+    curl = curl_easy_init();
+}
+
+CurlHelper::~CurlHelper() {
+    if(curl != nullptr)
+        curl_easy_cleanup(curl);
+}
+
+size_t CurlHelper::saveData(char *data, size_t size, size_t member, void *userdata) {
+    auto* helper = static_cast<CurlHelper*>(userdata);
+    long sizes = size * member;
+    helper -> tempData += string(data,sizes);
+    return sizes;
+}
+
+void CurlHelper::curlSetup() {
+    if(curl == nullptr){
+        throwError("创建CURL失败");
+        return;
+    }
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlHelper::saveData);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, this);
+}
+
+bool CurlHelper::connect(bool deal) {
+    curl_easy_setopt(curl,CURLOPT_URL,nextURL().c_str());
+    CURLcode code = curl_easy_perform(curl);
+    if (CURLE_OK != code) {
+        clear();
+        warn("连接链接失败，信息如下：", false);
+        warn(curl_easy_strerror(code), false);
+        warn("错误码：", false);
+        warn(to_string(code).c_str());
+        return false;
+    }
+    return deal ? dealJson() : true;
+}
+
+bool AutoCurlHelper::dealJson() {
+    #ifdef DEVELOP
+        try {
+    #endif
+            json = Json::parse(tempData);
+    #ifdef DEVELOP
+        }catch (std::exception& e) {
+            warn("爬取数据格式错误！");
+            warn("数据如下：");
+            warn(tempData.c_str());
+            throwError(e.what());
+        }
+    #endif
+    return deal(json);
 }

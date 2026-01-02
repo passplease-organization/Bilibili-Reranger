@@ -89,7 +89,7 @@ namespace dataStore{
     API void to_json(Json& json,const Data& data);
 
     class Data {
-        friend void setSaved(Data *data, bool saved);
+    friend void setSaved(Data *data, bool saved);
     private:
         bool _valid = false;
 
@@ -264,3 +264,62 @@ namespace dataStore{
 constexpr bool needCrawlURL(const std::string& url){
     return !url.contains('.');
 }
+
+/**
+ * A map has a limited elements count
+ * @tparam key Must can be copied
+ * @tparam value Allow copy constructor deleted
+ */
+template <typename key,typename value>
+class LinkedMap {
+private:
+    key* keys;
+    value* values;
+    unsigned int _size;
+
+public:
+    const unsigned int maxCount;
+    API LinkedMap(unsigned int count);
+
+    API LinkedMap(const LinkedMap& other) requires std::copy_constructible<value>;
+    API LinkedMap(const LinkedMap* other) requires std::copy_constructible<value>;
+
+    API LinkedMap(LinkedMap&& other) noexcept requires std::move_constructible<value>;
+
+    API ~LinkedMap();
+
+    API pair<key,value> put(const key& k,value& v);
+    API pair<key,value> put(pair<key,value>& p) {
+        return put(p.first,p.second);
+    }
+
+    API value& operator[](const key& k) const;
+
+    API bool operator==(const LinkedMap& other) const;
+
+    API Nullable value* get(const key& k) const;
+
+    /**
+     * @param k key of element you want to remove, null means the first one
+     * @return removed value
+     */
+    API Nullable value* remove(Nullable const key* k);
+
+    API bool contains(const key& k) const;
+
+    API [[nodiscard]] const unsigned int& size() const {
+        return _size;
+    }
+
+    API [[nodiscard]] bool empty() const {
+        return _size == 0;
+    }
+
+    API pair<key,value>& last() const {
+        return std::pair<key,value>(keys[_size - 1],values[_size - 1]);
+    }
+
+    API pair<key,value>& first() const {
+        return std::pair<key,value>(keys[0],values[0]);
+    }
+};

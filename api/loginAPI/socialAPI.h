@@ -16,18 +16,22 @@ namespace webAPI {
         unsigned char secretkey[crypto_box_SECRETKEYBYTES]{}; // 私钥
 
     public:
-        SimpleRSA();
+        API SimpleRSA();
 
-        ~SimpleRSA() = default;
+        API ~SimpleRSA() = default;
 
-        SimpleRSA& operator= (SimpleRSA& other) = delete;
-        SimpleRSA& operator= (SimpleRSA* other) = delete;
+        API SimpleRSA& operator= (SimpleRSA& other) = delete;
+        API SimpleRSA& operator= (SimpleRSA* other) = delete;
 
-        SimpleRSA& operator= (SimpleRSA&& other) = default;
+        API SimpleRSA& operator= (SimpleRSA&& other) = default;
 
-        [[nodiscard]] std::string decrypt(const std::string& content) const;
+        API [[nodiscard]] std::string decrypt(const std::string& content) const;
 
-        [[nodiscard]] std::string publicKey() const;
+        API [[nodiscard]] std::string publicKey() const;
+
+        API [[nodiscard]] bool check() const;
+
+        API std::string static encrypt(const std::string& key,const std::string& content);
     };
 
     const SimpleRSA& getRSA();
@@ -38,23 +42,24 @@ namespace webAPI {
     class SimpleESA {
     private:
         unsigned char key[crypto_secretbox_KEYBYTES]{};
+
     public:
-        SimpleESA(const string& key);
+        API SimpleESA(const string& key);
 
-        ~SimpleESA() = default;
+        API SimpleESA(SimpleESA&& other) noexcept;
 
-        SimpleESA& operator= (SimpleESA& other) = delete;
+        API ~SimpleESA() = default;
 
-        SimpleESA& operator= (SimpleESA* other) = delete;
+        API SimpleESA& operator= (SimpleESA& other) = delete;
 
-        SimpleESA& operator= (SimpleESA&& other) = default;
+        API SimpleESA& operator= (SimpleESA* other) = delete;
 
-        [[nodiscard]] std::string encrypt(const std::string& content) const;
+        API [[nodiscard]] std::string encrypt(const std::string& content) const;
 
-        [[nodiscard]] std::string decrypt(const std::string& content) const;
+        API [[nodiscard]] std::string decrypt(const std::string& content) const;
+
+        API [[nodiscard]] bool check() const;
     };
-
-    SimpleESA& getESA();
 
     class socialAPI;
     typedef socialAPI* (FUNCTION_CALLER *creator)(std::shared_ptr<const std::atomic<bool>>&);
@@ -66,21 +71,25 @@ namespace webAPI {
     public:
         socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
 
-        virtual ~socialAPI() = 0;
+        API virtual ~socialAPI() = 0;
 
-        virtual bool login(const std::string& name,const std::string& password) = 0;
+        API virtual string login(const std::string &name, const std::string &password) = 0;
+
+        API virtual bool validCOOKIE() {
+            return !getCOOKIE().empty();
+        }
 
         /**
          * Get if support to log in this specific platform, and the return value will never be changed in this thread
          * @param platform Checked Supported Platform
          * @param handler *handler must be nullptr ! Or else just return *handler
-         * @return Instance which support, or else, null
+         * @return Success or not
          */
-        static socialAPI* instance(socialAPI** handler,const std::string& platform,std::shared_ptr<const std::atomic<bool>>& stop);
+        API static bool instance(socialAPI** handler,const std::string& platform,std::shared_ptr<const std::atomic<bool>>& stop);
 
-        static std::string allPlatform();
+        API static std::string allPlatform();
 
-        void init();
+        API void init();
 
         /**
          * Register your platform login handler
@@ -88,48 +97,134 @@ namespace webAPI {
          * @param function Creator of your object, please new an object, it will be tied to this thread
          * @return succeed or not
          */
-        static bool supportPlatform(const std::string& platform,creator function);
-
-        virtual cpr::Response requestVerificationCode() = 0;
+        API static bool supportPlatform(const std::string& platform,creator function);
 
         /**
          * Called when main function needs
          */
-        [[nodiscard]] std::string virtual getCOOKIE() const = 0;
+        API [[nodiscard]] const string virtual &getCOOKIE() const = 0;
+
+        API virtual bool support(const std::string& platform) = 0;
     };
 
     class Client {
+    friend socialAPI* getHandler(Client const* client);
+    friend bool storeClient(NotNull Client* client);
     private:
-        string ID;
+        std::string ID;
 
-        const SimpleESA esa;
+        SimpleESA esa;
+
     protected:
         socialAPI* _handler;
+        vector<socialAPI*> handlers;
+
     public:
-        Client(const string& key);
+        API Client(const std::string& key);
 
-        Client& operator= (Client& other) = delete;
+        API Client(Client&& other) noexcept;
 
-        Client& operator= (Client* other) = delete;
+        API Client& operator= (Client& other) = delete;
 
-        Client& operator= (Client&& other) = default;
+        API Client& operator= (Client* other) = delete;
 
-        [[nodiscard]] std::string encrypt(const std::string& content) const {
+        API [[nodiscard]] std::string encrypt(const std::string& content) const {
             return esa.encrypt(content);
-        };
+        }
 
-        [[nodiscard]] std::string decrypt(const std::string& content) const {
+        API [[nodiscard]] std::string decrypt(const std::string& content) const {
             return esa.decrypt(content);
-        };
+        }
 
-        [[nodiscard]] const string& getID() const;
+        API [[nodiscard]] const string& getID() const;
 
-        [[nodiscard]] const socialAPI* handler() const{
+        API void getHandler(const std::string& platform,std::shared_ptr<const std::atomic<bool>>& stop);
+
+        API [[nodiscard]] const socialAPI* handler() const{
             return _handler;
         }
+
+        API [[nodiscard]] bool check() const;
     };
 
-    Client* client();
+    API Nullable Client* client(std::string ID);
 
-    void storeClient(Client* client);
+    API bool storeClient(NotNull Client* client);
+
+    API const std::string& createAndStoreClient(const std::string& key);
+
+    class CurlHelper {
+    private:
+        static size_t saveData(char *data, size_t size, size_t member, void *userdata);
+    public:
+        CurlHelper();
+
+        virtual ~CurlHelper();
+    protected:
+        CURL *curl;
+
+        Json json = Json();
+
+        string tempData;
+
+        string url;
+
+        void clear(){
+            json.clear();
+            tempData.clear();
+        }
+
+        virtual bool dealJson(){return false;}
+
+        virtual bool dealJson(const Json& _json) {
+            clear();
+            this -> json = _json;
+            auto&& back = dealJson();
+            clear();
+            return back;
+        }
+
+        void clearURL() {
+            url = "";
+        }
+    public:
+        [[nodiscard]] CURL* getCurl() const{
+            return curl;
+        }
+
+        [[nodiscard]] const string& nextURL() const {
+            return url;
+        }
+
+        virtual void setURL(const string& url) {
+            this -> url = url;
+        }
+
+        bool connect(bool deal = false);
+
+        virtual const Json& getJson() noexcept {
+            if (!tempData.empty()) {
+                try {
+                    json = tempData;
+                }catch(...) {
+                    return Json();
+                }
+            }
+            return json;
+        }
+
+        void curlSetup();
+    };
+
+    class AutoCurlHelper : public CurlHelper {
+        typedef bool (FUNCTION_CALLER* dealer)(Json& json);
+    public:
+        const dealer deal;
+
+        AutoCurlHelper(const dealer& _deal) : deal(_deal) {}
+
+        ~AutoCurlHelper() override = default;
+
+        bool dealJson() override;
+    };
 }

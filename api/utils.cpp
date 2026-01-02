@@ -865,3 +865,133 @@ const string dataStore::Data::BOOL_ARRAY = "bool_array_";
 template void dataStore::getMap<string>(dataStore::Data*,const char *,string** ,bool);
 template void dataStore::getMap<int>(dataStore::Data*,const char *,int** ,bool);
 template void dataStore::getMap<bool>(dataStore::Data*,const char *,bool** ,bool);
+
+template<typename key, typename value>
+LinkedMap<key, value>::LinkedMap(unsigned int count) : maxCount(count) {
+    keys = new key[maxCount];
+    values = new value[maxCount];
+    _size = 0;
+}
+
+template<typename key, typename value>
+LinkedMap<key, value>::~LinkedMap() {
+    if (keys != nullptr)
+        delete[] keys;
+    if (values != nullptr)
+        delete[] values;
+}
+
+template<typename key, typename value>
+LinkedMap<key, value>::LinkedMap(const LinkedMap &other) requires std::copy_constructible<value>
+: maxCount(other.maxCount) {
+    keys = new key[maxCount];
+    values = new value[maxCount];
+
+    for (unsigned int i = 0; i < other.size(); i++) {
+        keys[i] = std::copy(other.keys[i]);
+        values[i] = std::copy(other.values[i]);
+    }
+    _size = 0;
+}
+
+template<typename key, typename value>
+LinkedMap<key, value>::LinkedMap(const LinkedMap *other) requires std::copy_constructible<value>
+: maxCount(other->maxCount) {
+    keys = new key[maxCount];
+    values = new value[maxCount];
+
+    for (unsigned int i = 0; i < other -> size(); i++) {
+        keys[i] = std::copy(other -> keys[i]);
+        values[i] = std::copy(other -> values[i]);
+    }
+    _size = 0;
+}
+
+template<typename key, typename value>
+LinkedMap<key, value>::LinkedMap(LinkedMap &&other) noexcept requires std::move_constructible<value>
+: maxCount(other.maxCount) {
+    keys = other.keys;
+    values = other.values;
+
+    other.keys = nullptr;
+    other.values = nullptr;
+
+    _size = other._size;
+}
+
+template<typename key, typename value>
+bool LinkedMap<key, value>::contains(const key &k) const {
+    for (unsigned int i = 0; i < size(); i++) {
+        if (keys[i] == k)
+            return true;
+    }
+    return false;
+}
+
+template<typename key, typename value>
+value &LinkedMap<key, value>::operator[](const key &k) const {
+    for (unsigned int i = 0; i < size(); i++) {
+        if (keys[i] == k)
+            return values[i];
+    }
+    put(k, value{});
+    return last().second;
+}
+
+template<typename key, typename value>
+bool LinkedMap<key, value>::operator==(const LinkedMap& other) const {
+    if (maxCount != other.maxCount || _size != other._size)
+        return false;
+    for (unsigned int i = 0; i < size(); i++)
+        if (keys[i] != other.keys[i] || values[i] != other.values[i])
+            return false;
+    return true;
+}
+
+template<typename key, typename value>
+value* LinkedMap<key, value>::get(const key &k) const {
+    for (unsigned int i = 0; i < size(); i++) {
+        if (keys[i] == k)
+            return &values[i];
+    }
+    return nullptr;
+}
+
+template<typename key, typename value>
+pair<key, value> LinkedMap<key, value>::put(const key &k, value &v) {
+    for (unsigned int i = 0; i < size(); i++) {
+        if (keys[i] == k) {
+            auto& old = values[i];
+            values[i] = v;
+            return pair<key, value>(k,old);
+        }
+    }
+    if (_size < maxCount) {
+        keys[_size] = k;
+        values[_size] = v;
+        _size++;
+        return pair<key, value>();
+    }
+    auto pair = first();
+    for (unsigned int i = 0; i < maxCount - 1; i++) {
+        keys[i] = keys[i + 1];
+        values[i] = values[i + 1];
+    }
+    keys[maxCount] = k;
+    values[maxCount] = v;
+    return pair;
+}
+
+template<typename key, typename value>
+value *LinkedMap<key, value>::remove(const key *k) {
+    for (unsigned int i = 0; i < size(); i++) {
+        if (k == nullptr || keys[i] == *k) {
+            for (unsigned int j = i; j < size() - 1; j++) {
+                keys[j] = keys[j + 1];
+                values[j] = values[j + 1];
+                _size--;
+            }
+        }
+    }
+    return nullptr;
+}

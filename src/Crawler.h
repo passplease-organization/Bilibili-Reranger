@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 #include "pluginInterface.h"
 #include "develop/flags.h"
+#include "loginAPI/socialAPI.h"
 #if NEED_PORT
     #include <boost/asio.hpp>
 #endif
@@ -14,25 +15,19 @@ extern bool finalCheckVideo();
 extern bool pluginDealJson(string&);
 extern string pluginGetURL();
 
-class CurlHelper{
+class CrawlerHelper : public webAPI::CurlHelper {
 friend string getURL(const crawlTask::Task* task);
 
 public:
-    CurlHelper();
+    CrawlerHelper() = default;
 
-    ~CurlHelper();
-
-    void clear();
+    ~CrawlerHelper() override = default;
 
     void curlSetup(const string &cookie,const string& useragent);
 
     bool connect(bool deal = true);
 
-    [[nodiscard]] CURL* getCurl() const;
-
-    bool dealJson();
-
-    void dealJson(const Json& _json);
+    bool dealJson() override;
 
     static void addSubscriber(const dataStore::Data& _subscribers);
 
@@ -46,20 +41,6 @@ private:
 
     bool _crawlNext = true;
 
-    CURL *curl;
-
-    Json json = Json();
-
-    string tempData;
-
-    static size_t saveData(char *data, size_t size, size_t member, void *userdata);
-
-    string url;
-
-    [[nodiscard]] const string& nextURL() const;
-
-    void clearURL();
-
     static bool nextPage();
 
     static unsigned int getPages(const string& url);
@@ -68,12 +49,14 @@ private:
 
     void nextMustCrawl();
 
+    void setURL(const string &url) override {}
+
 public:
     [[nodiscard]] bool finishCrawl() const;
 
     void nextSearch(const string& url);
 
-    void refreshSubscribers(const bool force = false);
+    void refreshSubscribers(bool force = false);
 
     [[nodiscard]] bool crawlNext() const;
 };
