@@ -9,6 +9,8 @@ using namespace webAPI;
 
 socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(std::ref(stop)) {}
 
+socialAPI::~socialAPI(){}
+
 auto socials = std::map<const std::string,creator>();
 
 bool socialAPI::supportPlatform(const std::string& platform,creator function) {

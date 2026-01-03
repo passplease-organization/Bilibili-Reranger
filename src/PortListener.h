@@ -2,7 +2,6 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/url/params_view.hpp>
-
 #include "loginAPI/socialAPI.h"
 
 struct CrawlInfo {
@@ -21,7 +20,7 @@ struct CrawlInfo {
         return client != nullptr && client -> check();
     }
 
-#define INFO_BODY(key) crawlInfo -> body[key]
+    #define INFO_BODY(key) crawlInfo -> body[key]
 };
 
 extern thread_local CrawlInfo const* crawlInfo;

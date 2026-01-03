@@ -25,7 +25,9 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/subFeatures/requestHelper.cpp
         src/subFeatures/requestHelper.h
         src/exit.h
-        )
+        src/platforms/bilibiliLogin.cpp
+        src/platforms/bilibiliLogin.h
+)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(${PROJECT_NAME} PROPERTIES

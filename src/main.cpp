@@ -8,6 +8,7 @@
 #include "develop/flags.h"
 #include "config.h"
 #include "exit.h"
+#include "platforms/bilibiliLogin.h"
 #if NEED_PORT
     #include "PortListener.h"
     #include "subFeatures/requestHelper.h"

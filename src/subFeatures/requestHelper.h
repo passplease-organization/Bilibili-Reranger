@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../develop/flags.h"
+#include "develop/flags.h"
 
 #if NEED_PORT
 #include "interface.h"

@@ -35,7 +35,8 @@
         "com.intellij:app:HttpConfigurable.use_proxy_pac": true
       },
       "plugins": [
-        "cn.memoryzy.json"
+        "cn.memoryzy.json",
+        "com.intellij.ml.llm"
       ]
     }
   }

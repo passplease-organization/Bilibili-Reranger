@@ -25,7 +25,7 @@ OPTIONAL void registerGroups();
 OPTIONAL typedef void (FUNCTION_CALLER *REGISTER)();
 
 /**
- * Rough judge whether need to crawl more data , keep it in website or skip this video
+ * Rough judge whether program need to crawl more data , keep it in website or skip this video
  * */
 OPTIONAL VideoStatus roughJudge();
 typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)();

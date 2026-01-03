@@ -23,8 +23,8 @@ add_library(${PROJECT_NAME} SHARED
         utils.cpp
         BilibiliInterface.cpp
         mainConfig.cpp
-        loginAPI/socialAPI.cpp
         loginAPI/socialAPI.h
+        loginAPI/socialAPI.cpp
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

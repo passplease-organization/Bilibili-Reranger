@@ -207,7 +207,7 @@ namespace webAPI {
                 try {
                     json = tempData;
                 }catch(...) {
-                    return Json();
+                    json = Json();
                 }
             }
             return json;
