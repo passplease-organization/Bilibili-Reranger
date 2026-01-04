@@ -1,3 +1,5 @@
+[中文](README.md)
+
 # Bilibili Reranger Backend
 
 ## Architecture
@@ -29,14 +31,40 @@ There is an [example plugin](plugins/ExamplePlugin/main.cpp) in the code, provid
 
 All supported URL requests:
 
-| URL Path      | Meaning                       | Supported Parameters (not mentioned parameters unsupported)          | Other                                                                              |
-|---------------|-------------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| /all_category | Get all registered categories | No additional parameters                                             |                                                                                    |
-| /set_cookie   | Set global COOKIE             | `COOKIE`: Set value, empty means reset to environment variable value | Only valid for this program run, does not change environment variable stored value |
+| URL Path      | Meaning                                           | URL Parameters (except `id` is required by default, unspecified means unsupported)                                        | `Body` Parameters (encrypted)                | Other                                                                                     | Status |
+|---------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------------------------------------------------|--------|
+| /all_category | Get all registered categories                     | No additional parameters, also `id`                                                                                       |                                              |                                                                                           |        |
+| /set_cookie   | Set global COOKIE                                 | `COOKIE`: Set value, empty means reset to environment variable value                                                      |                                              | Only valid for this program run, does not change environment variable stored value        |        |
+| /login        | Login to the crawling platform (get COOKIE, etc.) | No parameters means fetch all supported platforms (no `id` required)<br/>`platform`: platform to set (required each time) | `username`: account<br/>`password`: password | Varies by platform and plugin; extra parameters can be handled by the plugin              |        |
+| /key          | Exchange encryption keys with backend             | No parameters means get RSA public key<br/>`key`: frontend symmetric key (success returns encrypted `id` parameter)       |                                              | Use RSA for initial handshake, then use symmetric encryption for subsequent communication |        |
+| /test         | Frontend checks whether ID still exists           | `id` (required)                                                                                                           |                                              |                                                                                           |        |
+| /init         | Initialize crawler                                | No additional parameters                                                                                                  | No additional parameters                     | Must be called after `/login`                                                             |        |
+| /set          | Set parameters                                    | `platform`: set working platform                                                                                          | No supported parameters                      |                                                                                           |        |
 
-Crawling parameters:
+Crawling parameters (for other URL paths):
 
-| Parameter  | Meaning                  | Other                                                 |
-|------------|--------------------------|-------------------------------------------------------|
-| category   | Category for this work   |                                                       |
-| cookie_env | Set COOKIE for this work | Only valid for this work (different from /set_cookie) |
+| Parameter  | Meaning                          | Other                                                 |
+|------------|----------------------------------|-------------------------------------------------------|
+| category   | Category for this work           |                                                       |
+| cookie_env | Set COOKIE for this work         | Only valid for this work (different from /set_cookie) |
+| id         | Backend value to identify client | Required by default for all except `/key`             |
+
+## Login
+
+Required login parameters and meanings (in addition to the common parameters above).
+
+### Bilibili
+
+| Parameter | Meaning                            | Other |
+|-----------|------------------------------------|-------|
+| validate  | One of the captcha parameters      |       |
+| seccode   | One of the captcha parameters      |       |
+| token     | One of the captcha request params  |       |
+| challenge | One of the captcha request params  |       |
+
+The first login request is made by the backend to Bilibili, then returned to the frontend. After the user completes verification, the frontend sends the results back and the backend finishes login and returns the final result.<br><br>
+The first request does not need `username` and `password`. The last login request must include them; if both are absent, it is treated as the initial captcha-parameter request.
+
+### Request Flow
+
+First connect to `/key` to get the public key, then exchange the ESA key and store `id`. Next call `/login` multiple times until login succeeds, then call `/init` to initialize the backend, and finally use `category` to fetch videos for different categories.

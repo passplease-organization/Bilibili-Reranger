@@ -2,6 +2,7 @@
 
 #include <map>
 
+#include "crawler.h"
 #include "../config.h"
 #include "../Util.h"
 
@@ -9,7 +10,7 @@ using namespace webAPI;
 
 socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(std::ref(stop)) {}
 
-socialAPI::~socialAPI(){}
+socialAPI::~socialAPI() = default;
 
 auto socials = std::map<const std::string,creator>();
 
@@ -22,7 +23,16 @@ bool socialAPI::supportPlatform(const std::string& platform,creator function) {
     }
 }
 
-void socialAPI::init() {}
+void socialAPI::init(){}
+
+bool socialAPI::prepare(){
+    _subscribers.clear();
+    auto* tempHelper = new CrawlerHelper();
+    tempHelper -> curlSetup();
+    tempHelper -> refreshSubscribers();
+    delete tempHelper;
+    return !_subscribers.empty();
+}
 
 bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
     if (handler == nullptr)
@@ -258,30 +268,34 @@ const string &Client::getID() const {
     return ID;
 }
 
-auto clients = LinkedMap<string,Client*>(config<int>(MAX_CLIENT));
+LinkedMap<string,Client*>* clients;
 auto client_mutex = std::mutex();
+
+void Client::init() {
+    client_mutex.lock();
+    clients = new LinkedMap<string,Client*>(config<int>(MAX_CLIENT));
+}
 
 Client* webAPI::client(std::string ID){
     client_mutex.lock();
-    if (!clients.contains(ID))
+    if (!clients -> contains(ID))
         return nullptr;
-    return clients[ID];
+    return (*clients)[ID];
 }
 
 bool webAPI::storeClient(Client* client){
     if (client == nullptr || client -> check())
         return false;
     client_mutex.lock();
-    if (clients.contains(client -> getID())) {
+    if (clients -> contains(client -> getID())) {
         return false;
     }
-    clients[client -> getID()] = client;
+    (*clients)[client -> getID()] = client;
     return true;
 }
 
-const std::string &webAPI::createAndStoreClient(const std::string &key) {
-    auto client = new Client(key);
-    if (storeClient(client))
+std::string webAPI::createAndStoreClient(const std::string &key) {
+    if (const auto client = new Client(key); storeClient(client))
         return client -> getID();
     else delete client;
     return "";

@@ -1,5 +1,9 @@
 #pragma once
 
+#include "develop/flags.h"
+
+#if NEED_PORT
+
 #include "BilibiliInterface.h"
 #include "loginAPI/socialAPI.h"
 
@@ -39,3 +43,5 @@ namespace bilibili{
         });
     }
 }
+
+#endif

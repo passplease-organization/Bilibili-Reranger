@@ -68,6 +68,8 @@ namespace webAPI {
     protected:
         std::shared_ptr<const std::atomic<bool>>& stop;
 
+        dataStore::Data _subscribers;
+
     public:
         socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
 
@@ -91,6 +93,8 @@ namespace webAPI {
 
         API void init();
 
+        API bool prepare();
+
         /**
          * Register your platform login handler
          * @param platform The supported platform
@@ -105,6 +109,10 @@ namespace webAPI {
         API [[nodiscard]] const string virtual &getCOOKIE() const = 0;
 
         API virtual bool support(const std::string& platform) = 0;
+
+        [[nodiscard]] API const dataStore::Data& subscribers() const{
+            return _subscribers;
+        }
     };
 
     class Client {
@@ -114,6 +122,8 @@ namespace webAPI {
         std::string ID;
 
         SimpleESA esa;
+
+        API static void init();
 
     protected:
         socialAPI* _handler;
@@ -144,6 +154,10 @@ namespace webAPI {
             return _handler;
         }
 
+        bool prepare() const {
+            return _handler -> prepare();
+        }
+
         API [[nodiscard]] bool check() const;
     };
 
@@ -151,7 +165,7 @@ namespace webAPI {
 
     API bool storeClient(NotNull Client* client);
 
-    API const std::string& createAndStoreClient(const std::string& key);
+    API std::string createAndStoreClient(const std::string& key);
 
     class CurlHelper {
     private:
@@ -200,7 +214,10 @@ namespace webAPI {
             this -> url = url;
         }
 
-        bool connect(bool deal = false);
+        virtual bool connect(bool deal);
+        virtual bool connect(){
+            return connect(false);
+        }
 
         virtual const Json& getJson() noexcept {
             if (!tempData.empty()) {
@@ -213,7 +230,7 @@ namespace webAPI {
             return json;
         }
 
-        void curlSetup();
+        virtual void curlSetup();
     };
 
     class AutoCurlHelper : public CurlHelper {

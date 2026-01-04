@@ -28,6 +28,7 @@
     "jetbrains" : {
       "backend" : "CLion",
       "settings": {
+        "com.intellij:app:BaseRefactoringSettings.rename_search_in_comments_for_file": false,
         "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
         "com.intellij:app:GeneralSettings.inactiveTimeout": 60,
         "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; *.list",
@@ -36,7 +37,8 @@
       },
       "plugins": [
         "cn.memoryzy.json",
-        "com.intellij.ml.llm"
+        "com.intellij.ml.llm",
+        "codex-brain"
       ]
     }
   }

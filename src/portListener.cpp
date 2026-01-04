@@ -5,13 +5,11 @@
 #include "config.h"
 #include <iostream>
 #include "develop/flags.h"
-#include "PortListener.h"
 #include <boost/beast/http.hpp>
 #include <boost/url.hpp>
 #include <boost/beast/core.hpp>
 #include <utility>
 
-#include "bilibiliAPIs.h"
 #include "subFeatures/requestHelper.h"
 
 #ifdef TEST
@@ -26,18 +24,15 @@ namespace ip = boost::asio::ip;
 thread_local CrawlInfo const* crawlInfo;
 thread_local shared_ptr<const atomic<bool>> stop;
 
-CrawlInfo::CrawlInfo(std::string clientId,const string& body,boost::urls::params_view params,std::string url,std::string target,bool set_cookie_env,std::string newCookie, long long id)
+CrawlInfo::CrawlInfo(std::string clientId,const string& body,boost::urls::params_view params,std::string url,std::string target, long long id)
 :client(webAPI::client(std::move(clientId))),
-params(std::move(params)),
+params(params),
 url(std::move(url)),
 target(std::move(target)),
-set_cookie_env(set_cookie_env),
-cookie(newCookie),
 id(id) {
     if (checkClient())
         this -> body = client -> decrypt(body);
 }
-
 
 int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket socket);
 auto WorkFunction = &work;
@@ -45,10 +40,6 @@ auto WorkFunction = &work;
 void startWork() {
     readConfig();
     PluginHandler::loadAll();
-    auto* tempHelper = new CrawlerHelper();
-    tempHelper -> curlSetup(cookie,user_agent);
-    tempHelper -> refreshSubscribers();
-    delete tempHelper;
     say("Listening thread start");
     try {
         boost::asio::io_context io;
@@ -82,19 +73,13 @@ void startWork() {
             }
             boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
 
-            std::string category,newCookie,platform,username,password;
-            string clientId("");
-            bool set_cookie_env = false;
+            std::string category,clientId;
             if (p.has_query())
                 for (auto const& param : p.params()) {
                     if (param.key == URL_PARAMS_CLIENT_ID)
                         clientId = param.value;
                     else if (param.key == URL_PARAMS_CATEGORY)
                         category = param.value;
-                    else if (param.key == URL_PARAMS_SET_COOKIE_ENV)
-                        set_cookie_env = param.value == "true";
-                    else if (param.key == COOKIE)
-                        newCookie = param.value;
                 }
             if (details) {
                 say("Create thread for client from",false);
@@ -115,7 +100,7 @@ void startWork() {
                 }
             }
 
-            CrawlInfo info(clientId,request.body(),p.params(),url,category,set_cookie_env,newCookie,id);
+            CrawlInfo info(clientId,request.body(),p.params(),url,category,id);
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
@@ -140,6 +125,7 @@ void startWork() {
     }
 }
 
+// TODO
 bool sendMessage(ip::tcp::socket& socket,string data) {
     if (data.empty()) {
         Json json = bilibili::getVideoJson();

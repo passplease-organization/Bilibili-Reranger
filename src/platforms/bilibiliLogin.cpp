@@ -1,8 +1,11 @@
 #include "bilibiliLogin.h"
 
+#if NEED_PORT
+
 #include <regex>
 #include <cpr/api.h>
 #include <cpr/body.h>
+
 #include "../PortListener.h"
 
 using namespace bilibili;
@@ -14,6 +17,10 @@ curl(webAPI::CurlHelper()) {
 }
 
 string bilibiliLogin::login(const std::string& name, const std::string& password){
+#if TEST
+    cookie = getenv(COOKIE);
+    return "登录成功";
+#endif
     if (name.empty() || password.empty()) {
         curl.setURL(BILIBILI_LOGIN_VERIFICATION);
         curl.connect();
@@ -66,3 +73,5 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
         return "错误公钥信息！";
     }
 }
+
+#endif

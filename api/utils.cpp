@@ -888,10 +888,10 @@ LinkedMap<key, value>::LinkedMap(const LinkedMap &other) requires std::copy_cons
     values = new value[maxCount];
 
     for (unsigned int i = 0; i < other.size(); i++) {
-        keys[i] = std::copy(other.keys[i]);
-        values[i] = std::copy(other.values[i]);
+        keys[i] = other.keys[i];
+        values[i] = other.values[i];
     }
-    _size = 0;
+    _size = other._size;
 }
 
 template<typename key, typename value>
@@ -901,10 +901,10 @@ LinkedMap<key, value>::LinkedMap(const LinkedMap *other) requires std::copy_cons
     values = new value[maxCount];
 
     for (unsigned int i = 0; i < other -> size(); i++) {
-        keys[i] = std::copy(other -> keys[i]);
-        values[i] = std::copy(other -> values[i]);
+        keys[i] = other -> keys[i];
+        values[i] = other -> values[i];
     }
-    _size = 0;
+    _size = other -> _size;
 }
 
 template<typename key, typename value>
@@ -929,13 +929,13 @@ bool LinkedMap<key, value>::contains(const key &k) const {
 }
 
 template<typename key, typename value>
-value &LinkedMap<key, value>::operator[](const key &k) const {
+value &LinkedMap<key, value>::operator[](const key &k) {
     for (unsigned int i = 0; i < size(); i++) {
         if (keys[i] == k)
             return values[i];
     }
     put(k, value{});
-    return last().second;
+    return values[_size - 1];
 }
 
 template<typename key, typename value>
@@ -958,7 +958,7 @@ value* LinkedMap<key, value>::get(const key &k) const {
 }
 
 template<typename key, typename value>
-pair<key, value> LinkedMap<key, value>::put(const key &k, value &v) {
+pair<key, value> LinkedMap<key, value>::put(const key &k, const value &v) {
     for (unsigned int i = 0; i < size(); i++) {
         if (keys[i] == k) {
             auto& old = values[i];
@@ -977,8 +977,8 @@ pair<key, value> LinkedMap<key, value>::put(const key &k, value &v) {
         keys[i] = keys[i + 1];
         values[i] = values[i + 1];
     }
-    keys[maxCount] = k;
-    values[maxCount] = v;
+    keys[maxCount - 1] = k;
+    values[maxCount - 1] = v;
     return pair;
 }
 

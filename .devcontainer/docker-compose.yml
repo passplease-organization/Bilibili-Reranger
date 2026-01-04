@@ -17,5 +17,8 @@ services:
     build:
       dockerfile: Dockerfile
     domainname: backend
+    volumes:
+      - ./session/codex:/home/vscode/.codex # You can change to C:\Users\Administrator\.codex
+      - ./session/qwen:/root/.qwen
     env_file:
       - env.list

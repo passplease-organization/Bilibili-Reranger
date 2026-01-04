@@ -30,8 +30,20 @@ void startTestThread() {
         ConnectTimeout{60000}, \
         Timeout{config<int>(TIMEOUT)} \
     )
+#define OUTPUT(output,category) \
+    if (fileExists(output)) { \
+        deleteConfig(output,true); \
+    } \
+    if (storeJson(category,output,json)) { \
+        saveToFile(category,output); \
+        storeJson(category,output,nullptr,true); \
+    }else warn(CANNOT_SAVE output);
 #define CANNOT_SAVE "Can not save to file !!! Now saving: "
 #define GET_ALL_CATEGORIES_OUTPUT OUTPUT_DIRECTORY GET_ALL_CATEGORIES ".json"
+#define KEY_OUTPUT OUTPUT_DIRECTORY KEY ".json"
+#define EXCHANGE KEY "_exchange"
+#define EXCHANGE_KEY_OUTPUT OUTPUT_DIRECTORY EXCHANGE ".json"
+#define TEST_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID ".json"
 #define MATH "math"
 #define MATH_URL "/?" URL_PARAMS_CATEGORY "=" MATH
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
@@ -56,13 +68,53 @@ void test() {
             error = true;
             EMPTY_WARN("Get all categories");
         }
-        if(fileExists(GET_ALL_CATEGORIES_OUTPUT)){
-            deleteConfig(GET_ALL_CATEGORIES_OUTPUT,true);
+        OUTPUT(GET_ALL_CATEGORIES_OUTPUT,GET_ALL_CATEGORIES_NO_SLASH);
+
+        response = POST_PARAMS(localhost + KEY);
+        if (response.status_code != 200) {
+            error = true;
+            warn("Get key failed ! Error: ",false);
+            warn(response.error.message.c_str());
         }
-        if (storeJson(GET_ALL_CATEGORIES_NO_SLASH,GET_ALL_CATEGORIES_OUTPUT,json)) {
-            saveToFile(GET_ALL_CATEGORIES_NO_SLASH,GET_ALL_CATEGORIES_OUTPUT);
-            storeJson(GET_ALL_CATEGORIES_NO_SLASH,GET_ALL_CATEGORIES_OUTPUT,nullptr,true);
-        }else warn(CANNOT_SAVE GET_ALL_CATEGORIES_OUTPUT);
+        _say("Get key: ");
+        _say(response.text);
+        json = Json::parse(response.text);
+        if (json.empty()) {
+            error = true;
+            EMPTY_WARN("Get key");
+        }
+        OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
+        string key = json[URL_PARAMS_RSA_KEY];
+        key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
+
+        response = POST_PARAMS(localhost + KEY "?" + URL_PARAMS_RSA_KEY "=" + key);
+        if (response.status_code != 200) {
+            error = true;
+            warn("Exchange key failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+        _say("Get id: ");
+        _say(response.text);
+        if (json.empty()) {
+            error = true;
+            EMPTY_WARN("Exchange key");
+        }
+        OUTPUT(EXCHANGE_KEY_OUTPUT,EXCHANGE);
+        string id = json[URL_PARAMS_CLIENT_ID];
+
+        response = POST_PARAMS(localhost + TEST_ID);
+        if (response.status_code != 200) {
+            error = true;
+            warn("Test id failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+        _say("Test id: ");
+        _say(response.text);
+        if (json.empty()) {
+            error = true;
+            EMPTY_WARN("Test id");
+        }
+        OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
         response = POST_PARAMS(localhost + MATH_URL);
         if (response.status_code != 200) {
@@ -77,14 +129,7 @@ void test() {
             error = true;
             EMPTY_WARN("Crawl for math");
         }
-        if (fileExists(MATH_OUTPUT)) {
-            deleteConfig(MATH_OUTPUT,true);
-        }
-        if (storeJson(MATH,MATH_OUTPUT,json)) {
-            saveToFile(MATH,MATH_OUTPUT);
-            storeJson(MATH,MATH_OUTPUT,nullptr,true);
-        }else warn(CANNOT_SAVE MATH_OUTPUT);
-
+        OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
         Post(

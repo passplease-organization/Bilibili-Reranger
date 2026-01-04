@@ -5,16 +5,36 @@
 #include "config.h"
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
+#include "loginAPI/crawler.h"
 #include "subFeatures/requestHelper.h"
 #if NEED_PORT
     #include "PortListener.h"
     #include <boost/asio.hpp>
+#include <utility>
 #endif
+
+CrawlerHelper::CrawlerHelper()
+#if NEED_PORT
+    :subscribers(crawlInfo -> client -> handler() -> subscribers()){}
+#else
+    :subscribers(dataStore::Data()){}
+#endif
+
+CrawlerHelper::CrawlerHelper(dataStore::Data subscribers)
+    : subscribers(std::move(subscribers)) {}
 
 void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
     CurlHelper::curlSetup();
     curl_easy_setopt(curl,CURLOPT_COOKIE,cookie.c_str());
     curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent.c_str());
+}
+
+void CrawlerHelper::curlSetup(){
+    #if NEED_PORT
+        curlSetup(CLIENT_COOKIE,user_agent);
+    #else
+        curlSetup(cookie,user_agent);
+    #endif
 }
 
 bool CrawlerHelper::connect(bool deal){
@@ -275,21 +295,17 @@ bool CrawlerHelper::crawlNext() const {
 }
 
 void CrawlerHelper::addSubscriber(const dataStore::Data& _subscribers) {
-    std::lock_guard<std::mutex> lock(subscribers_mutex);
     subscribers += _subscribers;
 }
 
 void CrawlerHelper::clearSubscriber() {
-    std::lock_guard<std::mutex> lock(subscribers_mutex);
     subscribers.clear();
 }
 
 dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
-    std::lock_guard<std::mutex> lock(subscribers_mutex);
     if (name.empty())
         return subscribers;
     Json sub = subscribers;
-    std::lock_guard<std::mutex> unlock(subscribers_mutex);
     for (auto &up: _getSubscribers(sub, false).items()) {
         if (_getSubscriberName(up) == name)
             return up.value().get<dataStore::Data>();
@@ -297,10 +313,11 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     return dataStore::Data();
 }
 
-dataStore::Data CrawlerHelper::subscribers = dataStore::Data{};
-std::mutex CrawlerHelper::subscribers_mutex = std::mutex{};
-
-string cookie = getenv(COOKIE);
+#if NEED_PORT
+    #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+#else
+    string cookie = getenv(COOKIE);
+#endif
 string user_agent = getenv(USERAGENT);
 
 #if NEED_PORT
@@ -309,7 +326,7 @@ bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket)
 bool crawl(const std::atomic<bool>& cancel){
 #endif
     CrawlerHelper helper = CrawlerHelper();
-    helper.curlSetup(cookie,user_agent);
+    helper.curlSetup();
     #if NEED_PORT
         dealParams(helper);
     #else
@@ -372,12 +389,15 @@ string getURL(const crawlTask::Task* task){
 
 bool checkEnv(){
     bool error = true;
+#if NEED_PORT
+#else
     if(cookie.empty()){
         string err = "未找到环境变量: ";
         err += COOKIE;
         warn(err.c_str());
         error &= false;
     }
+#endif
     if(user_agent.empty()){
         string err = "未找到环境变量: ";
         err += USERAGENT;
@@ -385,10 +405,4 @@ bool checkEnv(){
         error &= false;
     }
     return error;
-}
-
-void setEnv(const string& newCookie) {
-    if (newCookie.empty())
-        cookie = getenv(COOKIE);
-    else cookie = newCookie;
 }

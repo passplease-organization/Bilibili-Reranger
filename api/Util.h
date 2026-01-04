@@ -3,7 +3,6 @@
 #include <map>
 #include <nlohmann/json.hpp>
 #include "APIStatus.h"
-#include "loginAPI/socialAPI.h"
 
 #define MAX_BUFFER_SIZE 100
 
@@ -289,12 +288,12 @@ public:
 
     API ~LinkedMap();
 
-    API pair<key,value> put(const key& k,value& v);
-    API pair<key,value> put(pair<key,value>& p) {
+    API pair<key,value> put(const key& k,const value& v);
+    API pair<key,value> put(const pair<key,value>& p) {
         return put(p.first,p.second);
     }
 
-    API value& operator[](const key& k) const;
+    API value& operator[](const key& k);
 
     API bool operator==(const LinkedMap& other) const;
 
@@ -316,13 +315,17 @@ public:
         return _size == 0;
     }
 
-    API const pair<key,value>& last() const {
+    API pair<key,value> last() const {
         return std::pair<key,value>(keys[_size - 1],values[_size - 1]);
     }
 
-    API const pair<key,value>& first() const {
+    API pair<key,value> first() const {
         return std::pair<key,value>(keys[0],values[0]);
     }
 };
+
+namespace webAPI {
+    class Client;
+}
 
 template class LinkedMap<std::string,webAPI::Client*>;

@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include <atomic>
-#include <curl/curl.h>
 #include "pluginInterface.h"
 #include "develop/flags.h"
 #include "loginAPI/socialAPI.h"
@@ -15,58 +14,11 @@ extern bool finalCheckVideo();
 extern bool pluginDealJson(string&);
 extern string pluginGetURL();
 
-class CrawlerHelper : public webAPI::CurlHelper {
-friend string getURL(const crawlTask::Task* task);
-
-public:
-    CrawlerHelper() = default;
-
-    ~CrawlerHelper() override = default;
-
-    void curlSetup(const string &cookie,const string& useragent);
-
-    bool connect(bool deal = true);
-
-    bool dealJson() override;
-
-    static void addSubscriber(const dataStore::Data& _subscribers);
-
-    static void clearSubscriber();
-
-    static dataStore::Data getSubscribers(const string& name = "");
-
-private:
-    static dataStore::Data subscribers;
-    static std::mutex subscribers_mutex;
-
-    bool _crawlNext = true;
-
-    static bool nextPage();
-
-    static unsigned int getPages(const string& url);
-
-    void nextPage(unsigned int nowPage);
-
-    void nextMustCrawl();
-
-    void setURL(const string &url) override {}
-
-public:
-    [[nodiscard]] bool finishCrawl() const;
-
-    void nextSearch(const string& url);
-
-    void refreshSubscribers(bool force = false);
-
-    [[nodiscard]] bool crawlNext() const;
-};
-
-const string search = "https://api.bilibili.com/x/web-interface/search/all/v2?nextTask=选择公理&search_type=video&page_size=10";
-const string commit = "https://api.bilibili.com/x/v2/reply/main?oid=BV18a411W7ge&type=1";
-const string subscribe = "https://api.bilibili.com/x/relation/followings?vmid=3493105986702255";
-const string liked = "https://api.bilibili.com/x/space/like/video?vmid=3493105986702255";
-
-extern string cookie;
+#if NEED_PORT
+    #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+#else
+    extern string cookie;
+#endif
 extern string user_agent;
 
 #if NEED_PORT
@@ -78,5 +30,3 @@ bool crawl(const std::atomic<bool>& cancel);
 string getURL(const crawlTask::Task* task = crawlTask::nowTask());
 
 bool checkEnv();
-
-void setEnv(const string& cookie = "");
