@@ -96,13 +96,13 @@ void test() {
             EMPTY_WARN("Get key");
         }
         OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
-        string key = json[URL_PARAMS_RSA_KEY];
+        string key = json[URL_PARAMS_ENCRYPT_KEY];
         key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
-        auto esa = webAPI::SimpleESA(key);
+        auto esa = webAPI::SimpleESA(key);// It will automatically decrypt
 
         response = Post(
             Url{localhost + KEY},
-            Parameters{{URL_PARAMS_RSA_KEY,key}},
+            Parameters{{URL_PARAMS_ENCRYPT_KEY,key}},
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
@@ -113,7 +113,12 @@ void test() {
         }
         _say("Get id: ");
         _say(esa.decrypt(response.text));
-        json = Json::parse(esa.decrypt(response.text));
+        try{
+            json = Json::parse(esa.decrypt(response.text));
+        }catch (...){
+            json.clear();
+            json[DEBUG] = response.text;
+        }
         if (json.empty()) {
             error = true;
             EMPTY_WARN("Exchange key");
@@ -192,11 +197,7 @@ void test() {
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
-        Post(
-            Url{localhost},
-            ConnectTimeout{1000},
-            Timeout{config<int>(TIMEOUT)}
-        );
+        POST_PARAMS_ID(localhost);
         throw e;
     }
     if (error)

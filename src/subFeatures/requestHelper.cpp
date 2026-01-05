@@ -73,14 +73,14 @@ int key(boost::asio::ip::tcp::socket& socket){
     LOG(KEY,"key");
     string key;
     for (auto const& param : crawlInfo -> params) {
-        if (param.key == URL_PARAMS_RSA_KEY){
+        if (param.key == URL_PARAMS_ENCRYPT_KEY){
             key = param.value;
             break;
         }
     }
     if (key.empty()){
         Json json;
-        json[URL_PARAMS_RSA_KEY] = webAPI::getRSA().publicKey();
+        json[URL_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
         return sendMessage(socket, to_string(json),false);
     }
     const auto& id = webAPI::createAndStoreClient(key);
