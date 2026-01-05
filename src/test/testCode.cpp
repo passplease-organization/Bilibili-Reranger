@@ -57,10 +57,12 @@ void startTestThread() {
 #define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
 #define MATH "math"
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
+#define DEBUG "test"
 
 void test() {
     string localhost = "http://localhost:";
     bool error = false;
+    string id;
     try {
         sleep(5);// Waiting for working thread
         localhost += to_string(config<int>(PORT));
@@ -110,14 +112,14 @@ void test() {
             warn(response.error.message.c_str());
         }
         _say("Get id: ");
-        _say(response.text);
+        _say(esa.decrypt(response.text));
         json = Json::parse(esa.decrypt(response.text));
         if (json.empty()) {
             error = true;
             EMPTY_WARN("Exchange key");
         }
         OUTPUT(EXCHANGE_KEY_OUTPUT,EXCHANGE);
-        const auto& id = json[URL_PARAMS_CLIENT_ID];
+        id = json[URL_PARAMS_CLIENT_ID];
 
         _say("Test Right ID");
         response = POST_PARAMS_ID(localhost + TEST_ID);
@@ -131,6 +133,8 @@ void test() {
             error = true;
             EMPTY_WARN("Test right id");
         }else _say(response.text);
+        json.clear();
+        json[DEBUG] = response.text;
         OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
         _say("Test Wrong ID");
@@ -139,6 +143,7 @@ void test() {
             error = true;
             warn("Test id failed ! Get 200 !",false);
         }
+        json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
 
         response = POST_PARAMS_ID(localhost + LOGIN);
@@ -148,11 +153,12 @@ void test() {
             warn(response.error.message.c_str());
         }
         _say("Login: ");
-        _say(response.text);
+        _say(esa.decrypt(response.text));
         if (response.text.empty()) {
             error = true;
             EMPTY_WARN("Login");
         }
+        json[DEBUG] = response.text;
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
         response = POST_PARAMS_ID(localhost + INIT);
@@ -178,7 +184,7 @@ void test() {
         }
         _say("Crawl for math get: ");
         _say(response.text);
-        json = Json::parse(response.text);
+        json = Json::parse(esa.decrypt(response.text));
         if (json.empty()) {
             error = true;
             EMPTY_WARN("Crawl for math");
@@ -197,7 +203,7 @@ void test() {
         throwError("Test encountered an error !");
     else _say("Test Success !!! Now returning ...");
     testFinished = true;
-    POST_PARAMS(localhost);// To let main thread get out from listening port
+    POST_PARAMS_ID(localhost);// To let main thread get out from listening port
 }
 
 #endif
