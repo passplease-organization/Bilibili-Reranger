@@ -26,4 +26,10 @@ typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 
 #define NEED_NORMAL_HANDLE -1
 handler checkURL(const std::string& url);
+
+Nullable handler requireClient();
+
+#define REQUIRE_CLIENT(socket) \
+    if(const auto& handler = requireClient(); handler != nullptr) \
+        return handler(socket);
 #endif

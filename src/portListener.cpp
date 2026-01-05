@@ -26,6 +26,7 @@ thread_local shared_ptr<const atomic<bool>> stop;
 
 CrawlInfo::CrawlInfo(std::string clientId,const string& body,boost::urls::params_view params,std::string url,std::string target, long long id)
 :client(webAPI::client(std::move(clientId))),
+clientId(std::move(clientId)),
 params(params),
 url(std::move(url)),
 target(std::move(target)),
@@ -39,6 +40,7 @@ auto WorkFunction = &work;
 
 void startWork() {
     readConfig();
+    webAPI::Client::init();
     PluginHandler::loadAll();
     say("Listening thread start");
     try {
@@ -82,22 +84,12 @@ void startWork() {
                         category = param.value;
                 }
             if (details) {
-                say("Create thread for client from",false);
+                say("Create thread for client from ",false);
                 cout << socket.remote_endpoint() << endl;
+                say("Client Id: ",false);
+                say(clientId.empty() ? "Unknown" : clientId.c_str());
                 say("Request URL: ",false);
-                cout << url << endl;
-                boost::asio::streambuf request_buffer;
-                boost::system::error_code error;
-                if (!error || error == boost::asio::error::eof) {
-                    // EOF 可能意味着客户端发送完数据后断开连接
-                    std::istream request_stream(&request_buffer);
-                    std::string line;
-                    say("Received network request headers:");
-                    // 逐行打印请求头
-                    while (std::getline(request_stream, line) && line != "\r") { // HTTP 行通常以 \r\n 结束
-                        say(line.c_str());
-                    }
-                }
+                say(url.c_str());
             }
 
             CrawlInfo info(clientId,request.body(),p.params(),url,category,id);
@@ -125,15 +117,14 @@ void startWork() {
     }
 }
 
-// TODO
-bool sendMessage(ip::tcp::socket& socket,string data) {
+bool sendMessage(ip::tcp::socket& socket,string data,bool failed) {
     if (data.empty()) {
         Json json = bilibili::getVideoJson();
         data = json.empty() ? "{}" : to_string(json);
     }
     http::response<http::string_body> response;
     response.version(11);
-    response.result(http::status::ok);
+    response.result(failed ? http::status::internal_server_error : http::status::ok);
     response.set(http::field::server,SERVER_HEADER);
     response.set(http::field::content_type, "application/json; charset=utf-8");
     response.set(http::field::connection, "close");

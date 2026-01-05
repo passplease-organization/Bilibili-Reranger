@@ -15,10 +15,11 @@ struct CrawlInfo {
     const std::string target;
     const long long id;
     webAPI::Client* client;
+    std::string clientId;
 
     CrawlInfo(std::string clientId,const std::string& body,boost::urls::params_view params,std::string url,std::string target, long long id);
 
-    [[nodiscard]] bool checkClient() const{
+    [[nodiscard]] bool checkClient() const noexcept{
         return client != nullptr && client -> check();
     }
 
@@ -30,6 +31,6 @@ extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 void startWork();
 
-bool sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "");
+bool sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "",bool failed = false);
 
 #endif

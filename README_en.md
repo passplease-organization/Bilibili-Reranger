@@ -6,10 +6,11 @@
 
 This is the backend code for the entire project, with an architecture based on C++. The choice of C++ was primarily to learn how to program in it. Project using third-party libraries:
 
-1. [nlohmann-json](https://github.com/nlohmann/json) for handling various JSON text
-2. [cpr](https://github.com/libcpr/cpr) for making Bilibili API requests and testing code
-3. [CURL](https://github.com/curl/curl) for making Bilibili API requests
-4. [boost](https://github.com/boostorg/boost) for continuously listening to ports and handling network requests
+1. [nlohmann-json](https://github.com/nlohmann/json) for JSON serialization and deserialization
+2. [cpr](https://github.com/libcpr/cpr) for Bilibili API requests and AI calls
+3. [CURL](https://github.com/curl/curl) for low-level HTTP support
+4. [boost](https://github.com/boostorg/boost) for port listening and HTTP handling (asio/beast/url)
+5. [libsodium](https://github.com/jedisct1/libsodium) for login and encryption features
 
 The functionality is mainly implemented by plugins. The main program acts as a framework that handles various routine tasks, while the plugins determine which specific videos to keep or remove.
 

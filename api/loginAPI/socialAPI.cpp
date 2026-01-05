@@ -1,6 +1,7 @@
 #include "socialAPI.h"
 
 #include <map>
+#include <mutex>
 
 #include "crawler.h"
 #include "../config.h"
@@ -30,8 +31,9 @@ bool socialAPI::prepare(){
     auto* tempHelper = new CrawlerHelper();
     tempHelper -> curlSetup();
     tempHelper -> refreshSubscribers();
+    _subscribers = tempHelper -> getSubscribers();
     delete tempHelper;
-    return !_subscribers.empty();
+    return !_subscribers.empty() && _subscribers.valid();
 }
 
 bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
@@ -39,7 +41,7 @@ bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::sh
         return false;
     if (*handler != nullptr)
         return true;
-    if (socials.contains(platform))
+    if (!socials.contains(platform))
         return false;
     *handler = socials[platform](stop);
     (*handler) -> init();
@@ -150,11 +152,12 @@ std::string SimpleRSA::encrypt(const std::string &key, const std::string &conten
 }
 
 SimpleESA::SimpleESA(const string& key) {
-    if (key.length() != crypto_secretbox_KEYBYTES) {
+    const string& k = getRSA().decrypt(key);
+    if (k.length() != crypto_secretbox_KEYBYTES) {
         throwError("Session Key length invalid! Must be 32 bytes.");
     }
 
-    std::memcpy(this -> key, key.data(), crypto_secretbox_KEYBYTES);
+    std::memcpy(this -> key, k.data(), crypto_secretbox_KEYBYTES);
 }
 
 SimpleESA::SimpleESA(SimpleESA &&other) noexcept {
@@ -235,10 +238,14 @@ bool SimpleESA::check() const{
 
 Client::Client(const string& key) : esa(key) {
     do {
-        char nonce[32];
+        unsigned char nonce[16];
         randombytes_buf(nonce, sizeof nonce);
-        ID = nonce;
-    }while (client(ID) == nullptr);
+        const size_t b64_len = sodium_base64_ENCODED_LEN(sizeof nonce, sodium_base64_VARIANT_URLSAFE_NO_PADDING);
+        std::string id(b64_len, '\0');
+        sodium_bin2base64(id.data(), id.size(), nonce, sizeof nonce, sodium_base64_VARIANT_URLSAFE_NO_PADDING);
+        id.resize(strlen(id.c_str()));
+        ID = id;
+    }while (client(ID) != nullptr);
     _handler = nullptr;
     handlers = vector<socialAPI*>();
 }
@@ -260,7 +267,7 @@ void Client::getHandler(const std::string& platform, std::shared_ptr<const std::
     }
 }
 
-bool Client::check() const{
+bool Client::check() const noexcept{
     return esa.check() && client(ID) == this;
 }
 
@@ -270,15 +277,20 @@ const string &Client::getID() const {
 
 LinkedMap<string,Client*>* clients;
 auto client_mutex = std::mutex();
+bool initialized = false;
 
 void Client::init() {
+    if (initialized)
+        return;
     client_mutex.lock();
     clients = new LinkedMap<string,Client*>(config<int>(MAX_CLIENT));
+    client_mutex.unlock();
+    initialized = true;
 }
 
-Client* webAPI::client(std::string ID){
-    client_mutex.lock();
-    if (!clients -> contains(ID))
+Client* webAPI::client(const std::string& ID){
+    std::lock_guard<std::mutex> lock(client_mutex);
+    if (clients == nullptr || !clients -> contains(ID))
         return nullptr;
     return (*clients)[ID];
 }
@@ -286,8 +298,8 @@ Client* webAPI::client(std::string ID){
 bool webAPI::storeClient(Client* client){
     if (client == nullptr || client -> check())
         return false;
-    client_mutex.lock();
-    if (clients -> contains(client -> getID())) {
+    std::lock_guard<std::mutex> lock(client_mutex);
+    if (clients == nullptr || clients -> contains(client -> getID())) {
         return false;
     }
     (*clients)[client -> getID()] = client;
@@ -295,8 +307,13 @@ bool webAPI::storeClient(Client* client){
 }
 
 std::string webAPI::createAndStoreClient(const std::string &key) {
-    if (const auto client = new Client(key); storeClient(client))
+    if (const auto client = new Client(key); storeClient(client)) {
+        #if TEST
+            say("Test Client ID: ",false);
+            say(client -> getID().c_str());
+        #endif
         return client -> getID();
+    }
     else delete client;
     return "";
 }

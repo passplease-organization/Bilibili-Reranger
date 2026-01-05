@@ -1,4 +1,5 @@
 #include "bilibiliLogin.h"
+#include "bilibiliAPIs.h"
 
 #if NEED_PORT
 
@@ -16,16 +17,22 @@ curl(webAPI::CurlHelper()) {
     curl.curlSetup();
 }
 
-string bilibiliLogin::login(const std::string& name, const std::string& password){
+string bilibiliLogin::login(const std::string& name, const std::string& password,bool& failed){
 #if TEST
     cookie = getenv(COOKIE);
+    failed = false;
     return "登录成功";
-#endif
+#else
     if (name.empty() || password.empty()) {
         curl.setURL(BILIBILI_LOGIN_VERIFICATION);
         curl.connect();
         auto& json = curl.getJson();
-        return json.contains("data") ? json["data"] : "错误返回Json";
+        if (!json.contains("data")) {
+            failed = true;
+            return "错误返回Json";
+        }
+        failed = false;
+        return json["data"];
     }else {
         string validate = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE),
             seccode = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE),
@@ -34,6 +41,7 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
         curl.setURL(BILIBILI_LOGIN_PUBLIC_KEY);
         curl.connect();
         if (stop) {
+            failed = true;
             return "后台登录超时";
         }
         auto json = curl.getJson();
@@ -62,16 +70,24 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
                     cpr::Body{json}
                 );
                 if (response.status_code != 200) {
+                    failed = true;
                     return "登录连接失败";
                 }
                 cookie = "";
                 for (const auto& c : response.cookies)
                     cookie += c.GetValue();
-                return validCOOKIE() ? "登录成功！" : "登录失败！";
+                if (validCOOKIE()) {
+                    failed = false;
+                    return "登录成功！";
+                }
+                failed = true;
+                return "登录失败！";
             }
         }
+        failed = true;
         return "错误公钥信息！";
     }
+#endif
 }
 
 #endif

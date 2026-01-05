@@ -26,7 +26,7 @@ namespace bilibili{
 
         ~bilibiliLogin() override = default;
 
-        string login(const std::string &name, const std::string &password) override;
+        string login(const std::string &name, const std::string &password,bool& failed) override;
 
         [[nodiscard]] const string& getCOOKIE() const override {
             return cookie;

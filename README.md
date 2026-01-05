@@ -4,10 +4,11 @@
 
 ## 架构
 这是整个项目的后端代码，架构基于C++实现，选择原因无他，只是因为我想学习一下C++怎么编程。第三方库：
-1. [nlohmann-json](https://github.com/nlohmann/json)处理各种Json文本
-2. [cpr](https://github.com/libcpr/cpr)进行B站API的请求和测试代码
-3. [CURL](https://github.com/curl/curl)进行B站API的请求
-4. [boost](https://github.com/boostorg/boost)持续监听端口和处理网络请求
+1. [nlohmann-json](https://github.com/nlohmann/json)处理Json序列化/反序列化
+2. [cpr](https://github.com/libcpr/cpr)进行B站API的请求与AI调用
+3. [CURL](https://github.com/curl/curl)底层HTTP请求支持
+4. [boost](https://github.com/boostorg/boost)端口监听与HTTP处理（asio/beast/url）
+5. [libsodium](https://github.com/jedisct1/libsodium)登录与加密相关功能
 
 功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。
 ## 使用
@@ -25,7 +26,6 @@ docker run -p 23223:23223 -e COOKIE=<your_bilibili_cookie> -e USERAGENT=<browser
 | URL路径         | 意义                 | URL参数（除`id`默认必要外，未写参数即不支持）                           | `Body`参数（加密）                     | 其他                                | 状态 |
 |---------------|--------------------|------------------------------------------------------|----------------------------------|-----------------------------------|----|
 | /all_category | 获取注册了的全部类型         | 无额外参数，也不需要`id`参数                                     |                                  |                                   |    |
-| /set_cookie   | 设置全局COOKIE         | `COOKIE`：设置值，无表示重置为环境变量值储存的值                         |                                  | 仅本次程序有效，不改变环境变量储存值                |    |
 | /login        | 登录要爬的平台（获取COOKIE等） | 无参数代表获取全部支持平台（不需要`id`参数）<br/>`platform`：要设置的平台（每次必须） | `username`：账户名<br/>`password`：密码 | 根据支持的平台不同和插件不同可以有变化，多余参数可以由插件自行获取 |    |
 | /key          | 和后端交换加密秘钥          | 无参数表示获取RSA加密公钥<br/>`key`：表示前端对称加密秘钥（成功会返回加密的`id`参数）  |                                  | 初次建立连接使用RSA加密，建立后使用对称加密方法通信       |    |
 | /test         | 前端检测ID是否还存在        | `id`（必要）                                             |                                  |                                   |    |
@@ -34,11 +34,11 @@ docker run -p 23223:23223 -e COOKIE=<your_bilibili_cookie> -e USERAGENT=<browser
 
 爬取参数（对于其他URL路径）：
 
-| 参数名        | 意义            | 其他                      |
-|------------|---------------|-------------------------|
-| category   | 本次工作的类型       |                         |
-| cookie_env | 设置本次工作的COOKIE | 仅本次工作有效（区别于/set_cookie） |
-| id         | 后端用于区分客户端的值   | 除/key请求，其他默认均需要携带       |
+| 参数名        | 意义            | 其他                                                |
+|------------|---------------|---------------------------------------------------|
+| category   | 本次工作的类型       |                                                   |
+| cookie_env | 设置本次工作的COOKIE | 仅本次工作有效（区别于/set_cookie）                           |
+| id         | 后端用于区分客户端的值   | 除/key请求，其他默认均需要携带<br/>加密是对整个正文进行的，而非json中各个单独字段加密 |
 
 ## Login
 登录所需参数及其意义（除开上述提到的通用参数）

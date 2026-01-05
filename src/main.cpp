@@ -31,7 +31,7 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     stop = cancel;
     bilibili::registerBilibili();
 #else
-int main(int argc, char** argv){
+int main(int argc, char** argv) {
     string target;
     readConfig();
     PluginHandler::loadAll();
@@ -46,14 +46,14 @@ int main(int argc, char** argv){
         return 1;
     }
 
-    #if NEED_PORT
-        GroupFilter(info.target);
-    #endif
+#if NEED_PORT
+    GroupFilter(info.target);
+#endif
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
 
-    #if TEST_DLL
+#if TEST_DLL
     auto task = crawlTask::nowTask();
     say("第一个注册的任务：",false);
     say(task -> keyword,true,GREEN);
@@ -61,7 +61,7 @@ int main(int argc, char** argv){
     say(crawlTask::getName(task -> mode),true,GREEN);
     cout << "当前处于测试插件状态，主程序已退出" << endl;
     return 0;
-    #endif
+#endif
 
     setup();
 #if NEED_PORT
@@ -69,11 +69,17 @@ int main(int argc, char** argv){
         if (const int& signal = handler(socket); signal != NEED_NORMAL_HANDLE)
             return signal;
     }
-    if(crawl(stop -> load(),socket)) {
+    REQUIRE_CLIENT(socket);
+    try{
+        if(crawl(stop -> load(),socket)) {
 #else
-    if (crawl(cancel)){
+        if (crawl(cancel)) {
 #endif
-        return success();
+            return success();
+        }
+    }catch(const std::exception& e) {
+        warn("crawl encounter exception",false);
+        warn(e.what());
     }
     return failed();
 }

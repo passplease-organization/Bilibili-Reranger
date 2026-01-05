@@ -13,12 +13,18 @@
 #include <utility>
 #endif
 
-CrawlerHelper::CrawlerHelper()
+CrawlerHelper::CrawlerHelper(){
 #if NEED_PORT
-    :subscribers(crawlInfo -> client -> handler() -> subscribers()){}
-#else
-    :subscribers(dataStore::Data()){}
+    if (crawlInfo != nullptr && crawlInfo -> client != nullptr) {
+        const auto* handler = crawlInfo -> client -> handler();
+        if (handler != nullptr) {
+            subscribers = handler -> subscribers();
+            return;
+        }
+    }
+    subscribers = dataStore::Data();
 #endif
+}
 
 CrawlerHelper::CrawlerHelper(dataStore::Data subscribers)
     : subscribers(std::move(subscribers)) {}
@@ -31,7 +37,16 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
 
 void CrawlerHelper::curlSetup(){
     #if NEED_PORT
-        curlSetup(CLIENT_COOKIE,user_agent);
+        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+            warn("Client not initialized, cannot setup curl");
+            return;
+        }
+        const auto* handler = crawlInfo->client->handler();
+        if (handler == nullptr) {
+            warn("Client handler not initialized, call /set or /login first");
+            return;
+        }
+        curlSetup(handler -> getCOOKIE(), user_agent);
     #else
         curlSetup(cookie,user_agent);
     #endif
@@ -60,25 +75,25 @@ bool CrawlerHelper::connect(bool deal){
             }
         }
     #endif
-    #if DEVELOP
         try {
-    #endif
             if (deal && dealJson()) {
                 clear();
                 return true;
             }
             return !deal;
-    #if DEVELOP
         }catch (exception e){
+    #if DEVELOP
             warn("Dealing Json encounters problem !");
             say("Json content: ",false,RED);
             say(to_string(json).c_str(),true,RED);
             say("Now url: ",false,RED);
             say(url.c_str(),true,RED);
             throwError(e.what());
+    #endif
+            say("Please Check COOKIE ! May COOKIE wrong ! Now Client ID :",false);
+            say(crawlInfo -> clientId.c_str());
             return false;
         }
-    #endif
 }
 
 bool CrawlerHelper::dealJson() {
@@ -90,9 +105,7 @@ bool CrawlerHelper::dealJson() {
         if(pluginDealJson(tempData))
             return true;
 
-    #ifdef DEVELOP
         try {
-    #endif
             json = Json::parse(tempData);// TODO COOKIE不合法时的报错信息分析
     #ifdef DEVELOP
             auto data = json.get<dataStore::Data>();
@@ -100,13 +113,19 @@ bool CrawlerHelper::dealJson() {
             data.setName(tempDataName);
             say("保存此次爬取临时数据");
             data.writeToJson();
+    #endif
         }catch (exception e){
+    #ifdef DEVELOP
             warn("爬取数据格式错误！");
             warn("数据如下：");
             warn(tempData.c_str());
+    #endif
+            if (!crawlInfo -> client -> handler() -> validCOOKIE()) {
+                warn("请检查COOKIE是否正常，客户端ID: ",false);
+                warn(crawlInfo -> clientId.c_str());
+            }
             throwError(e.what());
         }
-    #endif
     }
     auto task = crawlTask::nowTask();
     switch (task -> mode) {

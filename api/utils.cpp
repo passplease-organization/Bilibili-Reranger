@@ -230,7 +230,9 @@ namespace dataStore{
     }
 
     Data::Data(const dataStore::Data* other){
-        if (other -> valid()) {
+        if (other == nullptr) {
+            this -> _valid = false;
+        }else if (other -> valid()) {
             *this = other;
             this -> _valid = true;
         }
@@ -271,7 +273,7 @@ namespace dataStore{
     }
 
 
-    bool Data::valid() const {
+    bool Data::valid() const noexcept {
         return _valid;
     }
 
@@ -513,7 +515,7 @@ namespace dataStore{
     }
 
     void Data::validData(const dataStore::Data *input) noexcept(false) {
-        if(!valid())
+        if(!valid() || input == nullptr)
             return;
         for(const auto& d : input -> data){
             if(&d.second == this){

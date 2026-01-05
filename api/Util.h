@@ -139,7 +139,7 @@ namespace dataStore{
 
         API bool empty() const;
 
-        [[nodiscard]] API bool valid() const;
+        [[nodiscard]] API bool valid() const noexcept;
 
         API void broken();
 
@@ -227,8 +227,7 @@ namespace dataStore{
 
         /**
          * Save to Json, also to file
-         * @param path The path to your file (path in computer or key in map)
-         * @param data Data you want to write
+         * @param target_path The path to your file (path in computer or key in map)
          * @param storage Store to map or release, true means store, false means delete
          * */
         API bool writeToJson(const char* target_name,const char* target_path,bool recover = true,bool storage = true);
@@ -297,7 +296,7 @@ public:
 
     API bool operator==(const LinkedMap& other) const;
 
-    API Nullable value* get(const key& k) const;
+    API [[nodiscard]] Nullable value* get(const key& k) const;
 
     /**
      * @param k key of element you want to remove, null means the first one
@@ -305,7 +304,7 @@ public:
      */
     API Nullable value* remove(Nullable const key* k);
 
-    API bool contains(const key& k) const;
+    API [[nodiscard]] bool contains(const key& k) const;
 
     API [[nodiscard]] const unsigned int& size() const {
         return _size;

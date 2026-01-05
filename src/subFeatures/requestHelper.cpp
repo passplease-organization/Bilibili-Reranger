@@ -1,12 +1,20 @@
 #include "requestHelper.h"
 
 #if NEED_PORT
+
+#ifdef TEST
+    #include "BilibiliInterface.h"
+#endif
 #include "../PortListener.h"
 #include "../exit.h"
 #include "interface.h"
 #include "../Crawler.h"
 #include "../PluginHandler.h"
 #include "loginAPI/socialAPI.h"
+
+#define LOG(URL,NAME) \
+    say("Accept URL: " URL);\
+    say(NAME " working for that ...");
 
 namespace webAPI{
     socialAPI* getHandler(Client const* client){
@@ -17,8 +25,7 @@ namespace webAPI{
 void dealParams(CrawlerHelper& helper) {}
 
 int getAllCategories(boost::asio::ip::tcp::socket& socket) {
-    say("Accept URL: " GET_ALL_CATEGORIES);
-    say("getAllCategories working for that ...");
+    LOG(GET_ALL_CATEGORIES,"getAllCategories");
     if (stop -> load())
         return failed();
     auto& groups = crawlTask::getAllGroups();
@@ -26,12 +33,17 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     for (const auto group : groups)
         data.put(URL_PARAMS_CATEGORY,group -> name,true);
     Json json = data;
-    return back(sendMessage(socket,to_string(json)));
+    string payload = to_string(json);
+    bool failed = payload.empty();
+    return back(sendMessage(socket,payload,failed));
 }
 
 int login(boost::asio::ip::tcp::socket& socket) {
-    if (crawlInfo -> checkClient())
-        return failed("Illegal client !");
+    LOG(LOGIN, "login");
+    REQUIRE_CLIENT(socket);
+#ifdef TEST
+    string platform(BILIBILI);
+#else
     string platform;
     for (auto const& param : crawlInfo -> params) {
         if (param.key == URL_PARAMS_PLATFORM){
@@ -39,19 +51,26 @@ int login(boost::asio::ip::tcp::socket& socket) {
             break;
         }
     }
-    string username = INFO_BODY(URL_PARAMS_USERNAME);
-    string password = INFO_BODY(URL_PARAMS_PASSWORD);
-
+#endif
     if (platform.empty())
-        return back(sendMessage(socket,webAPI::socialAPI::allPlatform()));
+        return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
     crawlInfo -> client -> getHandler(platform,stop);
     if (!crawlInfo -> client -> check())
         return failed("Client Init failed !");
     auto const handler = getHandler(crawlInfo -> client);
-    return back(sendMessage(socket,handler -> login(username,password)));
+#ifdef TEST
+    string username,password;
+#else
+    string username = INFO_BODY(URL_PARAMS_USERNAME);
+    string password = INFO_BODY(URL_PARAMS_PASSWORD);
+#endif
+    bool failed = false;
+    string payload = handler -> login(username,password,failed);
+    return back(sendMessage(socket,payload,failed));
 }
 
 int key(boost::asio::ip::tcp::socket& socket){
+    LOG(KEY,"key");
     string key;
     for (auto const& param : crawlInfo -> params) {
         if (param.key == URL_PARAMS_RSA_KEY){
@@ -62,32 +81,34 @@ int key(boost::asio::ip::tcp::socket& socket){
     if (key.empty()){
         Json json;
         json[URL_PARAMS_RSA_KEY] = webAPI::getRSA().publicKey();
-        return sendMessage(socket, json);
+        return sendMessage(socket, to_string(json),false);
     }
     const auto& id = webAPI::createAndStoreClient(key);
     if (id.empty())
         return failed("Failed on setting client ID !");
     Json json;
     json[URL_PARAMS_CLIENT_ID] = id;
-    return back(sendMessage(socket, webAPI::client(key) -> encrypt(json)));
+    return back(sendMessage(socket, webAPI::client(id) -> encrypt(to_string(json)),false));
 }
 
 int testID(boost::asio::ip::tcp::socket& socket) {
+    LOG(TEST_ID,"testID");
     bool valid = false;
     if (crawlInfo -> checkClient())
         valid = true;
-    return back(sendMessage(socket, valid ? "ID still valid !" : "ID not valid !"));
+    return back(sendMessage(socket, valid ? "ID still valid !" : "ID not valid !", !valid));
 }
 
 int init(boost::asio::ip::tcp::socket& socket){
-    if (crawlInfo -> checkClient())
-        return failed("Illegal client !");
-    return back(sendMessage(socket,crawlInfo -> client -> prepare() ? "准备过程完成" : "准备过程失败"));
+    LOG(INIT, "init");
+    REQUIRE_CLIENT(socket);
+    bool ok = crawlInfo -> client -> prepare();
+    return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 
 int set(boost::asio::ip::tcp::socket& socket){
-    if (crawlInfo -> checkClient())
-        return failed("Illegal client !");
+    LOG(SET, "set");
+    REQUIRE_CLIENT(socket);
     string platform;
     for (auto const& param : crawlInfo -> params) {
         if (param.key == URL_PARAMS_PLATFORM){
@@ -114,5 +135,14 @@ handler checkURL(const std::string& url) {
     else if (url.starts_with(SET))
         return set;
     return nullptr;
+}
+
+handler requireClient(){
+    if (crawlInfo -> checkClient())
+        return nullptr;
+    return [](boost::asio::ip::tcp::socket& socket) -> int{
+        sendMessage(socket,"Need Client Id !",true);
+        return failed("Illegal Client");
+    };
 }
 #endif

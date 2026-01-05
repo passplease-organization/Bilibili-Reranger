@@ -75,9 +75,9 @@ namespace webAPI {
 
         API virtual ~socialAPI() = 0;
 
-        API virtual string login(const std::string &name, const std::string &password) = 0;
+        API virtual string login(const std::string &name, const std::string &password,bool& failed) = 0;
 
-        API virtual bool validCOOKIE() {
+        API virtual bool validCOOKIE() const {
             return !getCOOKIE().empty();
         }
 
@@ -123,13 +123,13 @@ namespace webAPI {
 
         SimpleESA esa;
 
-        API static void init();
-
     protected:
         socialAPI* _handler;
         vector<socialAPI*> handlers;
 
     public:
+        API static void init();
+
         API Client(const std::string& key);
 
         API Client(Client&& other) noexcept;
@@ -154,14 +154,14 @@ namespace webAPI {
             return _handler;
         }
 
-        bool prepare() const {
+        API [[nodiscard]] bool prepare() const {
             return _handler -> prepare();
         }
 
-        API [[nodiscard]] bool check() const;
+        API [[nodiscard]] bool check() const noexcept;
     };
 
-    API Nullable Client* client(std::string ID);
+    API Nullable Client* client(const std::string& ID);
 
     API bool storeClient(NotNull Client* client);
 

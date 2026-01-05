@@ -21,13 +21,22 @@ inline void _say(string msg,bool endl = true) {
 void startTestThread() {
     thread testThread(test);
     testThread.detach();
-    _say("Test Thread started !");
+    _say("Test Thread start !");
 }
+
+#define CONNECTION_TIMEOUT 60000
 
 #define POST_PARAMS(url) \
     Post( \
         Url{url}, \
-        ConnectTimeout{60000}, \
+        ConnectTimeout{CONNECTION_TIMEOUT}, \
+        Timeout{config<int>(TIMEOUT)} \
+    )
+#define POST_PARAMS_ID(url) \
+    Post( \
+        Url{url}, \
+        Parameters{{URL_PARAMS_CLIENT_ID,id}}, \
+        ConnectTimeout{CONNECTION_TIMEOUT}, \
         Timeout{config<int>(TIMEOUT)} \
     )
 #define OUTPUT(output,category) \
@@ -44,8 +53,9 @@ void startTestThread() {
 #define EXCHANGE KEY "_exchange"
 #define EXCHANGE_KEY_OUTPUT OUTPUT_DIRECTORY EXCHANGE ".json"
 #define TEST_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID ".json"
+#define TEST_WRONG_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID "_wrong" ".json"
+#define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
 #define MATH "math"
-#define MATH_URL "/?" URL_PARAMS_CATEGORY "=" MATH
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
 
 void test() {
@@ -86,8 +96,14 @@ void test() {
         OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
         string key = json[URL_PARAMS_RSA_KEY];
         key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
+        auto esa = webAPI::SimpleESA(key);
 
-        response = POST_PARAMS(localhost + KEY "?" + URL_PARAMS_RSA_KEY "=" + key);
+        response = Post(
+            Url{localhost + KEY},
+            Parameters{{URL_PARAMS_RSA_KEY,key}},
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
         if (response.status_code != 200) {
             error = true;
             warn("Exchange key failed ! Error: ",false);
@@ -95,28 +111,66 @@ void test() {
         }
         _say("Get id: ");
         _say(response.text);
+        json = Json::parse(esa.decrypt(response.text));
         if (json.empty()) {
             error = true;
             EMPTY_WARN("Exchange key");
         }
         OUTPUT(EXCHANGE_KEY_OUTPUT,EXCHANGE);
-        string id = json[URL_PARAMS_CLIENT_ID];
+        const auto& id = json[URL_PARAMS_CLIENT_ID];
 
-        response = POST_PARAMS(localhost + TEST_ID);
+        _say("Test Right ID");
+        response = POST_PARAMS_ID(localhost + TEST_ID);
         if (response.status_code != 200) {
             error = true;
             warn("Test id failed ! Error: ",false);
             warn(response.error.message.c_str());
         }
-        _say("Test id: ");
-        _say(response.text);
-        if (json.empty()) {
+        _say("Test right id: ");
+        if (response.text.empty()) {
             error = true;
-            EMPTY_WARN("Test id");
-        }
+            EMPTY_WARN("Test right id");
+        }else _say(response.text);
         OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
-        response = POST_PARAMS(localhost + MATH_URL);
+        _say("Test Wrong ID");
+        response = POST_PARAMS(localhost + TEST_ID);
+        if (response.status_code == 200) {
+            error = true;
+            warn("Test id failed ! Get 200 !",false);
+        }
+        OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
+
+        response = POST_PARAMS_ID(localhost + LOGIN);
+        if (response.status_code != 200) {
+            error = true;
+            warn("Login failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+        _say("Login: ");
+        _say(response.text);
+        if (response.text.empty()) {
+            error = true;
+            EMPTY_WARN("Login");
+        }
+        OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
+
+        response = POST_PARAMS_ID(localhost + INIT);
+        if (response.status_code != 200) {
+            error = true;
+            warn("Init client failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+
+        response = Post(
+            Url{localhost},
+            Parameters{
+                {URL_PARAMS_CLIENT_ID,id},
+                {URL_PARAMS_CATEGORY,MATH}
+            },
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
         if (response.status_code != 200) {
             error = true;
             warn("Crawl for math failed ! Error: ",false);
