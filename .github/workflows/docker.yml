@@ -12,6 +12,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: passplease/Bilibili-Reranger/.github/workflows/docker.yml@master
+    uses: passplease-organization/Bilibili-Reranger/.github/workflows/docker.yml@master
     with:
       ref: "frontend"
