@@ -113,12 +113,7 @@ void test() {
         }
         _say("Get id: ");
         _say(esa.decrypt(response.text));
-        try{
-            json = Json::parse(esa.decrypt(response.text));
-        }catch (...){
-            json.clear();
-            json[DEBUG] = response.text;
-        }
+        json = Json::parse(esa.decrypt(response.text));
         if (json.empty()) {
             error = true;
             EMPTY_WARN("Exchange key");

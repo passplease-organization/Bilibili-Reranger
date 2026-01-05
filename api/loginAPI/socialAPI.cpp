@@ -309,12 +309,14 @@ bool webAPI::storeClient(Client* client){
 std::string webAPI::createAndStoreClient(const std::string &key) {
     if (const auto client = new Client(key); storeClient(client)) {
         #if TEST
-            say("Test Client ID: ",false);
-            say(client -> getID().c_str());
+            say("Test Client ID: ",false,GREEN);
+            say(client -> getID().c_str(),true,GREEN);
         #endif
         return client -> getID();
-    }
-    else delete client;
+    }else delete client;
+    #if TEST
+        say("Register Client Encounter Problem !");
+    #endif
     return "";
 }
 

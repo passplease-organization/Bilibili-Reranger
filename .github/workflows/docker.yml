@@ -7,6 +7,7 @@ on:
     paths:
       - .devcontainer/Dockerfile
       - .github/workflows/docker.yml
+  fork:
 
 jobs:
   call-workflow-passing-data:

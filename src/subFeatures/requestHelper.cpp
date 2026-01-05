@@ -81,7 +81,7 @@ int key(boost::asio::ip::tcp::socket& socket){
     if (key.empty()){
         Json json;
         json[URL_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
-        return sendMessage(socket, to_string(json),false);
+        return back(sendMessage(socket, to_string(json),false));
     }
     const auto& id = webAPI::createAndStoreClient(key);
     if (id.empty())
