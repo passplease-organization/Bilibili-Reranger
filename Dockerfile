@@ -5,6 +5,7 @@ WORKDIR /compiler
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install CURL
+RUN vcpkg install libsodium
 RUN apt update && apt install -y libboost-all-dev
 
 COPY ./src ./src
