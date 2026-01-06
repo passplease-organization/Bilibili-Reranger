@@ -20,7 +20,7 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 RUN apt update && apt install -y libboost-all-dev
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
-RUN vcpkg install CURL
+RUN vcpkg install curl
 RUN vcpkg install openssl
 RUN vcpkg install libsodium
 

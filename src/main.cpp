@@ -42,9 +42,12 @@ int main(int argc, char** argv) {
     warn("这个程序是为Linux系统设计的，对于Windows系统难保可用性，不建议在Windows上使用！");
 #endif
 
+#if NEED_PORT
+#else
     if(!checkEnv()) {
         return 1;
     }
+#endif
 
 #if NEED_PORT
     GroupFilter(info.target);
@@ -85,6 +88,6 @@ int main(int argc, char** argv) {
 }
 #if NEED_PORT
 int main(int argc, char** argv) {
-    startWork();
+    return startWork();
 }
 #endif

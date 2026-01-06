@@ -30,7 +30,7 @@ struct CrawlInfo {
 extern thread_local CrawlInfo const* crawlInfo;
 extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
-void startWork();
+int startWork();
 
 bool sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "",bool failed = false);
 
