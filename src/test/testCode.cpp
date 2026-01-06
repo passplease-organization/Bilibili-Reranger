@@ -100,9 +100,11 @@ void test() {
         key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
         auto esa = webAPI::SimpleESA(key);// It will automatically decrypt
 
+        json.clear();
+        json[URL_PARAMS_ENCRYPT_KEY] = key;
         response = Post(
             Url{localhost + KEY},
-            Parameters{{URL_PARAMS_ENCRYPT_KEY,key}},
+            Body{json.dump()},
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );

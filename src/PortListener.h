@@ -23,6 +23,7 @@ struct CrawlInfo {
         return client != nullptr && client -> check();
     }
 
+    #define BODY_CONTAIN(key) crawlInfo -> body.contains(key)
     #define INFO_BODY(key) crawlInfo -> body[key]
 };
 

@@ -71,7 +71,7 @@ jobs:
   test-code:
     runs-on: ubuntu-latest
     needs: [prepare, build-temp-image]
-    if: needs.prepare.outputs.build_temp != 'true' || needs.build-temp-image.result == 'success'
+    if: ${{ always() && (needs.prepare.outputs.build_temp != 'true' || needs.build-temp-image.result == 'success') }}
     environment: Test
     container:
       image: ${{ needs.prepare.outputs.image }}
@@ -111,7 +111,7 @@ jobs:
   cleanup-temp-image:
     runs-on: ubuntu-latest
     needs: [prepare, build-temp-image, test-code]
-    if: needs.prepare.outputs.build_temp == 'true' && needs.build-temp-image.result == 'success'
+    if: ${{ always() && needs.prepare.outputs.build_temp == 'true' && needs.build-temp-image.result == 'success' }}
     permissions:
       packages: write
     steps:

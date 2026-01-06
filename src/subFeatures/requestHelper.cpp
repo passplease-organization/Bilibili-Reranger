@@ -5,6 +5,8 @@
 #ifdef TEST
     #include "BilibiliInterface.h"
 #endif
+#include <iostream>
+
 #include "../PortListener.h"
 #include "../exit.h"
 #include "interface.h"
@@ -72,12 +74,8 @@ int login(boost::asio::ip::tcp::socket& socket) {
 int key(boost::asio::ip::tcp::socket& socket){
     LOG(KEY,"key");
     string key;
-    for (auto const& param : crawlInfo -> params) {
-        if (param.key == URL_PARAMS_ENCRYPT_KEY){
-            key = param.value;
-            break;
-        }
-    }
+    if (BODY_CONTAIN(URL_PARAMS_ENCRYPT_KEY))
+        key = INFO_BODY(URL_PARAMS_ENCRYPT_KEY);
     if (key.empty()){
         Json json;
         json[URL_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
