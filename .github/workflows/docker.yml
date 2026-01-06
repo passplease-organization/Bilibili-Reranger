@@ -1,6 +1,7 @@
 name: Dev Container
 on:
   workflow_dispatch:
+  fork:
   push:
     paths:
       - Dockerfile

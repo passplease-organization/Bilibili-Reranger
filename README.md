@@ -1,4 +1,5 @@
 # 服务前端
+[English](README_en.md)
 ## 架构
 基于Vue搭建，主要使用TS代码（但是我也是边写边学）
 
