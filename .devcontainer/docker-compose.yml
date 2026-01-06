@@ -4,6 +4,9 @@ services:
       context: ../
       dockerfile: .devcontainer/Dockerfile
     domainname: frontend
+    volumes:
+      - ./session/codex:/root/.codex # You can change to C:\Users\Administrator\.codex
+      - ./session/qwen:/root/.qwen
     env_file:
       - env.list
     depends_on:
