@@ -33,12 +33,20 @@ target(std::move(target)),
 id(id) {
     if (checkClient())
         this -> body = client -> decrypt(body);
+    else try {
+        this -> body = Json::parse(body);
+    }catch (...) {
+        this -> body = Json();
+    }
 }
 
 int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket socket);
 auto WorkFunction = &work;
 
-void startWork() {
+int startWork() {
+    if(checkEnv()) {
+        return 1;
+    }
     readConfig();
     webAPI::Client::init();
     PluginHandler::loadAll();
@@ -114,7 +122,9 @@ void startWork() {
     }catch (std::exception& e) {
         warn("Listening to port encountered an error:");
         throwError(e.what());
+        return 1;
     }
+    return 0;
 }
 
 bool sendMessage(ip::tcp::socket& socket,string data,bool failed) {

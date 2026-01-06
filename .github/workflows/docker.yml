@@ -7,12 +7,13 @@ on:
     paths:
       - .devcontainer/Dockerfile
       - .github/workflows/docker.yml
+  fork:
 
 jobs:
   call-workflow-passing-data:
     permissions:
       contents: read
       packages: write
-    uses: passplease/Bilibili-Reranger/.github/workflows/docker.yml@master
+    uses: passplease-organization/Bilibili-Reranger/.github/workflows/docker.yml@master
     with:
       ref: "backend"

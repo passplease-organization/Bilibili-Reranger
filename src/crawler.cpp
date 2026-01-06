@@ -335,9 +335,9 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
 #if NEED_PORT
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
 #else
-    string cookie = getenv(COOKIE);
+    string cookie;
 #endif
-string user_agent = getenv(USERAGENT);
+string user_agent;
 
 #if NEED_PORT
 bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
@@ -407,21 +407,25 @@ string getURL(const crawlTask::Task* task){
 }
 
 bool checkEnv(){
-    bool error = true;
+    bool error = false;
 #if NEED_PORT
 #else
     if(cookie.empty()){
-        string err = "未找到环境变量: ";
-        err += COOKIE;
-        warn(err.c_str());
-        error &= false;
+        if (getenv(COOKIE) == nullptr){
+            string err = "未找到环境变量: ";
+            err += COOKIE;
+            warn(err.c_str());
+            error |= true;
+        }else cookie = getenv(COOKIE);
     }
 #endif
     if(user_agent.empty()){
-        string err = "未找到环境变量: ";
-        err += USERAGENT;
-        warn(err.c_str());
-        error &= false;
+        if (getenv(USERAGENT) == nullptr){
+            string err = "未找到环境变量: ";
+            err += USERAGENT;
+            warn(err.c_str());
+            error |= true;
+        }else user_agent = getenv(USERAGENT);
     }
     return error;
 }

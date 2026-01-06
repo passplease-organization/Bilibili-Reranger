@@ -2,10 +2,12 @@ FROM mcr.microsoft.com/devcontainers/cpp:dev-debian AS compiler
 
 WORKDIR /compiler
 
+RUN apt update && apt install -y libboost-all-dev
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
-RUN vcpkg install CURL
-RUN apt update && apt install -y libboost-all-dev
+RUN vcpkg install curl
+RUN vcpkg install openssl
+RUN vcpkg install libsodium
 
 COPY ./src ./src
 COPY ./api ./api
