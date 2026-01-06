@@ -6,6 +6,8 @@ on:
       - backend
     paths-ignore:
       - .devcontainer/Dockerfile
+      - .github/workflows/docker.yml
+      - .github/workflows/PR-Test.yml
 
 jobs:
   Test-Code:

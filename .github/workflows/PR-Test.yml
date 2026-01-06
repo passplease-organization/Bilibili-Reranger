@@ -79,8 +79,8 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
       env:
-        COOKIE: ""
-        USERAGENT: ""
+        COOKIE: "wrong"
+        USERAGENT: "wrong"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
