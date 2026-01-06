@@ -44,7 +44,7 @@ int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket so
 auto WorkFunction = &work;
 
 int startWork() {
-    if(!checkEnv()) {
+    if(checkEnv()) {
         return 1;
     }
     readConfig();

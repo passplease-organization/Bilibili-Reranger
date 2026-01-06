@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
 
 #if NEED_PORT
 #else
-    if(!checkEnv()) {
+    if(checkEnv()) {
         return 1;
     }
 #endif
