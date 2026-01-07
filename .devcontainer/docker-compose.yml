@@ -7,6 +7,7 @@ services:
     volumes:
       - ./session/codex:/root/.codex # You can change to C:\Users\Administrator\.codex
       - ./session/qwen:/root/.qwen
+      - ./session/vercel:/.jbdevcontainer/data/com.vercel.cli
     env_file:
       - env.list
     depends_on:
