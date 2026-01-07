@@ -31,10 +31,10 @@ params(params),
 url(std::move(url)),
 target(std::move(target)),
 id(id) {
-    if (checkClient())
-        this -> body = client -> decrypt(body);
-    else try {
-        this -> body = Json::parse(body);
+    try {
+        if (checkClient())
+        this -> body = Json::parse(client -> decrypt(body));
+    else this -> body = Json::parse(body);
     }catch (...) {
         this -> body = Json();
     }
