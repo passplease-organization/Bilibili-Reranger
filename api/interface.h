@@ -56,3 +56,4 @@ typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 #define URL_PARAMS_PASSWORD "password"
 #define URL_PARAMS_CLIENT_ID "id"
 #define URL_PARAMS_ENCRYPT_KEY "key"
+#define URL_PARAMS_ADMIN "admin"

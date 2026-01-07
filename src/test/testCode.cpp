@@ -54,6 +54,7 @@ void startTestThread() {
 #define EXCHANGE_KEY_OUTPUT OUTPUT_DIRECTORY EXCHANGE ".json"
 #define TEST_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID ".json"
 #define TEST_WRONG_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID "_wrong" ".json"
+#define ADMIN_LOGIN_OUTPUT OUTPUT_DIRECTORY ADMIN_CLIENT_KEY ".json"
 #define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
 #define MATH "math"
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
@@ -147,6 +148,28 @@ void test() {
         }
         json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
+
+        json.clear();
+        json[URL_PARAMS_ENCRYPT_KEY] = esa.getKey("");
+        json[URL_PARAMS_ADMIN] = "test";
+        response = Post(
+            Url{localhost + KEY},
+            Body{json.dump()},
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        if (response.status_code != 200) {
+            error = true;
+            warn("Admin login failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+        _say("Admin login: ");
+        if (response.text.empty()) {
+            error = true;
+            EMPTY_WARN("Admin login");
+        }else _say(response.text);
+        json = Json::parse(esa.decrypt(response.text));
+        OUTPUT(ADMIN_LOGIN_OUTPUT,ADMIN_CLIENT_KEY);
 
         response = POST_PARAMS_ID(localhost + LOGIN);
         if (response.status_code != 200) {

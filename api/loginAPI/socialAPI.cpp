@@ -275,21 +275,132 @@ const string &Client::getID() const {
     return ID;
 }
 
-LinkedMap<string,Client*>* clients;
+std::string Client::ESAKey(const std::string &adminKey) const {
+    return esa.getKey(adminKey);
+}
+
+std::string SimpleESA::getKey(const std::string &adminKey) const {
+#ifndef TEST
+    if (adminKey == config<string>(ADMIN_CLIENT_KEY)) {
+#endif
+        char b64[sodium_base64_ENCODED_LEN(crypto_secretbox_KEYBYTES,
+            sodium_base64_VARIANT_ORIGINAL)];
+        sodium_bin2base64(b64, sizeof b64, key, crypto_secretbox_KEYBYTES,
+        sodium_base64_VARIANT_ORIGINAL);
+        return std::string(b64);
+#ifndef TEST
+    }else return "";
+#endif
+}
+
+namespace {
+class AdminLinkedMap final : public LinkedMap<string,Client*> {
+public:
+    explicit AdminLinkedMap(unsigned int count) : LinkedMap<string,Client*>(count) {}
+
+    pair<string,Client*> put(const string& k,Client* const& v) override {
+        for (unsigned int i = 0; i < size(); i++) {
+            if (keys[i] == k) {
+                auto& old = values[i];
+                values[i] = v;
+                return {k,old};
+            }
+        }
+        if (_size < maxCount) {
+            keys[_size] = k;
+            values[_size] = v;
+            _size++;
+            return {};
+        }
+        if (hasAdmin) {
+            if (_size <= 1) {
+                return {};
+            }
+            auto evicted = pair<string,Client*>(keys[1],values[1]);
+            for (unsigned int i = 1; i < maxCount - 1; i++) {
+                keys[i] = keys[i + 1];
+                values[i] = values[i + 1];
+            }
+            keys[maxCount - 1] = k;
+            values[maxCount - 1] = v;
+            return evicted;
+        }
+        auto evicted = first();
+        for (unsigned int i = 0; i < maxCount - 1; i++) {
+            keys[i] = keys[i + 1];
+            values[i] = values[i + 1];
+        }
+        keys[maxCount - 1] = k;
+        values[maxCount - 1] = v;
+        return evicted;
+    }
+
+    [[nodiscard]] const Client* getAdminClient() const {
+        if (!hasAdmin || _size == 0)
+            return nullptr;
+        return values[0];
+    }
+
+    const Client* markAdmin(const string& id) {
+        if (_size == 0)
+            return nullptr;
+        if (hasAdmin) {
+            if (keys[0] == id)
+                return values[0];
+            for (unsigned int i = 1; i < size(); i++) {
+                if (keys[i] == id) {
+                    for (unsigned int j = i; j < size() - 1; j++) {
+                        keys[j] = keys[j + 1];
+                        values[j] = values[j + 1];
+                    }
+                    _size--;
+                    break;
+                }
+            }
+            return values[0];
+        }
+        for (unsigned int i = 0; i < size(); i++) {
+            if (keys[i] == id) {
+                if (i == 0) {
+                    hasAdmin = true;
+                    return values[0];
+                }
+                const auto adminKey = keys[i];
+                const auto adminValue = values[i];
+                for (unsigned int j = i; j > 0; j--) {
+                    keys[j] = keys[j - 1];
+                    values[j] = values[j - 1];
+                }
+                keys[0] = adminKey;
+                values[0] = adminValue;
+                hasAdmin = true;
+                return values[0];
+            }
+        }
+        return nullptr;
+    }
+
+private:
+    bool hasAdmin = false;
+};
+}
+
+AdminLinkedMap* clients;
 auto client_mutex = std::mutex();
+#define LOCK std::lock_guard<std::mutex> lock(client_mutex);
 bool initialized = false;
 
 void Client::init() {
     if (initialized)
         return;
     client_mutex.lock();
-    clients = new LinkedMap<string,Client*>(config<int>(MAX_CLIENT));
+    clients = new AdminLinkedMap(config<int>(MAX_CLIENT));
     client_mutex.unlock();
     initialized = true;
 }
 
 Client* webAPI::client(const std::string& ID){
-    std::lock_guard<std::mutex> lock(client_mutex);
+    LOCK
     if (clients == nullptr || !clients -> contains(ID))
         return nullptr;
     return (*clients)[ID];
@@ -298,12 +409,12 @@ Client* webAPI::client(const std::string& ID){
 bool webAPI::storeClient(Client* client){
     if (client == nullptr || client -> check())
         return false;
-    std::lock_guard<std::mutex> lock(client_mutex);
+    LOCK
     if (clients == nullptr || clients -> contains(client -> getID())) {
         return false;
     }
-    (*clients)[client -> getID()] = client;
-    return true;
+    clients -> put(client -> getID(),client);
+    return clients -> contains(client -> getID());
 }
 
 std::string webAPI::createAndStoreClient(const std::string &key) {
@@ -318,6 +429,18 @@ std::string webAPI::createAndStoreClient(const std::string &key) {
         say("Register Client Encounter Problem !");
     #endif
     return "";
+}
+
+const Client* webAPI::adminLogin(const string& id,const std::string &adminKey) {
+    #ifdef TEST
+        LOCK
+        return clients -> markAdmin(id);
+    #else
+    if (adminKey == config<string>(ADMIN_CLIENT_KEY)) {
+        LOCK
+        return clients -> markAdmin(id);
+    }else return nullptr;
+    #endif
 }
 
 CurlHelper::CurlHelper() {

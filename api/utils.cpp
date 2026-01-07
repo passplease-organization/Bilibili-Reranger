@@ -1,6 +1,8 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <random>
 #include "Util.h"
 
 using namespace std;
@@ -47,6 +49,20 @@ bool startWith(const string& target,const string& substring) {
 
 string removeEnd(const string& target,const string& substring){
     return endWith(target.c_str(),substring.c_str()) ? target.substr(0,target.size() - substring.size()) : target;
+}
+
+string randomString(size_t length){
+    static const char kAlphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+    if (length == 0)
+        return "";
+    thread_local mt19937_64 rng{random_device{}()};
+    uniform_int_distribution<size_t> dist(0, sizeof(kAlphabet) - 2);
+    string out;
+    out.reserve(length);
+    for (size_t i = 0; i < length; ++i)
+        out.push_back(kAlphabet[dist(rng)]);
+    return out;
 }
 
 int removeEnd(const char* target,const char* substring,char** buffer){

@@ -11,6 +11,8 @@
  */
 map<const string,std::any> defaultConfigs = map<const string,std::any>();
 
+extern string randomString(size_t length);
+
 void createConfig(){
     char* path;
     defaultOutputChar(&path);
@@ -43,6 +45,7 @@ void createConfig(){
         #endif
         config.put(KEY_LENGTH,2048,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_CLIENT,32,false,FORCE_GENERATE_CONFIG);
+        config.put(ADMIN_CLIENT_KEY,randomString(16).c_str(),false,FORCE_GENERATE_CONFIG);
         config.writeToJson();
     }
     freeOutputChar(&path);
@@ -97,4 +100,5 @@ void _readConfig() noexcept(false){
     getAndStore<bool>(&config, DETAILS);
     getAndStore<int>(&config, KEY_LENGTH);
     getAndStore<int>(&config, MAX_CLIENT);
+    getAndStore<string>(&config, ADMIN_CLIENT_KEY);
 }

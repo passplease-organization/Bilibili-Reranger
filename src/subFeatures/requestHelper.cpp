@@ -74,8 +74,23 @@ int login(boost::asio::ip::tcp::socket& socket) {
 int key(boost::asio::ip::tcp::socket& socket){
     LOG(KEY,"key");
     string key;
-    if (BODY_CONTAIN(URL_PARAMS_ENCRYPT_KEY))
+    if (BODY_CONTAIN(URL_PARAMS_ENCRYPT_KEY)) {
         key = INFO_BODY(URL_PARAMS_ENCRYPT_KEY);
+        if (BODY_CONTAIN(URL_PARAMS_ADMIN)) {
+            REQUIRE_CLIENT(socket);
+            const string& admin = INFO_BODY(URL_PARAMS_ADMIN);
+            const auto& id = webAPI::adminLogin(crawlInfo -> client -> getID(),admin);
+            if (id == nullptr) {
+                sendMessage(socket,"No this admin !",true);
+                return failed();
+            }
+            const auto& esaKey = webAPI::client(id -> getID()) -> ESAKey(admin);
+            Json json;
+            json[URL_PARAMS_CLIENT_ID] = id -> getID();
+            json[URL_PARAMS_ENCRYPT_KEY] = esaKey;
+            return back(sendMessage(socket,crawlInfo -> client -> encrypt(json.dump())));
+        }
+    }
     if (key.empty()){
         Json json;
         json[URL_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
@@ -86,7 +101,7 @@ int key(boost::asio::ip::tcp::socket& socket){
         return failed("Failed on setting client ID !");
     Json json;
     json[URL_PARAMS_CLIENT_ID] = id;
-    return back(sendMessage(socket, webAPI::client(id) -> encrypt(to_string(json)),false));
+    return back(sendMessage(socket, webAPI::client(id) -> encrypt(json.dump()),false));
 }
 
 int testID(boost::asio::ip::tcp::socket& socket) {
