@@ -59,6 +59,8 @@ namespace webAPI {
         API [[nodiscard]] std::string decrypt(const std::string& content) const;
 
         API [[nodiscard]] bool check() const;
+
+        API [[nodiscard]] std::string getKey(const std::string& adminKey) const;
     };
 
     class socialAPI;
@@ -77,7 +79,7 @@ namespace webAPI {
 
         API virtual string login(const std::string &name, const std::string &password,bool& failed) = 0;
 
-        API virtual bool validCOOKIE() const {
+        API [[nodiscard]] virtual bool validCOOKIE() const {
             return !getCOOKIE().empty();
         }
 
@@ -159,6 +161,8 @@ namespace webAPI {
         }
 
         API [[nodiscard]] bool check() const noexcept;
+
+        API [[nodiscard]] std::string ESAKey(const std::string& adminKey) const;
     };
 
     API Nullable Client* client(const std::string& ID);
@@ -166,6 +170,8 @@ namespace webAPI {
     API bool storeClient(NotNull Client* client);
 
     API std::string createAndStoreClient(const std::string& key);
+
+    API const Client* adminLogin(const string& id,const std::string& adminKey);
 
     class CurlHelper {
     private:

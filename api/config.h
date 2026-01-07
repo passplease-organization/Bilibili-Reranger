@@ -23,6 +23,7 @@
 #define DETAILS "debug"
 #define KEY_LENGTH "key_length"
 #define MAX_CLIENT "max_client_count"
+#define ADMIN_CLIENT_KEY "admin_client_key"
 
 extern API map<const string,std::any> defaultConfigs;
 

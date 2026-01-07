@@ -25,6 +25,8 @@ API bool startWith(const string& target,const string& substring);
 
 API string removeEnd(const string& target,const string& substring);
 
+API string randomString(size_t length);
+
 extern "C"{
 
 #define RESET "\033[0m" // 重置颜色
@@ -271,7 +273,7 @@ constexpr bool needCrawlURL(const std::string& url){
  */
 template <typename key,typename value>
 class LinkedMap {
-private:
+protected:
     key* keys;
     value* values;
     unsigned int _size;
@@ -285,10 +287,10 @@ public:
 
     API LinkedMap(LinkedMap&& other) noexcept requires std::move_constructible<value>;
 
-    API ~LinkedMap();
+    API virtual ~LinkedMap();
 
-    API pair<key,value> put(const key& k,const value& v);
-    API pair<key,value> put(const pair<key,value>& p) {
+    API virtual pair<key,value> put(const key& k,const value& v);
+    API virtual pair<key,value> put(const pair<key,value>& p) {
         return put(p.first,p.second);
     }
 
@@ -296,17 +298,17 @@ public:
 
     API bool operator==(const LinkedMap& other) const;
 
-    API [[nodiscard]] Nullable value* get(const key& k) const;
+    API [[nodiscard]] Nullable virtual value* get(const key& k) const;
 
     /**
      * @param k key of element you want to remove, null means the first one
      * @return removed value
      */
-    API Nullable value* remove(Nullable const key* k);
+    API Nullable virtual value* remove(Nullable const key* k);
 
     API [[nodiscard]] bool contains(const key& k) const;
 
-    API [[nodiscard]] const unsigned int& size() const {
+    API [[nodiscard]] virtual const unsigned int& size() const {
         return _size;
     }
 
@@ -314,11 +316,11 @@ public:
         return _size == 0;
     }
 
-    API pair<key,value> last() const {
+    API [[nodiscard]] virtual pair<key,value> last() const {
         return std::pair<key,value>(keys[_size - 1],values[_size - 1]);
     }
 
-    API pair<key,value> first() const {
+    API [[nodiscard]] virtual pair<key,value> first() const {
         return std::pair<key,value>(keys[0],values[0]);
     }
 };

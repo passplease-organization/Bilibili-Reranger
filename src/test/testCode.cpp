@@ -54,6 +54,7 @@ void startTestThread() {
 #define EXCHANGE_KEY_OUTPUT OUTPUT_DIRECTORY EXCHANGE ".json"
 #define TEST_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID ".json"
 #define TEST_WRONG_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID "_wrong" ".json"
+#define ADMIN_LOGIN_OUTPUT OUTPUT_DIRECTORY "/" ADMIN_CLIENT_KEY ".json"
 #define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
 #define MATH "math"
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
@@ -96,12 +97,12 @@ void test() {
             EMPTY_WARN("Get key");
         }
         OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
-        string key = json[URL_PARAMS_ENCRYPT_KEY];
+        string key = json[BODY_PARAMS_ENCRYPT_KEY];
         key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
         auto esa = webAPI::SimpleESA(key);// It will automatically decrypt
 
         json.clear();
-        json[URL_PARAMS_ENCRYPT_KEY] = key;
+        json[BODY_PARAMS_ENCRYPT_KEY] = key;
         response = Post(
             Url{localhost + KEY},
             Body{json.dump()},
@@ -139,7 +140,7 @@ void test() {
         json[DEBUG] = response.text;
         OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
-        _say("Test Wrong ID");
+        _say("\nTest Wrong ID: ");
         response = POST_PARAMS(localhost + TEST_ID);
         if (response.status_code == 200) {
             error = true;
@@ -148,6 +149,34 @@ void test() {
         json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
 
+        _say("Admin Login: ");
+        json.clear();
+        json[BODY_PARAMS_ENCRYPT_KEY] = esa.getKey("");
+        _say("Now esa key: ",false);
+        _say(esa.getKey("").c_str());
+        json[BODY_PARAMS_ADMIN] = "test";
+        response = Post(
+            Url{localhost + KEY},
+            Parameters{{URL_PARAMS_CLIENT_ID,id}},
+            Body{esa.encrypt(json.dump())},
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        if (response.status_code != 200) {
+            error = true;
+            warn("Admin login failed ! Error: ",false);
+            warn(response.error.message.c_str());
+        }
+        _say("Admin login: ");
+        _say(esa.decrypt(response.text));
+        if (response.text.empty()) {
+            error = true;
+            EMPTY_WARN("Admin login");
+        }
+        json = Json::parse(esa.decrypt(response.text));
+        OUTPUT(ADMIN_LOGIN_OUTPUT,ADMIN_CLIENT_KEY);
+
+        _say("Login:");
         response = POST_PARAMS_ID(localhost + LOGIN);
         if (response.status_code != 200) {
             error = true;
@@ -194,6 +223,7 @@ void test() {
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
+        warn("Crashed !");
         POST_PARAMS_ID(localhost);
         throw e;
     }

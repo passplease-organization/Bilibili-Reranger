@@ -10,3 +10,4 @@ session
 env.list
 generate.stamp*
 desktop.ini
+!.devcontainer/session/codex/skills
