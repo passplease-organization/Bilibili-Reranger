@@ -13,6 +13,7 @@
 #include "../Crawler.h"
 #include "../PluginHandler.h"
 #include "loginAPI/socialAPI.h"
+#include "loginAPI/platforms.h"
 
 #define LOG(URL,NAME) \
     say("Accept URL: " URL);\
@@ -32,8 +33,11 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
         return failed();
     auto& groups = crawlTask::getAllGroups();
     dataStore::Data data{};
-    for (const auto group : groups)
-        data.put(URL_PARAMS_CATEGORY,group -> name,true);
+    for (const auto group : groups) {
+        dataStore::Data temp{};
+        temp.put(URL_PARAMS_CATEGORY,group -> name,true);
+        data.put(URL_PARAMS_PLATFORM,temp,true);
+    }
     Json json = data;
     string payload = to_string(json);
     bool failed = payload.empty();

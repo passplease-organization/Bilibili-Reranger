@@ -33,7 +33,7 @@ string toReadableTime(long long publishTime){
     return "刚刚";
 }
 
-namespace bilibili{
+namespace webAPI{
     thread_local const Video* _nowVideo;
 
     Video::Video(const dataStore::Data &data) {
@@ -77,7 +77,7 @@ namespace bilibili{
         return Video{json};
     }
 
-    dataStore::Data Video::toData(const bilibili::Video &video) {
+    dataStore::Data Video::toData(const webAPI::Video &video) {
         return video.json.get<dataStore::Data>();
     }
 
@@ -206,19 +206,22 @@ namespace bilibili{
         setVideo(nullptr);
     }
 
-    thread_local map<string,vector<Video>> videos = map<string,vector<Video>>();
+    thread_local map<pair<string,string>,vector<Video>> videos = map<pair<string,string>,vector<Video>>();
 
-    void keepVideo(const Video& video,const char* label){
-        string name(label);
-        videos[name].emplace_back(video);
+    void keepVideo(const Video& video,const char* label,const char* platform){
+        string name(label == nullptr ? "" : label);
+        string plat(platform == nullptr ? "" : platform);
+        videos[{name,plat}].emplace_back(video);
     }
 
-    map<string,vector<Video>> getVideos(){
+    map<pair<string,string>,vector<Video>> getVideos(){
         return videos;
     }
 
-    bool enoughVideo(const char* label){
-        return videos[string(label)].size() >= crawlTask::nowTask() -> videoCount;
+    bool enoughVideo(const char* label,const char* platform){
+        string name(label == nullptr ? "" : label);
+        string plat(platform == nullptr ? "" : platform);
+        return videos[{name,plat}].size() >= crawlTask::nowTask() -> videoCount;
     }
 
     void saveVideos(){
@@ -228,9 +231,9 @@ namespace bilibili{
         Json json;
         for(const auto& group : getVideos())
             for(int i = 0;i < group.second.size();i++) {
-                group.second[i].write_necessary(json[group.first][i]);
+                group.second[i].write_necessary(json[group.first.second][group.first.first][i]);
                 #ifdef DEVELOP
-                    group.second[i].write_all(json[group.first][i]["all_json"]);
+                    group.second[i].write_all(json[group.first.second][group.first.first][i]["all_json"]);
                 #endif
             }
         if(storeJson(OUTPUT_NAME,OUTPUT_PATH,json)) {

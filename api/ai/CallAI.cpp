@@ -68,11 +68,11 @@ const char *AI::toString(const char* msg, const char* _system) {
     return to_string(request).c_str();
 }
 
-const char* introduceVideo(AI& ai, bilibili::Video& video){
+const char* introduceVideo(AI& ai, webAPI::Video& video){
     return post(ai,ai.toString(video));
 }
 
-const char *AI::toString(bilibili::Video &video) {
+const char *AI::toString(webAPI::Video &video) {
     string message = "Could you tell me what this video about in summary and by Chinese? The video title is ";
     message += video.title();
     message += "and it's description is ";

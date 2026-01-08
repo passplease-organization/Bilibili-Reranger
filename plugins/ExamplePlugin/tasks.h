@@ -2,12 +2,13 @@
 
 #include "Util.h"
 #include "pluginInterface.h"
+#include "loginAPI/platforms.h"
 
-crawlTask::Group political("political",0);
-crawlTask::Group math("math",0);
-crawlTask::Group physical("physical",0);
-crawlTask::Group chemistry("chemistry",0);
-crawlTask::Group biological("biological",0);
+crawlTask::Group political("political",BILIBILI,0);
+crawlTask::Group math("math",BILIBILI,0);
+crawlTask::Group physical("physical",BILIBILI,0);
+crawlTask::Group chemistry("chemistry",BILIBILI,0);
+crawlTask::Group biological("biological",BILIBILI,0);
 
 #define EXAMPLE_PATH "ExampleConfig"
 #define EXAMPLE_NAME "example_for_example_plugin"

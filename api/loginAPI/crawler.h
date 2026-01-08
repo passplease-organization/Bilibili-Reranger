@@ -49,4 +49,28 @@ public:
     void refreshSubscribers(bool force = false);
 
     [[nodiscard]] bool crawlNext() const;
+
+    void clearData() {
+        clear();
+    }
+
+    void clearNextURL() {
+        clearURL();
+    }
+
+    void markMustCrawl() {
+        nextMustCrawl();
+    }
+
+    void advancePage(unsigned int nowPage) {
+        nextPage(nowPage);
+    }
+
+    static unsigned int parsePages(const string& url) {
+        return getPages(url);
+    }
+
+    [[nodiscard]] const string& rawData() const {
+        return tempData;
+    }
 };

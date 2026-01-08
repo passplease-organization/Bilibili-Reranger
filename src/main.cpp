@@ -29,7 +29,7 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     setThreadId(info.id);
     crawlInfo = &info;
     stop = cancel;
-    bilibili::registerBilibili();
+    webAPI::registerBilibili();
 #else
 int main(int argc, char** argv) {
     string target;
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 #endif
 
 #if NEED_PORT
-    GroupFilter(info.target);
+    GroupFilter(info.target,crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr ? crawlInfo -> client -> handler()->support() : ALL_PLATFORMS);
 #endif
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();

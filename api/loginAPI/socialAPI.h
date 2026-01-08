@@ -5,6 +5,8 @@
 #include <sodium.h>
 #include "../interface.h"
 
+class CrawlerHelper;
+
 namespace webAPI {
 
     /*
@@ -79,6 +81,12 @@ namespace webAPI {
 
         API virtual string login(const std::string &name, const std::string &password,bool& failed) = 0;
 
+        API virtual string getURL(const crawlTask::Task* task) const = 0;
+
+        API virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const = 0;
+
+        API virtual void refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
+
         API [[nodiscard]] virtual bool validCOOKIE() const {
             return !getCOOKIE().empty();
         }
@@ -110,9 +118,9 @@ namespace webAPI {
          */
         API [[nodiscard]] const string virtual &getCOOKIE() const = 0;
 
-        API virtual bool support(const std::string& platform) = 0;
+        API [[nodiscard]] virtual std::string support() const = 0;
 
-        [[nodiscard]] API const dataStore::Data& subscribers() const{
+        API [[nodiscard]] const dataStore::Data& subscribers() const{
             return _subscribers;
         }
     };
@@ -152,7 +160,7 @@ namespace webAPI {
 
         API void getHandler(const std::string& platform,std::shared_ptr<const std::atomic<bool>>& stop);
 
-        API [[nodiscard]] const socialAPI* handler() const{
+        API [[nodiscard]] Nullable const socialAPI* handler() const{
             return _handler;
         }
 
