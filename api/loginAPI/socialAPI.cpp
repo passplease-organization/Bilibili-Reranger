@@ -257,7 +257,7 @@ ID(std::move(other.ID)),
 _handler(other._handler){}
 
 void Client::getHandler(const std::string& platform, std::shared_ptr<const std::atomic<bool>>& stop){
-    if (_handler != nullptr && _handler -> support(platform))
+    if (_handler != nullptr && _handler -> support() == platform)
         return;
     _handler = nullptr;
     socialAPI::instance(&_handler,platform,stop);

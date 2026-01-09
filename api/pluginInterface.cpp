@@ -1,5 +1,8 @@
 #include "pluginInterface.h"
 #include "config.h"
+#ifdef TEST
+    #include "loginAPI/platforms.h"
+#endif
 
 using namespace crawlTask;
 
@@ -100,7 +103,11 @@ bool crawlTask::registerGroup(Group *group, const char *groupName,const char* pl
     const bool filterActive = !groupFilter.first.empty() && !groupFilter.second.empty();
     if (resolvedName == nullptr || resolvedPlatform == nullptr)
         return false;
+#ifdef TEST
+    if (filterActive && resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS)){
+#else
     if (filterActive && resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second) {
+#endif
         return true;
     }
 
@@ -124,14 +131,9 @@ Task* Group::nextTask(bool move) {
     return nullptr;
 }
 
-Task *Group::nowTask() {
+Task *Group::nowTask() const{
     if(validIndex())
         return tasks[workingIndex];
-    string error("Wrong working Index of ");
-    error += std::to_string(workingIndex);
-    error += ", but tasks size is ";
-    error += std::to_string(tasks.size());
-    throwError(error.c_str());
     return nullptr;
 }
 

@@ -62,7 +62,7 @@ namespace crawlTask{
          * */
         API Nullable Task* nextTask(bool move = false);
 
-        API NotNull Task* nowTask();
+        API NotNull Task* nowTask() const;
 
         [[nodiscard]] API bool validIndex() const;
 

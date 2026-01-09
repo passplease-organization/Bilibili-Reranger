@@ -50,7 +50,12 @@ int main(int argc, char** argv) {
 #endif
 
 #if NEED_PORT
-    GroupFilter(info.target,crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr ? crawlInfo -> client -> handler()->support() : ALL_PLATFORMS);
+    #ifdef TEST
+        GroupFilter(info.target,crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr ? crawlInfo -> client -> handler() -> support() : ALL_PLATFORMS);
+    #else
+        if (crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr)
+            GroupFilter(info.target,crawlInfo -> client -> handler() -> support());
+    #endif
 #endif
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
@@ -81,7 +86,7 @@ int main(int argc, char** argv) {
             return success();
         }
     }catch(const std::exception& e) {
-        warn("crawl encounter exception",false);
+        warn("crawl encounter exception: ",false);
         warn(e.what());
     }
     return failed();

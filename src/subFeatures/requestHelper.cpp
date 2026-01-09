@@ -36,12 +36,11 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     for (const auto group : groups) {
         dataStore::Data temp{};
         temp.put(URL_PARAMS_CATEGORY,group -> name,true);
-        data.put(URL_PARAMS_PLATFORM,temp,true);
+        data.put(group -> platform,temp,true);
     }
-    Json json = data;
-    string payload = to_string(json);
-    bool failed = payload.empty();
-    return back(sendMessage(socket,payload,failed));
+    const Json json = data;
+    const string payload = to_string(json);
+    return back(sendMessage(socket,payload,payload.empty()));
 }
 
 int login(boost::asio::ip::tcp::socket& socket) {
