@@ -26,6 +26,7 @@ add_library(${PROJECT_NAME} SHARED
         loginAPI/socialAPI.h
         loginAPI/socialAPI.cpp
         loginAPI/crawler.h
+        loginAPI/platforms.h
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

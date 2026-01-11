@@ -53,7 +53,7 @@ void registerGroups(){
     CONFIG -> get(GROUPS_LABEL,&array);
     if(!array -> empty()){
         for(auto& data : *array){
-            auto* group = new crawlTask::Group("",0);
+            auto* group = new crawlTask::Group("",BILIBILI,0);
             crawlTask::group_from_data(data,group);
             crawlTask::registerGroup(group);
         }

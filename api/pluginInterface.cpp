@@ -1,9 +1,21 @@
 #include "pluginInterface.h"
 #include "config.h"
+#ifdef TEST
+    #include "loginAPI/platforms.h"
+#endif
 
 using namespace crawlTask;
 
+namespace {
+    using GroupKey = pair<string,string>;
+
+    GroupKey makeGroupKey(const char* name,const char* platform) {
+        return {name == nullptr ? "" : name, platform == nullptr ? "" : platform};
+    }
+}
+
 thread_local vector<Group*> groups = vector<Group*>();
+thread_local map<GroupKey,Group*> groupIndex = map<GroupKey,Group*>();
 thread_local unsigned int workingOn = 0;
 
 Task::Task(const char *keyword,unsigned int videoCount, WorkingMode mode,int publishedDay) {
@@ -50,22 +62,13 @@ WorkingMode crawlTask::byName(const char *name) {
     return WorkingMode::SEARCH;
 }
 
-Nullable Group* crawlTask::getGroup(const char* groupName) noexcept{
-    if(groupName != nullptr) {
-        string name(groupName);
-        for (const auto group: groups) {
-            if (group->isName(groupName))
-                return group;
-        }
-        return nullptr;
+Nullable Group* crawlTask::getGroup(const char* groupName,const char* platform) noexcept{
+    if (groupName == nullptr || platform == nullptr) {
+        return groups[workingOn];
     }
-    if(validIndex())
-        return groups[workingIndex()];
-    //            string error("Wrong working Index of ");
-    //            error += std::to_string(workingIndex());
-    //            error += ", but groups size is ";
-    //            error += std::to_string(groups.size());
-    //            throwError(error.c_str());
+    const auto key = makeGroupKey(groupName,platform);
+    if (groupIndex.contains(key))
+        return groupIndex[key];
     return nullptr;
 }
 
@@ -74,11 +77,12 @@ Nullable Group* crawlTask::nextGroup(){
     return validIndex(workingIndex()) ? getGroup() : nullptr;
 }
 
-bool crawlTask::registerTask(const char* groupName,Task* task,bool create){
-    auto group = getGroup(groupName);
+bool crawlTask::registerTask(const char* groupName,const char* platform,Task* task,bool create){
+    auto group = getGroup(groupName,platform);
     if(group == nullptr && create){
-        Group temp = Group(groupName,task -> videoCount);
+        auto temp = Group(groupName,platform,task -> videoCount);
         group = &temp;
+        registerGroup(group);
     }
     if(group == nullptr) {
         throwError("Register task failed due to get group failed");
@@ -87,30 +91,35 @@ bool crawlTask::registerTask(const char* groupName,Task* task,bool create){
     return group -> registerTask(task);
 }
 
-string groupFilter;
-void crawlTask::GroupFilter(const string &target) {
-    groupFilter = target;
+thread_local GroupKey groupFilter;
+void crawlTask::GroupFilter(const string &target,const string& platform) {
+    groupFilter = makeGroupKey(target.c_str(),platform.c_str());
 }
 
 
-bool crawlTask::registerGroup(Group *group, const char *groupName) {
-    if (!groupFilter.empty() && (groupName == nullptr || groupName != groupFilter) && group -> name != groupFilter)
+bool crawlTask::registerGroup(Group *group, const char *groupName,const char* platform) {
+    const char* resolvedName = groupName == nullptr ? group -> name : groupName;
+    const char* resolvedPlatform = platform == nullptr ? group -> platform : platform;
+    const bool filterActive = !groupFilter.first.empty() && !groupFilter.second.empty();
+    if (resolvedName == nullptr || resolvedPlatform == nullptr)
+        return false;
+#ifdef TEST
+    if (filterActive && resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS)){
+#else
+    if (filterActive && resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second) {
+#endif
         return true;
-    if(groupName == nullptr){
-        groupName = group -> name;
-        goto reg;
     }
-    if(!group -> isName(groupName))
-        group -> name = groupName;
 
-    reg:
-    auto exists = getGroup(groupName);
-    if(exists == nullptr) {
-        groups.emplace_back(group);
+    const auto key = makeGroupKey(group -> name, group -> platform);
+    if(groupIndex.contains(key)) {
+        *groupIndex[key] += group;
+        groups.push_back(group);
     }else {
-        *exists += group;
+        groupIndex[key] = group;
+        groups.emplace_back(group);
     }
-    return getGroup(groupName) != nullptr;
+    return groupIndex.contains(key);
 }
 
 Task* Group::nextTask(bool move) {
@@ -122,14 +131,9 @@ Task* Group::nextTask(bool move) {
     return nullptr;
 }
 
-Task *Group::nowTask() {
+Task *Group::nowTask() const{
     if(validIndex())
         return tasks[workingIndex];
-    string error("Wrong working Index of ");
-    error += std::to_string(workingIndex);
-    error += ", but tasks size is ";
-    error += std::to_string(tasks.size());
-    throwError(error.c_str());
     return nullptr;
 }
 
@@ -149,8 +153,9 @@ bool Group::registerTask(Task *task) {
     return true;
 }
 
-Group::Group(const char *name,unsigned int videoCount,bool regi) {
+Group::Group(const char *name,const char* platform,unsigned int videoCount,bool regi) {
     this -> name = name;
+    this -> platform = platform;
     this -> videoCount = (int) videoCount;
     if(regi && !registerGroup(this, name)){
         string error = "Register group failed ! Group name: ";
@@ -237,6 +242,10 @@ void crawlTask::task_to_data(dataStore::Data& data,const Task* task){
 
 void crawlTask::group_from_data(dataStore::Data& data, Group* group){
     data.get("name",&group -> name);
+    if (!data.strings.contains("platform")) {
+        throwError("Missing platform in group data");
+    }
+    data.get("platform",&group -> platform);
     vector<dataStore::Data>* datas;
     data.get("tasks",&datas);
     int* count;
@@ -256,6 +265,7 @@ void crawlTask::group_from_data(dataStore::Data& data, Group* group){
 
 void crawlTask::group_to_data(dataStore::Data& data, const Group* group){
     data.put("name",group -> name);
+    data.put("platform",group -> platform);
     data.put("videoCount",&group -> videoCount);
     for(auto& task : group -> tasks){
         dataStore::Data a{};
@@ -264,7 +274,7 @@ void crawlTask::group_to_data(dataStore::Data& data, const Group* group){
     }
 }
 
-const vector<Group *> crawlTask::getAllGroups() {
+const vector<Group *>& crawlTask::getAllGroups() {
     return groups;
 }
 

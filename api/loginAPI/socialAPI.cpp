@@ -30,7 +30,10 @@ bool socialAPI::prepare(){
     _subscribers.clear();
     auto* tempHelper = new CrawlerHelper();
     tempHelper -> curlSetup();
-    tempHelper -> refreshSubscribers();
+    if (!tempHelper -> refreshSubscribers()) {
+        delete tempHelper;
+        return false;
+    }
     _subscribers = tempHelper -> getSubscribers();
     delete tempHelper;
     return !_subscribers.empty() && _subscribers.valid();
@@ -257,7 +260,7 @@ ID(std::move(other.ID)),
 _handler(other._handler){}
 
 void Client::getHandler(const std::string& platform, std::shared_ptr<const std::atomic<bool>>& stop){
-    if (_handler != nullptr && _handler -> support(platform))
+    if (_handler != nullptr && _handler -> support() == platform)
         return;
     _handler = nullptr;
     socialAPI::instance(&_handler,platform,stop);

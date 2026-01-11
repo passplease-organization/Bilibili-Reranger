@@ -198,6 +198,8 @@ void test() {
             warn("Init client failed ! Error: ",false);
             warn(response.error.message.c_str());
         }
+        _say("Init: ");
+        _say(esa.decrypt(response.text));
 
         response = Post(
             Url{localhost},

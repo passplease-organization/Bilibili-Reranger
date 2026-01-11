@@ -129,7 +129,7 @@ int startWork() {
 
 bool sendMessage(ip::tcp::socket& socket,string data,bool failed) {
     if (data.empty()) {
-        Json json = bilibili::getVideoJson();
+        Json json = webAPI::getVideoJson();
         data = json.empty() ? "{}" : to_string(json);
     }
     http::response<http::string_body> response;

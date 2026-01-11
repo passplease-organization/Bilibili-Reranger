@@ -47,9 +47,10 @@ namespace crawlTask{
     public:
         vector<Task*> tasks = vector<Task*>();
         const char* name;
+        const char* platform;
         int videoCount;
 
-        API explicit Group(const char* name,unsigned int videoCount = 0,bool regi = false);
+        API explicit Group(const char* name,const char* platform,unsigned int videoCount = 0,bool regi = false);
 
         API Group* operator+= (Group& other);
 
@@ -61,7 +62,7 @@ namespace crawlTask{
          * */
         API Nullable Task* nextTask(bool move = false);
 
-        API NotNull Task* nowTask();
+        API NotNull Task* nowTask() const;
 
         [[nodiscard]] API bool validIndex() const;
 
@@ -75,13 +76,13 @@ namespace crawlTask{
     /**
      * @param groupName Null means get the group now working for
      * */
-    API Nullable Group* getGroup(const char* groupName = nullptr) noexcept;
+    API Nullable Group* getGroup(const char* groupName = nullptr,const char* platform = nullptr) noexcept;
 
     API NotNull Group* nextGroup();
 
-    API bool registerTask(const char* groupName,Task* task,bool create = true);
+    API bool registerTask(const char* groupName,const char* platform,Task* task,bool create = true);
 
-    API bool registerGroup(Group *group, const char *groupName = nullptr);
+    API bool registerGroup(Group *group, const char *groupName = nullptr,const char* platform = nullptr);
 
     API Nullable Task* nowTask() noexcept(false);
 
@@ -109,7 +110,7 @@ namespace crawlTask {
     /**
      * For network request which has specific target
      */
-    API void GroupFilter(NotNull const string& target);
+    API void GroupFilter(NotNull const string& target,NotNull const string& platform);
 
-    API const vector<Group*> getAllGroups();
+    API const vector<Group*>& getAllGroups();
 }

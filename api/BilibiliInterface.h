@@ -6,8 +6,6 @@
 
 #pragma once
 
-#define BILIBILI "Bilibili"
-
 #define getPublishTime(json) (json.contains("ctime") ? json["ctime"].get<long long>() : json["pubdate"].get<long long>())
 #define getTitle(json) json["title"].get<std::string>()
 #define getAuthor(json) json["author"].get<std::string>()
@@ -30,7 +28,7 @@ extern "C" {
 #endif
 #define OUTPUT_NAME "crawl_output"
 
-namespace bilibili {
+namespace webAPI {
     class Video {
     private:
         long long _publishTime;
@@ -84,7 +82,7 @@ namespace bilibili {
 
         [[nodiscard]] API unsigned int const& views() const;
 
-        API unsigned int const& popups() const;
+        [[nodiscard]] API unsigned int const& popups() const;
 
         API void write_necessary(Json& json) const;
 
@@ -101,15 +99,15 @@ namespace bilibili {
 
     API void clearVideo();
 
-    API void keepVideo(const Video& video,const char* label = crawlTask::getGroup() -> name);
+    API void keepVideo(const Video& video,const char* label,const char* platform);
 
-    API bool enoughVideo(const char* label = crawlTask::getGroup() -> name);
+    API bool enoughVideo(const char* label,const char* platform);
 }
 
 }
 
-namespace bilibili{
-    API map<string,vector<Video>> getVideos();
+namespace webAPI{
+    API map<pair<string,string>,vector<Video>> getVideos();
 
     API void saveVideos();
 
@@ -117,7 +115,8 @@ namespace bilibili{
         Json json;
         for(const auto& group : getVideos())
             for(int i = 0;i < group.second.size();i++) {
-                group.second[i].write_necessary(json[group.first][i]);
+                json[group.first.second][group.first.first][i] = Json();
+                group.second[i].write_necessary(json[group.first.second][group.first.first][i]);
             }
         return json;
     }

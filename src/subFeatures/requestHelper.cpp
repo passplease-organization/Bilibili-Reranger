@@ -13,6 +13,7 @@
 #include "../Crawler.h"
 #include "../PluginHandler.h"
 #include "loginAPI/socialAPI.h"
+#include "loginAPI/platforms.h"
 
 #define LOG(URL,NAME) \
     say("Accept URL: " URL);\
@@ -32,12 +33,19 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
         return failed();
     auto& groups = crawlTask::getAllGroups();
     dataStore::Data data{};
-    for (const auto group : groups)
-        data.put(URL_PARAMS_CATEGORY,group -> name,true);
-    Json json = data;
-    string payload = to_string(json);
-    bool failed = payload.empty();
-    return back(sendMessage(socket,payload,failed));
+    for (const auto group : groups) {
+        dataStore::Data temp{};
+        temp.put(URL_PARAMS_CATEGORY,group -> name,true);
+        data.put(group -> platform,temp,true);
+    }
+    const Json json = data;
+    const string payload = to_string(json);
+    return back(sendMessage(socket,payload,payload.empty()));
+}
+
+int getAllPlatform(boost::asio::ip::tcp::socket& socket) {
+    LOG(GET_ALL_PLATFORMS,"getAllPlatform");
+    return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
 }
 
 int login(boost::asio::ip::tcp::socket& socket) {
@@ -141,6 +149,8 @@ int set(boost::asio::ip::tcp::socket& socket){
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET_ALL_CATEGORIES))
         return getAllCategories;
+    else if (url.starts_with(GET_ALL_PLATFORMS))
+        return getAllPlatform;
     else if (url.starts_with(LOGIN))
         return login;
     else if (url.starts_with(KEY))

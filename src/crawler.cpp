@@ -6,6 +6,8 @@
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
 #include "loginAPI/crawler.h"
+
+#include "platforms/bilibiliLogin.h"
 #include "subFeatures/requestHelper.h"
 #if NEED_PORT
     #include "PortListener.h"
@@ -106,7 +108,7 @@ bool CrawlerHelper::dealJson() {
             return true;
 
         try {
-            json = Json::parse(tempData);// TODO COOKIE不合法时的报错信息分析
+            json = Json::parse(tempData);
     #ifdef DEVELOP
             auto data = json.get<dataStore::Data>();
             data.setPath(tempDataPath);
@@ -120,7 +122,10 @@ bool CrawlerHelper::dealJson() {
             warn("数据如下：");
             warn(tempData.c_str());
     #endif
-            if (!crawlInfo -> client -> handler() -> validCOOKIE()) {
+            const auto* handler = (crawlInfo != nullptr && crawlInfo -> client != nullptr)
+                ? crawlInfo -> client -> handler()
+                : nullptr;
+            if (handler != nullptr && !handler -> validCOOKIE()) {
                 warn("请检查COOKIE是否正常，客户端ID: ",false);
                 warn(crawlInfo -> clientId.c_str());
             }
@@ -128,89 +133,111 @@ bool CrawlerHelper::dealJson() {
         }
     }
     auto task = crawlTask::nowTask();
-    switch (task -> mode) {
-        case crawlTask::WorkingMode::SUBSCRIBE : {
-            if(!startWith(url.c_str(),videoByUser)) {
-
-            #if MORE_DETAILS
-                say("当前搜索的关注用户名：", false);
-                say(task->keyword);
-            #endif
-
-                Json json_subs = getSubscribers();
-                for (auto &up: _getSubscribers(json_subs, false).items()) {
-
-                #if MORE_DETAILS
-                    say("当前比对up名：", false);
-                    say(_getSubscriberName(up).c_str(), true, YELLOW);
-                #endif
-
-                    if (_getSubscriberName(up) == task->keyword) {
-                        clearURL();
-                        string url(videoByUser);
-                        url += "?vmid=";
-                        url += to_string(up.value().at(VMID).get<int>());
-                        url += "&ps=";
-                        url += std::to_string(config<int>(SUBSCRIBE_SEARCH_VIDEO_COUNT));
-                        nextSearch(url);
-
-                    #if MORE_DETAILS
-                        say("关注用户爬取一次", true, BLUE);
-                    #endif
-
-                        nextMustCrawl();
-                        return true;
-                    }
-                }
-            }else{
-                forEachVideo(json,ofPerson){
-                    const auto& video = bilibili::Video::fromJson(videoData);
-                    bilibili::setVideo(&video);
-                    if(roughCheckVideo() && finalCheckVideo())
-                        bilibili::keepVideo(video);
-                    bilibili::clearVideo();
-                }
-                clearURL();
-                return crawlTask::nextTask(true) != nullptr;
-            }
+    #if NEED_PORT
+        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+            warn("Client not initialized, cannot deal json");
             return false;
         }
-        case crawlTask::WorkingMode::TAG : {
-            forEachVideo(json,ofSearch){
-                const auto& video = bilibili::Video::fromJson(videoData);
-                if(videoData["tag"].get<string>().find(task -> keyword) == string::npos)
-                    continue;
-                bilibili::setVideo(&video);
-                if(roughCheckVideo() && finalCheckVideo())
-                    bilibili::keepVideo(video);
-                bilibili::clearVideo();
-            }
-            if(bilibili::enoughVideo()) {
-                clearURL();
-                return crawlTask::nextTask(true) != nullptr;
-            }
-            cout << getDataFromJson(json)["next"] << endl;
-            int page = getDataFromJson(json)["next"].get<int>();
-            nextPage(page);
-            return true;
-        }case crawlTask::WorkingMode::SEARCH : {
-            forEachVideo(json,ofSearch){
-                const auto& video = bilibili::Video::fromJson(videoData);
-                bilibili::setVideo(&video);
-                if(roughCheckVideo() && finalCheckVideo())
-                    bilibili::keepVideo(video);
-                bilibili::clearVideo();
-            }
-            if(bilibili::enoughVideo()) {
-                clearURL();
-                return crawlTask::nextTask(true) != nullptr;
-            }
-            int page = getDataFromJson(json)["next"].get<int>();
-            nextPage(page);
-            return true;
+        auto* handler = crawlInfo -> client -> handler();
+        if (handler == nullptr) {
+            warn("Client handler not initialized, call /set or /login first");
+            return false;
         }
-        default: return false;
-    }
+        return handler -> dealJson(*this, json, task);
+    #else
+        switch (task -> mode) {
+            case crawlTask::WorkingMode::SUBSCRIBE : {
+                if(!startWith(url.c_str(),videoByUser)) {
+
+                #if MORE_DETAILS
+                    say("当前搜索的关注用户名：", false);
+                    say(task->keyword);
+                #endif
+
+                    Json json_subs = getSubscribers();
+                    for (auto &up: _getSubscribers(json_subs, false).items()) {
+
+                    #if MORE_DETAILS
+                        say("当前比对up名：", false);
+                        say(_getSubscriberName(up).c_str(), true, YELLOW);
+                    #endif
+
+                        if (_getSubscriberName(up) == task->keyword) {
+                            clearURL();
+                            string url(videoByUser);
+                            url += "?vmid=";
+                            url += to_string(up.value().at(VMID).get<int>());
+                            url += "&ps=";
+                            url += std::to_string(config<int>(SUBSCRIBE_SEARCH_VIDEO_COUNT));
+                            nextSearch(url);
+
+                        #if MORE_DETAILS
+                            say("关注用户爬取一次", true, BLUE);
+                        #endif
+
+                            nextMustCrawl();
+                            return true;
+                        }
+                    }
+                }else{
+                    const auto* group = crawlTask::getGroup();
+                    const char* groupName = group == nullptr ? "" : group -> name;
+                    const char* groupPlatform = group == nullptr ? "" : group -> platform;
+                    forEachVideo(json,ofPerson){
+                        const auto& video = webAPI::Video::fromJson(videoData);
+                        webAPI::setVideo(&video);
+                        if(roughCheckVideo() && finalCheckVideo())
+                            webAPI::keepVideo(video,groupName,groupPlatform);
+                        webAPI::clearVideo();
+                    }
+                    clearURL();
+                    return crawlTask::nextTask(true) != nullptr;
+                }
+                return false;
+            }
+            case crawlTask::WorkingMode::TAG : {
+                const auto* group = crawlTask::getGroup();
+                const char* groupName = group == nullptr ? "" : group -> name;
+                const char* groupPlatform = group == nullptr ? "" : group -> platform;
+                forEachVideo(json,ofSearch){
+                    const auto& video = webAPI::Video::fromJson(videoData);
+                    if(videoData["tag"].get<string>().find(task -> keyword) == string::npos)
+                        continue;
+                    webAPI::setVideo(&video);
+                    if(roughCheckVideo() && finalCheckVideo())
+                        webAPI::keepVideo(video,groupName,groupPlatform);
+                    webAPI::clearVideo();
+                }
+                if(webAPI::enoughVideo(groupName,groupPlatform)) {
+                    clearURL();
+                    return crawlTask::nextTask(true) != nullptr;
+                }
+                cout << getDataFromJson(json)["next"] << endl;
+                int page = getDataFromJson(json)["next"].get<int>();
+                nextPage(page);
+                return true;
+            }case crawlTask::WorkingMode::SEARCH : {
+                const auto* group = crawlTask::getGroup();
+                const char* groupName = group == nullptr ? "" : group -> name;
+                const char* groupPlatform = group == nullptr ? "" : group -> platform;
+                forEachVideo(json,ofSearch){
+                    const auto& video = webAPI::Video::fromJson(videoData);
+                    webAPI::setVideo(&video);
+                    if(roughCheckVideo() && finalCheckVideo())
+                        webAPI::keepVideo(video,groupName,groupPlatform);
+                    webAPI::clearVideo();
+                }
+                if(webAPI::enoughVideo(groupName,groupPlatform)) {
+                    clearURL();
+                    return crawlTask::nextTask(true) != nullptr;
+                }
+                int page = getDataFromJson(json)["next"].get<int>();
+                nextPage(page);
+                return true;
+            }
+            default: return false;
+        }
+    #endif
 }
 
 bool CrawlerHelper::nextPage() {
@@ -264,49 +291,21 @@ void CrawlerHelper::nextSearch(const string &url) {
         CrawlerHelper::url = url;
 }
 
-//TODO 未来支持前端向后端传输COOKIE后做成线程内私有，这样对不同的请求的COOKIE可以分开支持，能不仅限于个人不熟部署
-void CrawlerHelper::refreshSubscribers(const bool force) {
-    #if MORE_DETAILS
-        say("开始准备关注博主名单");
+bool CrawlerHelper::refreshSubscribers(const bool force) {
+    #if NEED_PORT
+        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+            warn("Client not initialized, cannot refresh subscribers");
+            return false;
+        }
+        auto* handler = crawlInfo -> client -> handler();
+        if (handler == nullptr) {
+            warn("Client handler not initialized, call /set or /login first");
+            return false;
+        }
+    #else
+        auto* handler = new bilibiliLogin::bilibiliLogin();
     #endif
-
-    if(subscribers.empty() || force) {
-        clearURL();
-        crawlTask::Task t("", 0, crawlTask::WorkingMode::SUBSCRIBE);
-        nextSearch(getURL(&t));
-        do{
-            nextMustCrawl();
-            connect(false);
-            json = Json::parse(tempData);
-
-        #ifdef DEVELOP
-            auto _json = to_string(json);
-        #endif
-
-            // 使用线程安全的方法添加订阅者
-            auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
-            addSubscriber(newSubscribers);
-            int count = _getSubscriberCount(json);
-            int pages = count / 50 + 1;
-            unsigned int nowPage = getPages(url);
-
-        #if MORE_DETAILS
-            say("关注博主刷新完成第",false);
-            say(to_string(nowPage).c_str(),false);
-            say("页");
-        #endif
-
-            if(nowPage >= pages)
-                break;
-            nextPage(nowPage);
-        }while(true);
-        clear();
-        clearURL();
-    }
-
-    #if MORE_DETAILS
-        say("关注博主名单已准备完成");
-    #endif
+        return handler -> refreshSubscribers(*this, force);
 }
 
 bool CrawlerHelper::crawlNext() const {
@@ -372,12 +371,9 @@ bool crawl(const std::atomic<bool>& cancel){
     }while(!cancel && helper.connect() && count < max_count);
 
     #if NEED_PORT
-        auto back = helper.finishCrawl();
-        if (back)
-            back &= sendMessage(socket);
-        return back;
+        return helper.finishCrawl() && sendMessage(socket);
     #else
-        bilibili::saveVideos();
+        webAPI::saveVideos();
         return helper.finishCrawl();
 #endif
 }
@@ -386,24 +382,37 @@ string getURL(const crawlTask::Task* task){
     auto url = pluginGetURL();
     if(!url.empty())
         return url;
-    switch (task -> mode) {
-        case crawlTask::WorkingMode::SUBSCRIBE: {
-            string back = mySubscribers;
-            back += "?vmid=";
-            back += config<string>(VMID);
-            return back;
+    #if NEED_PORT
+        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+            warn("Client not initialized, cannot get url");
+            return "";
         }
-        case crawlTask::WorkingMode::TAG :
-        case crawlTask::WorkingMode::SEARCH : {
-            string back = searchVideos;
-            back += "&page_size=";
-            back += to_string(config<int>(SEARCH_PAGE_SIZE));
-            back += "&keyword=";
-            back += task -> keyword;
-            return back;
+        auto* handler = crawlInfo -> client -> handler();
+        if (handler == nullptr) {
+            warn("Client handler not initialized, call /set or /login first");
+            return "";
         }
-        default: return "";
-    }
+        return handler -> getURL(task);
+    #else
+        switch (task -> mode) {
+            case crawlTask::WorkingMode::SUBSCRIBE: {
+                string back = mySubscribers;
+                back += "?vmid=";
+                back += config<string>(VMID);
+                return back;
+            }
+            case crawlTask::WorkingMode::TAG :
+            case crawlTask::WorkingMode::SEARCH : {
+                string back = searchVideos;
+                back += "&page_size=";
+                back += to_string(config<int>(SEARCH_PAGE_SIZE));
+                back += "&keyword=";
+                back += task -> keyword;
+                return back;
+            }
+            default: return "";
+        }
+    #endif
 }
 
 bool checkEnv(){
