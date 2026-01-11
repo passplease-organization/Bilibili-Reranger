@@ -1,16 +1,20 @@
 #pragma once
 
-#include "Util.h"
+#include "utils/Util.h"
+#include "utils/configUtil.h"
 #include "pluginInterface.h"
+#include "webAPIs/platforms.h"
 
-crawlTask::Group political("political",0);
-crawlTask::Group math("math",0);
-crawlTask::Group physical("physical",0);
-crawlTask::Group chemistry("chemistry",0);
-crawlTask::Group biological("biological",0);
+crawlTask::Group political("political",BILIBILI,0);
+crawlTask::Group math("math",BILIBILI,0);
+crawlTask::Group physical("physical",BILIBILI,0);
+crawlTask::Group chemistry("chemistry",BILIBILI,0);
+crawlTask::Group biological("biological",BILIBILI,0);
+crawlTask::Group mainPage("主页",BILIBILI,30);
 
 #define EXAMPLE_PATH "ExampleConfig"
 #define EXAMPLE_NAME "example_for_example_plugin"
+#define CONFIG_FILE_TYPE ".json"
 #define GROUPS_LABEL "groups"
 
 #ifdef DEVELOP
@@ -19,7 +23,7 @@ crawlTask::Group biological("biological",0);
     #define FORCE_CONFIG false
 #endif
 
-void initGroups(){
+inline void initGroups(){
     crawlTask::Task* a = nullptr;
     a = new crawlTask::Task{"波士顿圆脸",10,crawlTask::WorkingMode::SUBSCRIBE};
     political.registerTask(a);
@@ -43,46 +47,50 @@ void initGroups(){
 
     a = new crawlTask::Task("生物",20);
     biological.registerTask(a);
+
+    a = new crawlTask::Task("主页筛选",25,crawlTask::WorkingMode::HOME_PAGE_FILTER);
+    mainPage.registerTask(a);
 }
 
-void exampleConfig(){
+inline void exampleConfig(){
     char* path;
     defaultOutputChar(&path);
-    toConfigPath(path,EXAMPLE_PATH);
+    toConfigPath(path,EXAMPLE_PATH,MAX_BUFFER_SIZE,CONFIG_FILE_TYPE);
     #if FORCE_CONFIG
-        deleteConfig(EXAMPLE_PATH);
+        deleteConfig(path);
     #endif
-    if(!fileExists(path) && createConfig(path,EXAMPLE_PATH)) {
+    if(createConfig(path)) {
         initGroups();
-        auto example = dataStore::Data::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);
+        auto example = dataStore::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);
+        if (!example.is_object())
+            example = dataStore::Data::object();
+        example[GROUPS_LABEL] = dataStore::Data::array();
         dataStore::Data a{};
         crawlTask::group_to_data(a,&political);
-        dataStore::Data* b = nullptr;
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b,true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&math);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&physical);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&chemistry);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&biological);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
-        example.writeToJson();
+        crawlTask::group_to_data(a,&mainPage);
+        example[GROUPS_LABEL].push_back(a);
+        a.clear();
+
+        dataStore::writeToJson(example,EXAMPLE_NAME,path);
     }
     freeOutputChar(&path);
 }

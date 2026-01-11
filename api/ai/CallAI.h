@@ -1,6 +1,12 @@
+#pragma once
+
+#include <string>
+
 #include "../APIStatus.h"
-#include "string"
-#include "../BilibiliInterface.h"
+
+namespace webAPI {
+    class Video;
+}
 
 extern "C"{
     /**
@@ -39,12 +45,12 @@ extern "C"{
 
         API const char* toString(const char* msg, const char* message_system);
 
-        API const char* toString(bilibili::Video& video);
+        API const char* toString(webAPI::Video& video);
     };
 /**
  * @return empty means fails
  * */
     API const char* request(AI& ai, const char* message, const char* system = nullptr);
 
-    API const char* introduceVideo(AI& ai, bilibili::Video& video);
+    API const char* introduceVideo(AI& ai, webAPI::Video& video);
 }

@@ -1,59 +1,123 @@
-[English](README_en.md)
+是[English](README_en.md)
+
+BrowserManager文档： [中文](browser/README.md) / [English](browser/README_en.md)
 
 # 服务后端
 
 ## 架构
+### 整体架构
 这是整个项目的后端代码，架构基于C++实现，选择原因无他，只是因为我想学习一下C++怎么编程。第三方库：
 1. [nlohmann-json](https://github.com/nlohmann/json)处理Json序列化/反序列化
 2. [cpr](https://github.com/libcpr/cpr)进行B站API的请求与AI调用
-3. [CURL](https://github.com/curl/curl)底层HTTP请求支持
-4. [boost](https://github.com/boostorg/boost)端口监听与HTTP处理（asio/beast/url）
-5. [libsodium](https://github.com/jedisct1/libsodium)登录与加密相关功能
+3. [CURL](https://github.com/curl/curl)负责底层HTTP请求支持
+4. [Boost](https://github.com/boostorg/boost)实现端口监听与HTTP处理（asio/beast/url）
+5. [libsodium](https://github.com/jedisct1/libsodium)完成登录与加密相关功能
+6. [OpenSSL](https://github.com/openssl/openssl)处理RSA公钥加密与密钥交换
+7. [libpqxx](https://github.com/jtv/libpqxx)处理PostgreSQL访问（用于客户端数据与Cookie持久化）
 
-功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。
+功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。而具体的爬取操作也不是C++代码进行的，而是**BrowserManager**所在的另一个容器进行的，C++代码主要负责与**BrowserManager**的交互。
+> 在2026年1月28日前基于B站逆向完成，后来[参考文献](https://github.com/SocialSisterYi/bilibili-API-collect)吃律师函了，并且考虑到兼容其他平台，最终更改使用此架构
+
+### **BrowserManager**部分架构
+#### 后端发送工作内容
+此时每一个客户端的Handler都对应一个后端浏览器，对应关系会保存到数据库中，数据也据此长期储存。不过写新handler只需要提交`workers`就可以了，其他已包装在`api/webAPIs/browse.cpp`中。
+通信Json格式：
+```json5
+{
+  "clientID": "客户端的ID",
+  "platform": "handler支持的平台",
+  "context": {
+    // 浏览器需要的基础信息
+  },
+  "workers": [// 有时忽略后面的维护参数
+    // 每一个worker对应一个
+    {
+      "type": "工作类型名字",
+      "info": {
+        // worker内部自定json
+      }
+    }
+  ],
+  "mode": "closeWorker" // 可无，没有时以请求路径为准
+}
+```
+#### 浏览器返回工作结果
+```json5
+{
+  "ok": true,// 永远有的，表示浏览器执行有没有成功
+  "error": {// 如果报错就可能有
+    "name": "",
+    "message": ""
+  },
+  "back": [// 永远有，只不过有一些请求会是空的
+    {
+      // 每一个worker工作的结果，如果每一步结果过多，会是数组
+    },
+    [
+      // worker结果过多的情况
+    ],
+    [
+      // DoWhile节点特殊，内部区别循环结果都包在这里面
+      [
+        // 每一个都是一次循环的内容，结构和最外层一致
+      ]
+    ]
+  ]
+}
+```
 ## 使用
 强烈建议使用docker部署，使用打包镜像直接部署，使用下述命令
 ```bash
-docker run -p 23223:23223 -e COOKIE=<your_bilibili_cookie> -e USERAGENT=<browser_user_agent> -v <path_to_config>:/bilibili-backend/config -v <path_to_plugin>:/bilibili-backend/plugins docker.io/noname602/bilibili_reranger:latest
+docker run -p 23223:23223 -e BROWSE_URL=<your_browse_manager_url> -v <path_to_config>:/bilibili-backend/config -v <path_to_plugin>:/bilibili-backend/plugins docker.io/noname602/bilibili_reranger:latest
 ```
-`COOKIE`和`USERAGENT`目前是必须的，`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
+`BROWSE_URL`是必须的，代表程序的浏览器组地址（使用docker-compose部署默认地址内部地址为`http://browser:3000`），`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
 ## 插件
 代码中有[示例插件](plugins/ExamplePlugin/main.cpp)，提供接口在[API动态链接库](api/interface.h)中，[API动态链接库](api)中的以C程序导出的方法都是可用的，方便做插件。
+
+### 本地 Plugin SDK
+为了定制化您的视频需要开发您专属的插件，为此有两种开发方案
+### 使用开发容器（推荐）
+在`sdk.dockerfile`中定义了用于plugin的开发容器，您可以直接使用`plugin-template`分支提供的插件开发模板直接进行开发，其中包含了Debug和Release两种模式的SDK，直接进行您的开发即可。
+#### 本地开发
+可以先从后端构建产物编译一个本地 SDK（也可以直接去仓库Release界面下载SDK），再让私有插件仓库通过 CMake 查找它
+
+配置私有插件时指定 SDK 路径，并使用和后端一致的 toolchain：
+```bash
+cmake -S . -B build \
+  -DCMAKE_PREFIX_PATH=/path/to/reranger-sdk \
+  -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build
+```
+插件实现导出函数时直接包含 `interface.h`，并实现其中声明的固定导出函数即可（部分函数必须实现）。
 ## URL请求
+### 相关Bug
+最重要bug：程序使用的[Boost](https://github.com/boostorg/boost)库进行`url`参数解析，在我测试时发现，有时其`url`中的参数解析会出现错误，导致解析完全错误得不到参数。且在IDE或者命令行和docker等不同方法启动程序表现还不同，故有时请求错误可能是后端解析错误所致。为避免此bug，计划将受影响的部分参数从`url`中移动至`body`中。
 ### 支持请求
 全部支持的URL请求：
 
-| URL路径         | 意义                 | URL参数（除`id`默认必要外，未写参数即不支持）                           | `Body`参数（加密）                                     | 其他                                | 状态 |
-|---------------|--------------------|------------------------------------------------------|--------------------------------------------------|-----------------------------------|----|
-| /all_category | 获取注册了的全部类型         | 无额外参数，也不需要`id`参数                                     |                                                  |                                   |    |
-| /login        | 登录要爬的平台（获取COOKIE等） | 无参数代表获取全部支持平台（不需要`id`参数）<br/>`platform`：要设置的平台（每次必须） | `username`：账户名<br/>`password`：密码                 | 根据支持的平台不同和插件不同可以有变化，多余参数可以由插件自行获取 |    |
-| /key          | 和后端交换加密秘钥          | 无参数表示获取RSA加密公钥                                       | `key`：前端对称加密秘钥（成功会返回加密的`id`参数）<br/>`admin`：管理员id | 初次建立连接使用RSA加密，建立后使用对称加密方法通信       |    |
-| /test         | 前端检测ID是否还存在        | `id`（必要）                                             |                                                  |                                   |    |
-| /init         | 初始化爬虫              | 无额外参数                                                | 无额外参数                                            | 需在login之后调用                       |    |
-| /set          | 设置参数               | `platform`：设置工作平台                                    | 无支持参数                                            |                                   |    |
+| URL路径         | 意义                                 | URL参数（除`id`默认必要外，未写参数即不支持）                                    | `Body`参数（一般加密）                                                                     | 其他                                                    | 是否需要Session长期关注   | 状态 |
+|---------------|------------------------------------|---------------------------------------------------------------|------------------------------------------------------------------------------------|-------------------------------------------------------|-------------------|----|
+| /all_category | 获取注册了的全部类型                         | 无额外参数                                                         |                                                                                    | 需要在设置平台后调用，否则就会返回`null`                               |                   |    |
+| /login        | 登录要爬的平台（获取COOKIE等）                 | 无`id`以外参数代表获取全部支持平台<br/>`test`：此项覆盖所有其他参数，用于测试是否需要登录，`true`启用 | `platform`：要设置的平台（每次必须，没有就是获取全部平台）<br/>`screen`：屏幕的大小（详细可查看`browser/src/login.ts`） | 根据支持的平台不同和插件不同可以有变化，多余参数可以由插件自行获取                     | 除去无`id`情况，其余情况均需要 |    |
+| /key          | 和后端交换加密秘钥                          | 无任何参数                                                         | `key`：前端对称加密秘钥（成功会返回加密的`id`参数）<br/>什么都不传表示获取非对称加密公钥<br/>`admin`：管理员id              | 初次建立连接使用非对称加密，建立后使用对称加密方法通信                           |                   |    |
+| /test         | 前端检测各种信息                           | `id`（必要）                                                      | `key`：对称加密后的秘钥，用于客户端重新登录后的检测密钥正确性                                                  | 返回500表示失败，返回200为成功                                    | 需要                |    |
+| /init         | 初始化爬虫，若有登录`token`会首先收集登录信息并存储在数据库中 | `token`：`/login`返回url中的`token`参数（无则不执行收集登录信息相关逻辑）             | 无额外参数                                                                              | 需在login之后调用                                           | 需要                |    |
+| /set          | 设置参数                               | `platform`：设置工作平台                                             | 无支持参数                                                                              |                                                       |                   |    |
+| /get          | 获取之前某次长期请求结果                       | `session`： 之前返回的请求session                                     | 无支持参数                                                                              | `ok`：是否处理已经失败<br/>`finished`：是否已经处理完成<br/>`data`：相关数据 |                   |    |
+
+> 注：需要Session模式时会首先返回一个Json，其中`session`字段是对应session，后面使用这个session请求`/get`直到得到返回值即可（请求成功后就会销毁session）
+
+此外，返回值为500表示内部处理错误，具体信息请检查正文内容。且Body部分是整体进行加密（对整个Json进行），而非对Json各个部分分开加密。
 
 爬取参数（对于其他URL路径）：
 
 | 参数名        | 意义            | 其他                                                |
 |------------|---------------|---------------------------------------------------|
-| category   | 本次工作的类型       |                                                   |
-| cookie_env | 设置本次工作的COOKIE | 仅本次工作有效（区别于/set_cookie）                           |
+| category   | 本次工作的类型       | 需配合`/set`使用，只会针对当前平台工作                            |
 | id         | 后端用于区分客户端的值   | 除/key请求，其他默认均需要携带<br/>加密是对整个正文进行的，而非json中各个单独字段加密 |
 
-## Login
-登录所需参数及其意义（除开上述提到的通用参数）
-### B站
-| 参数名       | 意义         | 其他 |
-|-----------|------------|----|
-| validate  | 验证码之一      |    |
-| seccode   | 验证码之一      |    |
-| token     | 获取验证码的参数之一 |    |
-| challenge | 获取验证码的参数之一 |    |
-
-登录时第一次请求由后端代替去请求B站，随后返回给前端，前端让用户验证完成后需带着返回，由后端完成最终的登录过程并返回登录结果给前端<br><br>
-第一次请求时不必带`username`和`password`，但是最后一次登录必须，不带都默认是第一次获取验证码参数
 ### 请求流程
-首先应连接`/key`先获取公钥，再交换ESA密钥并储存`id`，随后连接`/login`多次直至登录成功，然后`/init`初始化后端，然后就可以使用`category`获取不同类别视频了
+首先应连接`/key`先获取公钥，再交换对称密钥并储存`id`，随后连接`/login`获取开启登录浏览器，然后`/init`存储登录状态并初始化后端，然后就可以使用`category`获取不同类别视频了
 
 ## Admin
 管理员可通过修改配置文件中的`admin_client_key`字段，自行配置管理员的秘钥，当前管理员有如下好处

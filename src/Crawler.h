@@ -2,10 +2,9 @@
 #include <atomic>
 #include "pluginInterface.h"
 #include "develop/flags.h"
-#include "loginAPI/socialAPI.h"
-#if NEED_PORT
-    #include <boost/asio.hpp>
-#endif
+#include "webAPIs/socialAPI.h"
+#include "webAPIs/postgres.h"
+#include <boost/asio.hpp>
 
 using namespace std;
 
@@ -14,19 +13,18 @@ extern bool finalCheckVideo();
 extern bool pluginDealJson(string&);
 extern string pluginGetURL();
 
-#if NEED_PORT
-    #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
-#else
-    extern string cookie;
-#endif
-extern string user_agent;
+#define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+extern webAPI::postgres dataBase;
+extern string browseManagerUrl;
+[[deprecated]] extern string user_agent;
 
-#if NEED_PORT
-bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket);
-#else
-bool crawl(const std::atomic<bool>& cancel);
-#endif
+bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket);
 
-string getURL(const crawlTask::Task* task = crawlTask::nowTask());
+[[deprecated]] string getURL(const crawlTask::Task* task = crawlTask::nowTask());
+
+namespace webAPI {
+    class BrowseWorker;
+}
+webAPI::BrowseWorker getWorker(const crawlTask::Task* task = crawlTask::nowTask());
 
 bool checkEnv();

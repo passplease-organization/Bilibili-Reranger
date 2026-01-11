@@ -12,6 +12,7 @@
    #define FUNCTION_CALLER
 #endif
 
+extern "C" {
 /**
  * Called at program starting
  * */
@@ -37,11 +38,18 @@ OPTIONAL VideoStatus judge();
 typedef VideoStatus (FUNCTION_CALLER *JUDGE)();
 
 /**
+ * Now deprecated
  * Get this specific url for now task
  * @return "" means failed
  * */
-OPTIONAL const char* getURL();
+OPTIONAL [[deprecated]] const char* getURL();
 typedef const char* (FUNCTION_CALLER *GETURL)();
+
+namespace webAPI {
+ class BrowseWorker;
+}
+OPTIONAL webAPI::BrowseWorker getWorker();
+typedef webAPI::BrowseWorker (FUNCTION_CALLER *GETWORKER)();
 
 /**
  * Deal this specific json for now crawling
@@ -50,10 +58,14 @@ typedef const char* (FUNCTION_CALLER *GETURL)();
 OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 
+}
+
 #define URL_PARAMS_CATEGORY "category"
-#define URL_PARAMS_PLATFORM "platform"
-#define URL_PARAMS_USERNAME "username"
-#define URL_PARAMS_PASSWORD "password"
+#define BODY_PARAMS_PLATFORM "platform"
+//#define URL_PARAMS_USERNAME "username"
+//#define URL_PARAMS_PASSWORD "password"
 #define URL_PARAMS_CLIENT_ID "id"
+#define URL_PARAMS_TEST "test"
+#define URL_PARAMS_SESSION "session"
 #define BODY_PARAMS_ENCRYPT_KEY "key"
 #define BODY_PARAMS_ADMIN "admin"

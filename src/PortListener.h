@@ -1,12 +1,17 @@
 #pragma once
 
 #include "develop/flags.h"
+#include "utils/Util.h"
 
-#if NEED_PORT
-
+#include <atomic>
+#include <memory>
+#include <string>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/url/params_view.hpp>
-#include "loginAPI/socialAPI.h"
+
+namespace webAPI {
+    class Client;
+}
 
 struct CrawlInfo {
     const boost::urls::params_view params;
@@ -19,9 +24,7 @@ struct CrawlInfo {
 
     CrawlInfo(std::string clientId,const std::string& body,boost::urls::params_view params,std::string url,std::string target, long long id);
 
-    [[nodiscard]] bool checkClient() const noexcept{
-        return client != nullptr && client -> check();
-    }
+    [[nodiscard]] bool checkClient() const noexcept;
 
     #define BODY_CONTAIN(key) crawlInfo -> body.contains(key)
     #define INFO_BODY(key) crawlInfo -> body[key]
@@ -32,6 +35,4 @@ extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 int startWork();
 
-bool sendMessage(boost::asio::ip::tcp::socket& socket,std::string data = "",bool failed = false);
-
-#endif
+bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);

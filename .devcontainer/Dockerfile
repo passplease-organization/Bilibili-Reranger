@@ -17,17 +17,23 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-RUN apt update && apt install -y libboost-all-dev
+RUN apt update && apt install -y libboost-all-dev && apt-get clean
+RUN apt install -y bison flex && vcpkg install libpqxx && apt-get clean
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install curl
 RUN vcpkg install openssl
+RUN vcpkg install toml11
+
+RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive && apt-get clean
 RUN vcpkg install libsodium
 
 RUN apt-get update && apt-get install -y curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
-#    && npm install -g @google/gemini-cli \
+    && npm install -g @google/gemini-cli \
     && npm install -g @openai/codex \
-    && npm install -g @qwen-code/qwen-code@latest \
+    && npm install -g @anthropic-ai/claude-code \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @playwright/cli && npx playwright install chrome && npx playwright install-deps

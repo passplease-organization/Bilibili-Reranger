@@ -1,0 +1,127 @@
+#-------------------------------------------------------------------------------#
+#            Discover all capabilities of Qodana in our documentation           #
+#             https://www.jetbrains.com/help/qodana/about-qodana.html           #
+#-------------------------------------------------------------------------------#
+
+name: Qodana
+on:
+  workflow_dispatch:
+concurrency:
+  group: qodana-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-backend-image:
+    runs-on: ubuntu-latest
+    environment: Test
+    env:
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Qodana image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: qodana.dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_qodana:qodana_cpp
+
+  backend:
+    runs-on: ubuntu-latest
+    needs: build-backend-image
+    environment: Test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: qodana-debug
+            config: qodana-debug.yaml
+          - preset: qodana-release
+            config: qodana-release.yaml
+          - preset: qodana-test
+            config: qodana-test.yaml
+    env:
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'Qodana Scan'
+        uses: JetBrains/qodana-action@v2025.3
+        with:
+          args: |
+            --image,ghcr.io/${{ github.repository_owner }}/bilibili_reranger_qodana:qodana_cpp,
+            --config,${{ matrix.config }}
+          # When pr-mode is set to true, Qodana analyzes only the files that have been changed
+          pr-mode: false
+          use-caches: true
+          cache-dir: .qodana/caches/${{ matrix.preset }}
+          results-dir: .qodana/results/${{ matrix.preset }}
+          post-pr-comment: false
+          use-annotations: true
+          # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
+          upload-result: false
+          # quick-fixes available in Ultimate and Ultimate Plus plans
+          push-fixes: 'none'
+  browser:
+    runs-on: ubuntu-latest
+    environment: Test
+    env:
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BROWSER }}
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: '0'
+          sparse-checkout:
+            'browser'
+
+      - run: mv browser/* . && rm -rf browser
+
+      - name: 'Qodana Scan'
+        uses: JetBrains/qodana-action@v2025.3
+        with:
+          # When pr-mode is set to true, Qodana analyzes only the files that have been changed
+          pr-mode: false
+          use-caches: true
+          post-pr-comment: true
+          use-annotations: true
+          # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
+          upload-result: false
+          # quick-fixes available in Ultimate and Ultimate Plus plans
+          push-fixes: 'none'

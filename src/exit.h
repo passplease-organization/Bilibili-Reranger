@@ -1,37 +1,31 @@
 #pragma once
 
 #include "develop/flags.h"
-#include "Util.h"
-#if NEED_PORT
-    #include "PortListener.h"
-#endif
+#include "utils/Util.h"
+#include "PortListener.h"
 
 void clean();
 
 inline int success() {
-#if NEED_PORT
-    say("Thread: ",false);
-    say(std::to_string(crawlInfo -> id).c_str());
-    say("运行成功，本线程即将结束");
-#else
-    say("运行成功，现在将退出程序！");
-#endif
+    cppUtil::say({false, nullptr}, "Thread: ");
+    cppUtil::say(crawlInfo -> id);
+    cppUtil::say("运行成功，本线程即将结束");
     clean();
     return 0;
 }
 
 inline int failed(const std::string& msg = "") {
     if (!msg.empty())
-        warn(msg.c_str());
-#if NEED_PORT
+        cppUtil::warn(msg);
     if (stop -> load())
-        warn("运行超时，本线程自动退出");
-#endif
-    warn("运行失败，请检查具体原因！");
+        cppUtil::warn("运行超时，本线程自动退出");
+    cppUtil::warn("运行失败，请检查具体原因！");
     clean();
     return 1;
 }
 
 inline int back(const bool& back) {
+    if (!back && config<bool>(DETAILS))
+        cppUtil::say("操作失败！");
     return back ? success() : failed();
 }

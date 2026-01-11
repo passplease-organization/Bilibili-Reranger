@@ -9,6 +9,9 @@ namespace fs = std::filesystem;
 
 #define PluginDir "plugins"
 
+namespace webAPI {
+    class BrowseWorker;
+}
 class PluginHandler {
     string name;
 #ifdef WIN32
@@ -35,7 +38,9 @@ public:
 
     VideoStatus judge();
 
-    string getURL();
+    [[deprecated]] string getURL();
+
+    webAPI::BrowseWorker getWorker();
 
     bool dealJson(const string& tempdata);
 
@@ -74,4 +79,6 @@ bool finalCheckVideo();
 
 bool pluginDealJson(string& tempData);
 
-string pluginGetURL();
+[[deprecated]] string pluginGetURL();
+
+webAPI::BrowseWorker pluginGetWorker();

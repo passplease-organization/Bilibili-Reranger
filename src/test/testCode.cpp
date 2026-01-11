@@ -1,22 +1,23 @@
 #include "testCode.h"
 
-#if NEED_PORT
-#include "Util.h"
-#include "config.h"
+#include "utils/Util.h"
+#include "../../api/utils/config.h"
 #include <cpr/cpr.h>
 #include <thread>
 #include "../subFeatures/requestHelper.h"
-#include "BilibiliInterface.h"
+#include "utils/BilibiliInterface.h"
+#include "webAPIs/socialAPI.h"
+#include "webAPIs/platforms.h"
 
 using namespace cpr;
 
 atomic<bool> testFinished = false;
 
 inline void _say(string msg,bool endl = true) {
-    say(msg.c_str(),endl,GREEN);
+    cppUtil::say({endl, GREEN}, msg);
 }
 
-#define EMPTY_WARN(task) warn("Empty Response for " task " !");
+#define EMPTY_WARN(task) cppUtil::warn("Empty Response for " task " !");
 
 void startTestThread() {
     thread testThread(test);
@@ -41,12 +42,12 @@ void startTestThread() {
     )
 #define OUTPUT(output,category) \
     if (fileExists(output)) { \
-        deleteConfig(output,true); \
+        deleteConfig(output); \
     } \
     if (storeJson(category,output,json)) { \
         saveToFile(category,output); \
         storeJson(category,output,nullptr,true); \
-    }else warn(CANNOT_SAVE output);
+    }else cppUtil::warn(CANNOT_SAVE output);
 #define CANNOT_SAVE "Can not save to file !!! Now saving: "
 #define GET_ALL_CATEGORIES_OUTPUT OUTPUT_DIRECTORY GET_ALL_CATEGORIES ".json"
 #define KEY_OUTPUT OUTPUT_DIRECTORY KEY ".json"
@@ -56,9 +57,150 @@ void startTestThread() {
 #define TEST_WRONG_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID "_wrong" ".json"
 #define ADMIN_LOGIN_OUTPUT OUTPUT_DIRECTORY "/" ADMIN_CLIENT_KEY ".json"
 #define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
+#define LOGIN_STATUS_OUTPUT OUTPUT_DIRECTORY "/" LOGIN_NO_SLASH "_status.json"
+#define INIT_OUTPUT OUTPUT_DIRECTORY INIT ".json"
+#define SET_OUTPUT OUTPUT_DIRECTORY SET ".json"
 #define MATH "math"
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
 #define DEBUG "test"
+
+namespace {
+    constexpr int SESSION_POLL_INTERVAL_MS = 5000;
+    constexpr int SESSION_POLL_RETRY_COUNT = 100;
+
+    void markFailed(bool& error, const string& message) {
+        error = true;
+        cppUtil::warn(message);
+    }
+
+    string decryptIfNeeded(const string& text, webAPI::SimpleESA* esa = nullptr) {
+        if (esa == nullptr)
+            return text;
+        return esa -> decrypt(text);
+    }
+
+    Json parseJsonChecked(const string& text, bool& error, const string& step) {
+        try {
+            return Json::parse(text);
+        } catch (const std::exception& e) {
+            markFailed(error, step + " returned invalid json");
+            cppUtil::warn(e.what());
+            cppUtil::warn(text);
+            return Json();
+        }
+    }
+
+    void expectStatusCode(const Response& response, const int expected, bool& error, const string& step) {
+        if (response.status_code == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" failed, status code: ");
+        cppUtil::warn(response.status_code);
+        if (!response.error.message.empty()) {
+            cppUtil::warn({false, nullptr}, "Error message: ");
+            cppUtil::warn(response.error.message);
+        }
+        if (!response.reason.empty()) {
+            cppUtil::warn({false, nullptr}, "Reason: ");
+            cppUtil::warn(response.reason);
+        }
+        if (!response.text.empty()) {
+            cppUtil::warn({false, nullptr}, "Response text: ");
+            cppUtil::warn(response.text);
+        }
+    }
+
+    void expectTextEquals(const string& actual, const string& expected, bool& error, const string& step) {
+        if (actual == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" unexpected text: ");
+        cppUtil::warn(actual);
+    }
+
+    void expectStatusCodeValue(const long actual, const long expected, bool& error, const string& step) {
+        if (actual == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" failed, status code: ");
+        cppUtil::warn(actual);
+    }
+
+    string extractSession(const Response& response, webAPI::SimpleESA* esa, bool& error, const string& step) {
+        expectStatusCode(response, 200, error, step + " session response");
+        const string decrypted = decryptIfNeeded(response.text, esa);
+        if (decrypted.empty()) {
+            markFailed(error, step + " session response is empty");
+            return "";
+        }
+        const Json json = parseJsonChecked(decrypted, error, step + " session response");
+        if (!json.contains(URL_PARAMS_SESSION) || !json[URL_PARAMS_SESSION].is_string()) {
+            markFailed(error, step + " session response missing session");
+            return "";
+        }
+        return json[URL_PARAMS_SESSION];
+    }
+
+    Json waitSessionResult(
+        const string& localhost,
+        const string& id,
+        const string& session,
+        webAPI::SimpleESA* esa,
+        bool& error,
+        const string& step,
+        long* statusCode = nullptr
+    ) {
+        if (session.empty()) {
+            markFailed(error, step + " session is empty");
+            return Json();
+        }
+        Response response;
+        Json json;
+        bool finished = false;
+        for (int retry = 0; retry < SESSION_POLL_RETRY_COUNT; retry++) {
+            response = Post(
+                Url{localhost + GET},
+                Parameters{
+                    {URL_PARAMS_CLIENT_ID, id},
+                    {URL_PARAMS_SESSION, session}
+                },
+                ConnectTimeout{CONNECTION_TIMEOUT},
+                Timeout{config<int>(TIMEOUT)}
+            );
+            const string decrypted = decryptIfNeeded(response.text, esa);
+            json = parseJsonChecked(decrypted, error, step + " poll");
+            if (json.contains(SESSION_FINISHED) && json[SESSION_FINISHED].is_boolean()) {
+                finished = json[SESSION_FINISHED];
+                if (finished)
+                    break;
+            }
+            this_thread::sleep_for(chrono::milliseconds(SESSION_POLL_INTERVAL_MS));
+        }
+        if (statusCode != nullptr)
+            *statusCode = response.status_code;
+        if (!finished)
+            markFailed(error, step + " session did not finish in time");
+        if (!json.contains(SESSION_OK) || !json[SESSION_OK].is_boolean())
+            markFailed(error, step + " poll response missing ok");
+        if (!json.contains(SESSION_DATA))
+            markFailed(error, step + " poll response missing data");
+        return json;
+    }
+
+    string stringifySessionData(const Json& json, bool& error, const string& step) {
+        if (!json.contains(SESSION_DATA)) {
+            markFailed(error, step + " poll response missing data");
+            return "";
+        }
+        const auto& data = json[SESSION_DATA];
+        if (data.is_string())
+            return data.get<string>();
+        return data.dump();
+    }
+}
 
 void test() {
     string localhost = "http://localhost:";
@@ -71,8 +213,8 @@ void test() {
         Response response = POST_PARAMS(localhost + GET_ALL_CATEGORIES);
         if (response.status_code != 200) {
             error = true;
-            warn("Get all categories failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Get all categories failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("All categories get: ");
         _say(response.text);
@@ -86,8 +228,8 @@ void test() {
         response = POST_PARAMS(localhost + KEY);
         if (response.status_code != 200) {
             error = true;
-            warn("Get key failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Get key failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Get key: ");
         _say(response.text);
@@ -98,7 +240,7 @@ void test() {
         }
         OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
         string key = json[BODY_PARAMS_ENCRYPT_KEY];
-        key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
+        key = webAPI::SimpleRSA::encryptSodium(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
         auto esa = webAPI::SimpleESA(key);// It will automatically decrypt
 
         json.clear();
@@ -111,8 +253,8 @@ void test() {
         );
         if (response.status_code != 200) {
             error = true;
-            warn("Exchange key failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Exchange key failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Get id: ");
         _say(esa.decrypt(response.text));
@@ -126,26 +268,27 @@ void test() {
 
         _say("Test Right ID");
         response = POST_PARAMS_ID(localhost + TEST_ID);
-        if (response.status_code != 200) {
-            error = true;
-            warn("Test id failed ! Error: ",false);
-            warn(response.error.message.c_str());
-        }
+        expectStatusCode(response,200,error,"Test right id");
         _say("Test right id: ");
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Test right id");
-        }else _say(response.text);
-        json.clear();
-        json[DEBUG] = response.text;
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Test right id");
+            } else {
+                _say(decrypted);
+                expectTextEquals(decrypted,"ID still valid !",error,"Test right id");
+            }
+            json.clear();
+            json[DEBUG] = decrypted;
+        }
         OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
         _say("\nTest Wrong ID: ");
         response = POST_PARAMS(localhost + TEST_ID);
-        if (response.status_code == 200) {
-            error = true;
-            warn("Test id failed ! Get 200 !",false);
-        }
+        if (response.status_code == 200)
+            markFailed(error,"Test wrong id should not return 200");
+        json.clear();
         json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
 
@@ -153,7 +296,7 @@ void test() {
         json.clear();
         json[BODY_PARAMS_ENCRYPT_KEY] = esa.getKey("");
         _say("Now esa key: ",false);
-        _say(esa.getKey("").c_str());
+        _say(esa.getKey(""));
         json[BODY_PARAMS_ADMIN] = "test";
         response = Post(
             Url{localhost + KEY},
@@ -164,41 +307,141 @@ void test() {
         );
         if (response.status_code != 200) {
             error = true;
-            warn("Admin login failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Admin login failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Admin login: ");
-        _say(esa.decrypt(response.text));
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Admin login");
+        {
+            const string decrypted = esa.decrypt(response.text);
+            _say(decrypted);
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Admin login");
+            }
+            json = Json::parse(decrypted);
         }
-        json = Json::parse(esa.decrypt(response.text));
         OUTPUT(ADMIN_LOGIN_OUTPUT,ADMIN_CLIENT_KEY);
 
+        _say("Set platform:");
+        response = Post(
+            Url{localhost + SET},
+            Parameters{
+                {URL_PARAMS_CLIENT_ID,id},
+                {BODY_PARAMS_PLATFORM,BILIBILI}
+            },
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        expectStatusCode(response,200,error,"Set platform");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Set: ");
+            _say(decrypted);
+            expectTextEquals(decrypted,"设置成功",error,"Set platform");
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(SET_OUTPUT,SET_NO_SLASH);
+        }
+
+#if ALL_CONTAINER_ONLINE
+        _say("Login status:");
+        response = Post(
+            Url{localhost + LOGIN},
+            Parameters{
+                {URL_PARAMS_CLIENT_ID,id},
+                {URL_PARAMS_TEST,"true"}
+            },
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        {
+            const string session = extractSession(response,&esa,error,"Login status");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Login status",&statusCode);
+            const string decrypted = stringifySessionData(json,error,"Login status");
+            _say("Login status: ");
+            _say(decrypted);
+            if (statusCode != 200 && statusCode != 500)
+                markFailed(error,"Login status returned unexpected status code");
+            if (decrypted != "有效COOKIE" && decrypted != "无效COOKIE")
+                markFailed(error,"Login status returned unexpected text");
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(LOGIN_STATUS_OUTPUT,LOGIN_NO_SLASH "_status");
+        }
+#endif
+
         _say("Login:");
-        response = POST_PARAMS_ID(localhost + LOGIN);
-        if (response.status_code != 200) {
-            error = true;
-            warn("Login failed ! Error: ",false);
-            warn(response.error.message.c_str());
+        json.clear();
+        json[BODY_PARAMS_PLATFORM] = BILIBILI;
+        auto&& screen = json["screen"];
+        screen["width"] = 1000;
+        screen["height"] = 800;
+        screen["depth"] = 16;
+        response = Post(
+            Url{localhost + LOGIN},
+            Body{esa.encrypt(json.dump())},
+            Parameters{{URL_PARAMS_CLIENT_ID,id}},
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        {
+            const string session = extractSession(response,&esa,error,"Login");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Login",&statusCode);
+            const Json sessionData = json.contains(SESSION_DATA) ? json[SESSION_DATA] : Json();
+            const string decrypted = sessionData.is_string() ? sessionData.get<string>() : sessionData.dump();
+            _say("Login: ");
+            _say(decrypted);
+#if ALL_CONTAINER_ONLINE
+            if (statusCode != 200 && statusCode != 500)
+                markFailed(error,"Login returned unexpected status code");
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Login");
+            }
+            if (!sessionData.is_object())
+                markFailed(error,"Login data should be json object");
+            if (!sessionData.contains("success") || !sessionData["success"].is_boolean())
+                markFailed(error,"Login missing boolean success");
+            if (!sessionData.contains("url") || !sessionData["url"].is_string())
+                markFailed(error,"Login missing string url");
+            if (sessionData.value("success", false) && sessionData.value("url", string()).empty())
+                markFailed(error,"Login success is true but url is empty");
+            json[DEBUG] = decrypted;
+#else
+            expectStatusCodeValue(statusCode,200,error,"Login");
+            expectTextEquals(decrypted,"测试成功",error,"Offline login");
+            json.clear();
+            json[DEBUG] = decrypted;
+#endif
         }
-        _say("Login: ");
-        _say(esa.decrypt(response.text));
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Login");
-        }
-        json[DEBUG] = response.text;
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
+        _say("Init:");
         response = POST_PARAMS_ID(localhost + INIT);
-        if (response.status_code != 200) {
-            error = true;
-            warn("Init client failed ! Error: ",false);
-            warn(response.error.message.c_str());
+        {
+            const string session = extractSession(response,&esa,error,"Init");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Init",&statusCode);
+            const string decrypted = stringifySessionData(json,error,"Init");
+            _say("Init: ");
+            _say(decrypted);
+#if ALL_CONTAINER_ONLINE
+            if (statusCode != 200 && statusCode != 500)
+                markFailed(error,"Init returned unexpected status code");
+            if (decrypted != "准备过程完成" && decrypted != "准备过程失败")
+                markFailed(error,"Init returned unexpected text");
+#else
+            expectStatusCodeValue(statusCode,200,error,"Init");
+            expectTextEquals(decrypted,"准备过程完成",error,"Offline init");
+#endif
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(INIT_OUTPUT,INIT_NO_SLASH);
         }
 
+        _say("Crawl( will fail ):");
         response = Post(
             Url{localhost},
             Parameters{
@@ -208,30 +451,22 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-        if (response.status_code != 200) {
-            error = true;
-            warn("Crawl for math failed ! Error: ",false);
-            warn(response.error.message.c_str());
-        }
-        _say("Crawl for math get: ");
+        _say("Crawl response: ");
         _say(response.text);
-        json = Json::parse(esa.decrypt(response.text));
-        if (json.empty()) {
-            error = true;
-            EMPTY_WARN("Crawl for math");
-        }
+        if (response.status_code == 0)
+            markFailed(error,"Crawl request failed with no HTTP response");
+        if (response.text.empty())
+            markFailed(error,"Crawl returned empty response");
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
-        warn("Crashed !");
+        cppUtil::warn("Crashed !");
         POST_PARAMS_ID(localhost);
         throw e;
     }
     if (error)
-        throwError("Test encountered an error !");
+        cppUtil::throwError("Test encountered an error !");
     else _say("Test Success !!! Now returning ...");
     testFinished = true;
     POST_PARAMS_ID(localhost);// To let main thread get out from listening port
 }
-
-#endif

@@ -1,6 +1,7 @@
 #include "PluginHandler.h"
-#include "Util.h"
+#include "utils/Util.h"
 #include <iostream>
+#include "webAPIs/browse.h"
 
 #ifdef WIN32
     #include <minwindef.h>
@@ -22,10 +23,10 @@ PluginHandler::PluginHandler(const string &name) {
         dll = dlopen((PluginDir "/" + this -> name + DLL).c_str(),RTLD_LAZY);
     #endif
     if(dll == nullptr) {
-        say("尝试寻找插件：",false);
-        say(this -> name.c_str(),false);
-        say("失败");
-        throwError("未找到插件库！");
+        cppUtil::say({false, nullptr}, "尝试寻找插件：");
+        cppUtil::say({false, nullptr}, this -> name);
+        cppUtil::say("失败");
+        cppUtil::throwError("未找到插件库！");
     }
 }
 
@@ -46,19 +47,19 @@ void *PluginHandler::getFunction(const string &function) {
 }
 
 PluginStatus PluginHandler::load() {
-    say("正在加载插件：",false);
-    say(getName().c_str());
+    cppUtil::say({false, nullptr}, "正在加载插件：");
+    cppUtil::say(getName());
     auto createPlugin = (LOAD) getFunction("load");
     if(createPlugin == nullptr){
-        say("未找到插件方法！");
+        cppUtil::say("未找到插件方法！");
         return PluginStatus::FAIL;
     }
     PluginStatus value = createPlugin();
     if(value == PluginStatus::FAIL){
-        say("插件注册失败！");
+        cppUtil::say("插件注册失败！");
         return PluginStatus::FAIL;
     }
-    say("插件加载成功");
+    cppUtil::say("插件加载成功");
     return value;
 }
 
@@ -91,6 +92,13 @@ string PluginHandler::getURL() {
     return string(plugin());
 }
 
+webAPI::BrowseWorker PluginHandler::getWorker() {
+    auto plugin = (GETWORKER) getFunction("getWorker");
+    if(plugin == nullptr)
+        return webAPI::nullWorker();
+    return plugin();
+}
+
 bool PluginHandler::dealJson(const string &tempdata) {
     auto plugin = (DEAL_JSON) getFunction("dealJson");
     if(plugin == nullptr)
@@ -108,13 +116,13 @@ void PluginHandler::forEachPlugin(PluginStatus function(PluginHandler &)) {
             switch(function(*plugin)){
                 case PluginStatus::FAIL : {
                     cout << plugin;
-                    say("插件运行失败！请检查具体原因！");
+                    cppUtil::say("插件运行失败！请检查具体原因！");
                     break;
                 }
                 case PluginStatus::SUCCESS :
                 case PluginStatus::PASS : continue;
                 default :
-                    throwError("Invalid plugin return value !");
+                    cppUtil::throwError("Invalid plugin return value !");
             }
         }
     }
@@ -128,7 +136,7 @@ bool PluginHandler::checkVideo(VideoStatus function(PluginHandler &)) {
                 case VideoStatus::THROW : return false;
                 case VideoStatus::UNKNOWN : continue;
                 default :
-                    throwError("Invalid video status return value !");
+                    cppUtil::throwError("Invalid video status return value !");
             }
         }
     }
@@ -136,16 +144,16 @@ bool PluginHandler::checkVideo(VideoStatus function(PluginHandler &)) {
 }
 
 void PluginHandler::loadAll() {
-    say("插件加载完成，共发现",false);
-    say(to_string(pluginNames -> size()).c_str(),false);
-    say("个插件");
+    cppUtil::say({false, nullptr}, "插件加载完成，共发现");
+    cppUtil::say({false, nullptr}, pluginNames -> size());
+    cppUtil::say("个插件");
     if(!pluginNames -> empty()) {
         for(const auto & plugin : *pluginNames){
             auto examplePlugin = new PluginHandler(plugin);
             switch(examplePlugin -> load()){
                 case PluginStatus::FAIL :
                     cout << plugin;
-                    say("插件运行失败！请检查具体原因！");
+                    cppUtil::say("插件运行失败！请检查具体原因！");
                     break;
                 case PluginStatus::SUCCESS :
                     plugins -> emplace_back(examplePlugin);
@@ -153,7 +161,7 @@ void PluginHandler::loadAll() {
                 case PluginStatus::PASS :
                     break;
                 default :
-                    throwError("Invalid plugin return value !");
+                    cppUtil::throwError("Invalid plugin return value !");
             }
             delete examplePlugin;
         }
@@ -177,11 +185,11 @@ vector<string> *PluginHandler::searchPlugin(vector<string> *back) {
                 back -> emplace_back(buffer);
                 freeOutputChar(&buffer);
                 buffer = nullptr;
-                say(fileName.c_str());
+                cppUtil::say(fileName);
             }
         }
-    }else say("插件寻找结果：未找到插件");
-    say("插件加载结束，即将退出插件加载进程");
+    }else cppUtil::say("插件寻找结果：未找到插件");
+    cppUtil::say("插件加载结束，即将退出插件加载进程");
     return back;
 }
 
@@ -220,6 +228,23 @@ string pluginGetURL() {
                 return handler.getURL();
             },[](string& back,string& now) -> bool{
                 if(now.empty())
+                    return true;
+                else {
+                    back = now;
+                    return false;
+                }
+            }
+    );
+    return back;
+}
+
+webAPI::BrowseWorker pluginGetWorker() {
+    auto back = PluginHandler::forEachPlugin<webAPI::BrowseWorker>(
+            webAPI::nullWorker(),
+            [](PluginHandler& handler) -> webAPI::BrowseWorker{
+                return handler.getWorker();
+            },[](webAPI::BrowseWorker& back,webAPI::BrowseWorker& now) -> bool{
+                if(now == webAPI::nullWorker())
                     return true;
                 else {
                     back = now;

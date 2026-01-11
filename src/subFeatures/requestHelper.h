@@ -2,13 +2,8 @@
 
 #include "develop/flags.h"
 
-#if NEED_PORT
 #include "interface.h"
-#include "../Crawler.h"
 #include <boost/asio/ip/tcp.hpp>
-#include "loginAPI/crawler.h"
-
-void dealParams(CrawlerHelper& helper);
 
 typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define GET_ALL_CATEGORIES_NO_SLASH "all_category"
@@ -23,6 +18,8 @@ typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define INIT "/" INIT_NO_SLASH
 #define SET_NO_SLASH "set"
 #define SET "/" SET_NO_SLASH
+#define GET_NO_SLASH "get"
+#define GET "/" GET_NO_SLASH
 
 #define NEED_NORMAL_HANDLE -1
 handler checkURL(const std::string& url);
@@ -32,4 +29,19 @@ Nullable handler requireClient();
 #define REQUIRE_CLIENT(socket) \
     if(const auto& handler = requireClient(); handler != nullptr) \
         return handler(socket);
-#endif
+
+#define SESSION_DATA "data"
+#define SESSION_FINISHED "finished"
+#define SESSION_OK "ok"
+
+template<class Data>
+concept validData = requires(Json& back,Data&& data){
+    {back = data} -> std::same_as<Json&>;
+};
+
+API string getSession();
+
+template<class Data>
+API bool writeSession(const string& session,const Data& data,const bool& failed = false,const bool& finished = true);
+
+API void sendSession(boost::asio::ip::tcp::socket& socket,const string& session);

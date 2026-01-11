@@ -1,7 +1,7 @@
 #pragma once
 
 #include "APIStatus.h"
-#include "Util.h"
+#include "utils/Util.h"
 
 #pragma once
 
@@ -23,7 +23,8 @@ namespace crawlTask{
     enum struct WorkingMode {
         SEARCH,
         SUBSCRIBE,
-        TAG
+        TAG,
+        HOME_PAGE_FILTER
     };
 
     API int defaultDaytime(WorkingMode mode);
@@ -33,12 +34,27 @@ namespace crawlTask{
     API Nullable WorkingMode byName(const char* name);
 
     struct API Task{
+    protected:
+        /**
+         * Start by 1, 0 means never work
+         */
+        unsigned int _workCount = -1;
     public:
         const char* keyword;
         WorkingMode mode;
         int videoCount;
         int publishedDay;
         Task(const char* keyword,unsigned int videoCount,WorkingMode mode = WorkingMode::SEARCH,int publishedDay = -1);
+        ~Task();
+
+        API [[nodiscard]] const unsigned int& workCount() const {
+            return _workCount;
+        }
+
+        API const unsigned int& workOnce() {
+            _workCount++;
+            return workCount();
+        }
     };
 
     class Group{
@@ -47,9 +63,11 @@ namespace crawlTask{
     public:
         vector<Task*> tasks = vector<Task*>();
         const char* name;
+        const char* platform;
         int videoCount;
 
-        API explicit Group(const char* name,unsigned int videoCount = 0,bool regi = false);
+        API explicit Group(const char* name,const char* platform,unsigned int videoCount = 0,bool regi = false);
+        API ~Group();
 
         API Group* operator+= (Group& other);
 
@@ -61,7 +79,7 @@ namespace crawlTask{
          * */
         API Nullable Task* nextTask(bool move = false);
 
-        API NotNull Task* nowTask();
+        API NotNull Task* nowTask() const;
 
         [[nodiscard]] API bool validIndex() const;
 
@@ -75,13 +93,13 @@ namespace crawlTask{
     /**
      * @param groupName Null means get the group now working for
      * */
-    API Nullable Group* getGroup(const char* groupName = nullptr) noexcept;
+    API Nullable Group* getGroup(const char* groupName = nullptr,const char* platform = nullptr) noexcept;
 
     API NotNull Group* nextGroup();
 
-    API bool registerTask(const char* groupName,Task* task,bool create = true);
+    API bool registerTask(const char* groupName,const char* platform,Task* task,bool create = true);
 
-    API bool registerGroup(Group *group, const char *groupName = nullptr);
+    API bool registerGroup(Group *group, const char *groupName = nullptr,const char* platform = nullptr);
 
     API Nullable Task* nowTask() noexcept(false);
 
@@ -109,7 +127,7 @@ namespace crawlTask {
     /**
      * For network request which has specific target
      */
-    API void GroupFilter(NotNull const string& target);
+    API void GroupFilter(NotNull const string& target,NotNull const string& platform);
 
-    API const vector<Group*> getAllGroups();
+    API const vector<Group*>& getAllGroups();
 }

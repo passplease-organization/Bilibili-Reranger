@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(nlohmann_json CONFIG)
+find_dependency(OpenSSL CONFIG)
+find_dependency(unofficial-sodium CONFIG)
+find_dependency(CURL)
+find_dependency(cpr CONFIG)
+find_dependency(libpqxx CONFIG)
+find_dependency(toml11 CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/BiliBiliRerangerAPITargets.cmake")
