@@ -153,6 +153,8 @@ bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const craw
                     }
                 }
             }else{
+                checkAndReturn(json);
+                checkResult(json);
                 const auto* group = crawlTask::getGroup();
                 const char* groupName = group == nullptr ? "" : group -> name;
                 const char* groupPlatform = group == nullptr ? "" : group -> platform;
@@ -169,6 +171,8 @@ bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const craw
             return false;
         }
         case crawlTask::WorkingMode::TAG : {
+            checkAndReturn(json);
+            checkResult(json);
             const auto* group = crawlTask::getGroup();
             const char* groupName = group == nullptr ? "" : group -> name;
             const char* groupPlatform = group == nullptr ? "" : group -> platform;
@@ -190,6 +194,8 @@ bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const craw
             helper.advancePage(page);
             return true;
         }case crawlTask::WorkingMode::SEARCH : {
+            checkAndReturn(json);
+            checkResult(json);
             const auto* group = crawlTask::getGroup();
             const char* groupName = group == nullptr ? "" : group -> name;
             const char* groupPlatform = group == nullptr ? "" : group -> platform;
@@ -235,18 +241,11 @@ bool bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) 
                 return false;
             }
 
-            if (!checkResponse(json)) {
-                warn("COOKIE可能不合法，请重新登录！");
-                helper.clearData();
-                helper.clearNextURL();
-                return false;
-            }
-
         #ifdef DEVELOP
             auto _json = to_string(json);
         #endif
 
-            // 使用线程安全的方法添加订阅者
+            checkAndReturn(json);
             auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
             helper.addSubscriber(newSubscribers);
             int count = _getSubscriberCount(json);

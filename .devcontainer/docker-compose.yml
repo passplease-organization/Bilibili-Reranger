@@ -17,6 +17,8 @@ services:
     build:
       dockerfile: Dockerfile
     domainname: backend
+    ulimits:
+      core: -1
     volumes:
       - ./session/codex:/home/vscode/.codex # You can change to C:\Users\Administrator\.codex
       - ./session/qwen:/root/.qwen
