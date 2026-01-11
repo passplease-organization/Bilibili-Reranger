@@ -35,7 +35,7 @@ namespace webAPI{
 
         bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const override;
 
-        void refreshSubscribers(CrawlerHelper& helper, bool force) const override;
+        bool refreshSubscribers(CrawlerHelper& helper, bool force) const override;
 
         [[nodiscard]] const string& getCOOKIE() const override {
             return cookie;

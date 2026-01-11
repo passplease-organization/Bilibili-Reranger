@@ -4,6 +4,7 @@
 #define mySubscribers "https://api.bilibili.com/x/relation/followings"
 #define searchVideos "https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video"
 
+#define checkResponse(json) json.contains("data")
 #define getDataFromJson(json) json["data"]
 #define _getSubscribers(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
 #define _getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()

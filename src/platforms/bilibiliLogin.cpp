@@ -212,7 +212,7 @@ bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const craw
     }
 }
 
-void bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) const {
+bool bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) const {
     #if MORE_DETAILS
         say("开始准备关注博主名单");
     #endif
@@ -224,7 +224,23 @@ void bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) 
         do{
             helper.markMustCrawl();
             helper.connect(false);
-            Json json = Json::parse(helper.rawData());
+            Json json;
+            try {
+                json = Json::parse(helper.rawData());
+            } catch (const std::exception& e) {
+                warn("Parse subscribers response failed: ", false);
+                warn(e.what());
+                helper.clearData();
+                helper.clearNextURL();
+                return false;
+            }
+
+            if (!checkResponse(json)) {
+                warn("COOKIE可能不合法，请重新登录！");
+                helper.clearData();
+                helper.clearNextURL();
+                return false;
+            }
 
         #ifdef DEVELOP
             auto _json = to_string(json);
@@ -249,11 +265,14 @@ void bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) 
         }while(true);
         helper.clearData();
         helper.clearNextURL();
+    } else {
+        return true;
     }
 
     #if MORE_DETAILS
         say("关注博主名单已准备完成");
     #endif
+    return !helper.getSubscribers().empty() && helper.getSubscribers().valid();
 }
 
 #endif

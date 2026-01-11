@@ -6,6 +6,8 @@
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
 #include "loginAPI/crawler.h"
+
+#include "platforms/bilibiliLogin.h"
 #include "subFeatures/requestHelper.h"
 #if NEED_PORT
     #include "PortListener.h"
@@ -289,62 +291,21 @@ void CrawlerHelper::nextSearch(const string &url) {
         CrawlerHelper::url = url;
 }
 
-//TODO 未来支持前端向后端传输COOKIE后做成线程内私有，这样对不同的请求的COOKIE可以分开支持，能不仅限于个人不熟部署
-void CrawlerHelper::refreshSubscribers(const bool force) {
+bool CrawlerHelper::refreshSubscribers(const bool force) {
     #if NEED_PORT
         if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
             warn("Client not initialized, cannot refresh subscribers");
-            return;
+            return false;
         }
         auto* handler = crawlInfo -> client -> handler();
         if (handler == nullptr) {
             warn("Client handler not initialized, call /set or /login first");
-            return;
+            return false;
         }
-        handler -> refreshSubscribers(*this, force);
     #else
-        #if MORE_DETAILS
-            say("开始准备关注博主名单");
-        #endif
-
-        if(subscribers.empty() || force) {
-            clearURL();
-            crawlTask::Task t("", 0, crawlTask::WorkingMode::SUBSCRIBE);
-            nextSearch(getURL(&t));
-            do{
-                nextMustCrawl();
-                connect(false);
-                json = Json::parse(tempData);
-
-            #ifdef DEVELOP
-                auto _json = to_string(json);
-            #endif
-
-                // 使用线程安全的方法添加订阅者
-                auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
-                addSubscriber(newSubscribers);
-                int count = _getSubscriberCount(json);
-                int pages = count / 50 + 1;
-                unsigned int nowPage = getPages(url);
-
-            #if MORE_DETAILS
-                say("关注博主刷新完成第",false);
-                say(to_string(nowPage).c_str(),false);
-                say("页");
-            #endif
-
-                if(nowPage >= pages)
-                    break;
-                nextPage(nowPage);
-            }while(true);
-            clear();
-            clearURL();
-        }
-
-        #if MORE_DETAILS
-            say("关注博主名单已准备完成");
-        #endif
+        auto* handler = new bilibiliLogin::bilibiliLogin();
     #endif
+        return handler -> refreshSubscribers(*this, force);
 }
 
 bool CrawlerHelper::crawlNext() const {

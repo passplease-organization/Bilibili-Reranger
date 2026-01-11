@@ -46,7 +46,7 @@ public:
 
     void nextSearch(const string& url);
 
-    void refreshSubscribers(bool force = false);
+    bool refreshSubscribers(bool force = false);
 
     [[nodiscard]] bool crawlNext() const;
 

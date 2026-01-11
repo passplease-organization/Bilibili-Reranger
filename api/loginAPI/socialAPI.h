@@ -85,7 +85,7 @@ namespace webAPI {
 
         API virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const = 0;
 
-        API virtual void refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
+        API virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
 
         API [[nodiscard]] virtual bool validCOOKIE() const {
             return !getCOOKIE().empty();

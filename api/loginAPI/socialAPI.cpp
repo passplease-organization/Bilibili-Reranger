@@ -30,7 +30,10 @@ bool socialAPI::prepare(){
     _subscribers.clear();
     auto* tempHelper = new CrawlerHelper();
     tempHelper -> curlSetup();
-    tempHelper -> refreshSubscribers();
+    if (!tempHelper -> refreshSubscribers()) {
+        delete tempHelper;
+        return false;
+    }
     _subscribers = tempHelper -> getSubscribers();
     delete tempHelper;
     return !_subscribers.empty() && _subscribers.valid();
