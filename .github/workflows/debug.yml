@@ -8,6 +8,9 @@ on:
       - .devcontainer/Dockerfile
       - .github/workflows/docker.yml
       - .github/workflows/PR-Test.yml
+      - README.md
+      - README_en.md
+      - LICENSE
 
 jobs:
   Test-Code:
