@@ -43,11 +43,6 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     return back(sendMessage(socket,payload,payload.empty()));
 }
 
-int getAllPlatform(boost::asio::ip::tcp::socket& socket) {
-    LOG(GET_ALL_PLATFORMS,"getAllPlatform");
-    return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
-}
-
 int login(boost::asio::ip::tcp::socket& socket) {
     LOG(LOGIN, "login");
     REQUIRE_CLIENT(socket);
@@ -118,10 +113,18 @@ int key(boost::asio::ip::tcp::socket& socket){
 
 int testID(boost::asio::ip::tcp::socket& socket) {
     LOG(TEST_ID,"testID");
+    REQUIRE_CLIENT(socket);
     bool valid = false;
-    if (crawlInfo -> checkClient())
+    if (crawlInfo -> checkClient()) {
         valid = true;
-    return back(sendMessage(socket, valid ? "ID still valid !" : "ID not valid !", !valid));
+    }
+    string body = valid ? "ID still valid !" : "ID not valid !";
+    if (BODY_CONTAIN(BODY_PARAMS_ENCRYPT_KEY)) {
+        string key = INFO_BODY(BODY_PARAMS_ENCRYPT_KEY);
+        valid = crawlInfo -> client -> encrypt(key) == key;
+        body = valid ? "correct key" : "wrong key";
+    }
+    return back(sendMessage(socket, body, !valid));
 }
 
 int init(boost::asio::ip::tcp::socket& socket){
@@ -149,8 +152,6 @@ int set(boost::asio::ip::tcp::socket& socket){
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET_ALL_CATEGORIES))
         return getAllCategories;
-    else if (url.starts_with(GET_ALL_PLATFORMS))
-        return getAllPlatform;
     else if (url.starts_with(LOGIN))
         return login;
     else if (url.starts_with(KEY))

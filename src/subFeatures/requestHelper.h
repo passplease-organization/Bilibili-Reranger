@@ -13,8 +13,6 @@ void dealParams(CrawlerHelper& helper);
 typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define GET_ALL_CATEGORIES_NO_SLASH "all_category"
 #define GET_ALL_CATEGORIES "/" GET_ALL_CATEGORIES_NO_SLASH
-#define GET_ALL_PLATFORMS_NO_SLASH "all_platform"
-#define GET_ALL_PLATFORMS "/" GET_ALL_PLATFORMS_NO_SLASH
 #define LOGIN_NO_SLASH "login"
 #define LOGIN "/" LOGIN_NO_SLASH
 #define KEY_NO_SLASH "key"

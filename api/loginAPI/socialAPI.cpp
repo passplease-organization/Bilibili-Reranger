@@ -274,6 +274,10 @@ bool Client::check() const noexcept{
     return esa.check() && client(ID) == this;
 }
 
+bool Client::checkESA(const std::string &checkedKey) const {
+    return esa.getKey(config<string>(ADMIN_CLIENT_KEY)) == checkedKey;
+}
+
 const string &Client::getID() const {
     return ID;
 }

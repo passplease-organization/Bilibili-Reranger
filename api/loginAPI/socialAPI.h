@@ -156,6 +156,8 @@ namespace webAPI {
             return esa.decrypt(content);
         }
 
+        API [[nodiscard]] bool checkESA(const std::string& checkedKey) const;
+
         API [[nodiscard]] const string& getID() const;
 
         API void getHandler(const std::string& platform,std::shared_ptr<const std::atomic<bool>>& stop);
