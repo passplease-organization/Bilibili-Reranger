@@ -4,6 +4,7 @@ import MainContainer from '@/components/MainContainer.vue'
 import { onMounted, type Ref, ref } from 'vue'
 import { refreshCategories, requestCategories } from '@/backend.ts'
 import CategoriesContainer from '@/components/CategoriesContainer.vue'
+import { setup } from "@/website/backendSetup.ts";
 
 const categories: Ref<Category[]> = ref<Category[]>([])
 const categoriesInitError: Ref<boolean> = ref<boolean>(false)
@@ -11,6 +12,8 @@ const loadFinished = ref<boolean>(false)
 
 onMounted(async () => {
   initBackendUrl()
+  if(!await setup())
+    return false;
   try {
     categories.value = await Promise.all(
       (await requestCategories()).map(async (name) => {
@@ -38,7 +41,7 @@ async function refreshVideos(category: Category) {
 export const Docker: boolean = import.meta.env.VITE_DOCKER == 'true'
 export const backendURL: string = 'backend_url'
 
-export function getBackendUrl(): string {
+export function getBackendUrl(): string {// Not end url with /
   let url = localStorage.getItem(backendURL)
   if (url) return url
   else {

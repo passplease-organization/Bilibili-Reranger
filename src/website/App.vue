@@ -48,6 +48,11 @@ export function getProxyUrl(url: string | null, handler: string): string {
             <a class="category">视频总页面</a>
           </li>
         </router-link>
+        <router-link to="/login" class="hover-scale">
+          <li>
+            <a class="category">登录</a>
+          </li>
+        </router-link>
       </ul>
     </div>
     <div class="navbar-end">
