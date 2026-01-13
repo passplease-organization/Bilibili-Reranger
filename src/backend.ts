@@ -1,5 +1,5 @@
 import type { Video } from '@/components/VideoCard.vue'
-import { getBackendUrl } from '@/website/index.vue'
+import { getBackendUrl } from "@/website/backendSetup.ts";
 
 interface CategoryNames {
   category : string[]

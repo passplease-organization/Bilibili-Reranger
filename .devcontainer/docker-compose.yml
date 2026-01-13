@@ -9,15 +9,15 @@ services:
       - ./session/qwen:/root/.qwen
       - ./session/vercel:/.jbdevcontainer/data/com.vercel.cli
     env_file:
-      - env.list
+      - .env
     depends_on:
       - backend
 
   backend:
-    image: ghcr.io/passplease/bilibili_reranger:frontend_dev
+    image: ${BACKEND_IMAGE:-ghcr.io/passplease-organization/bilibili_reranger:frontend_dev}
     domainname: backend
     env_file:
-      - env.list
+      - .env
     volumes:
       - ./backend_config:/bilibili-backend/config
 

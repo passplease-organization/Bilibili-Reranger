@@ -9,7 +9,7 @@
       "settings": {
         "Git4Idea:app:Git-Application-Settings.staging_area_enabled": true,
         "com.intellij:app:BuiltInServerOptions.builtInServerPort": 64670,
-        "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; *.list",
+        "com.intellij:app:EditorSettings.soft_wrap_file_masks": "*.md; *.txt; *.rst; *.adoc; *.env",
         "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
         "com.intellij:app:GeneralSettings.inactiveTimeout": 60,
         "com.intellij:app:HttpConfigurable.use_proxy_pac": true

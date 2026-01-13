@@ -1,4 +1,5 @@
 import sodium from "libsodium-wrappers";
+import { encrypt } from "@/website/backendSetup.ts";
 
 // All done by codex
 
@@ -13,27 +14,21 @@ export class SimpleESA {
     return sodium.to_base64(key, BASE64_VARIANT);
   }
 
-  static async fromBase64Key(keyBase64: string): Promise<SimpleESA> {
-    await sodium.ready;
-    const key = sodium.from_base64(keyBase64, BASE64_VARIANT);
-    return SimpleESA.fromKeyBytes(key);
+  static async fromKey(esaKey: string|null): Promise<SimpleESA> {
+    if(esaKey){
+      await sodium.ready;
+      const key = sodium.from_base64(esaKey, BASE64_VARIANT);
+      return SimpleESA.fromKeyBytes(key);
+    }else return SimpleESA();
   }
 
-  static async fromKeyBytes(key: Uint8Array): Promise<SimpleESA> {
-    await sodium.ready;
-    if (key.length !== sodium.crypto_secretbox_KEYBYTES) {
-      throw new Error("Invalid key length for secretbox.");
-    }
-    return new SimpleESA(key);
-  }
-
-  async rsaEncrypt(publicKey: string): Promise<string> {
+  async rsaEncrypt(_publicKey: string): Promise<string> {
     await sodium.ready;
     if (!globalThis.crypto?.subtle) {
       throw new Error("WebCrypto is not available in this environment.");
     }
 
-    const publicKeyBytes = SimpleESA.pemToArrayBuffer(publicKey);
+    const publicKeyBytes = SimpleESA.pemToArrayBuffer(_publicKey);
     const publicKey = await globalThis.crypto.subtle.importKey(
       "spki",
       publicKeyBytes,
@@ -51,13 +46,15 @@ export class SimpleESA {
     return sodium.to_base64(new Uint8Array(encrypted), BASE64_VARIANT);
   }
 
-  encrypt(plaintext: string): string {
-    const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-    const cipher = sodium.crypto_secretbox_easy(plaintext, nonce, this.key);
-    const combined = new Uint8Array(nonce.length + cipher.length);
-    combined.set(nonce);
-    combined.set(cipher, nonce.length);
-    return sodium.to_base64(combined, BASE64_VARIANT);
+  encrypt(plaintext: string|null): string {
+    if(plaintext){
+      const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+      const cipher = sodium.crypto_secretbox_easy(plaintext, nonce, this.key);
+      const combined = new Uint8Array(nonce.length + cipher.length);
+      combined.set(nonce);
+      combined.set(cipher, nonce.length);
+      return sodium.to_base64(combined, BASE64_VARIANT);
+    }else return encrypt(key);
   }
 
   decrypt(payloadBase64: string): string {

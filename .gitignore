@@ -31,6 +31,6 @@ coverage
 .vercel
 vercel.env.local
 
-env.list
+.env
 backend_config
 session
