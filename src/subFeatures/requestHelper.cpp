@@ -1,5 +1,7 @@
 #include "requestHelper.h"
 
+#include "config.h"
+
 #if NEED_PORT
 
 #ifdef TEST
@@ -18,6 +20,9 @@
 #define LOG(URL,NAME) \
     say("Accept URL: " URL);\
     say(NAME " working for that ...");
+#define RELEASE_LOG(message) \
+    if (config<bool>(DETAILS)) \
+        say(message)
 
 namespace webAPI{
     socialAPI* getHandler(Client const* client){
@@ -57,8 +62,11 @@ int login(boost::asio::ip::tcp::socket& socket) {
         }
     }
 #endif
-    if (platform.empty())
+    if (platform.empty()) {
+        RELEASE_LOG("获取全部平台");
         return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
+    }
+    RELEASE_LOG("登录操作");
     crawlInfo -> client -> getHandler(platform,stop);
     if (!crawlInfo -> client -> check())
         return failed("Client Init failed !");
@@ -77,6 +85,7 @@ int login(boost::asio::ip::tcp::socket& socket) {
 int key(boost::asio::ip::tcp::socket& socket){
     LOG(KEY,"key");
     if (BODY_CONTAIN(BODY_PARAMS_ADMIN)) {
+        RELEASE_LOG("管理员登录");
         REQUIRE_CLIENT(socket);
         const string& admin = INFO_BODY(BODY_PARAMS_ADMIN);
         const auto& c = webAPI::adminLogin(crawlInfo -> client -> getID(),admin);
@@ -99,10 +108,12 @@ int key(boost::asio::ip::tcp::socket& socket){
         key = INFO_BODY(BODY_PARAMS_ENCRYPT_KEY);
     }
     if (key.empty()){
+        RELEASE_LOG("注册新客户端");
         Json json;
         json[BODY_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
         return back(sendMessage(socket, to_string(json),false));
     }
+    RELEASE_LOG("获取公钥");
     const auto& id = webAPI::createAndStoreClient(key);
     if (id.empty())
         return failed("Failed on setting client ID !");
@@ -169,6 +180,7 @@ handler requireClient(){
     if (crawlInfo -> checkClient())
         return nullptr;
     return [](boost::asio::ip::tcp::socket& socket) -> int{
+        RELEASE_LOG("无客户端ID请求！");
         sendMessage(socket,"Need Client Id !",true);
         return failed("Illegal Client");
     };

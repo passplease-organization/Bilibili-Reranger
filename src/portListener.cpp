@@ -33,10 +33,19 @@ target(std::move(target)),
 id(id) {
     try {
         if (checkClient())
-        this -> body = Json::parse(client -> decrypt(body));
-    else this -> body = Json::parse(body);
+            this -> body = Json::parse(client -> decrypt(body));
+        else this -> body = Json::parse(body);
     }catch (...) {
         this -> body = Json();
+    }
+    if (config<bool>(DETAILS)) {
+        say(client == nullptr ? "空客户端ID" : "有效客户端ID");
+        if (body.empty())
+            say("空body参数");
+        else {
+            say("本次登录body参数：");
+            say(body.c_str());
+        }
     }
 }
 

@@ -33,5 +33,7 @@ inline int failed(const std::string& msg = "") {
 }
 
 inline int back(const bool& back) {
+    if (!back && config<bool>(DETAILS))
+        say("操作失败！");
     return back ? success() : failed();
 }
