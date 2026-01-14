@@ -49,15 +49,19 @@ PluginStatus load(){
 }
 
 void registerGroups(){
-    vector<dataStore::Data>* array;
-    CONFIG -> get(GROUPS_LABEL,&array);
-    if(!array -> empty()){
-        for(auto& data : *array){
-            auto* group = new crawlTask::Group("",BILIBILI,0);
-            crawlTask::group_from_data(data,group);
-            crawlTask::registerGroup(group);
+    if (CONFIG -> contains(GROUPS_LABEL)) {
+        vector<dataStore::Data>* array;
+        CONFIG -> get(GROUPS_LABEL,&array);
+        if(!array -> empty()){
+            for(auto& data : *array){
+                auto* group = new crawlTask::Group("",BILIBILI,0);
+                crawlTask::group_from_data(data,group);
+                crawlTask::registerGroup(group);
+            }
+            return;
         }
     }
+    warn("空配置文件！请填写配置文件！文件：" CONFIG_PATH ".json");
 }
 
 VideoStatus roughJudge(){

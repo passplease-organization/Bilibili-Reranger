@@ -653,10 +653,6 @@ namespace dataStore{
         dataStore::getVector<bool>(this,label,bools,copy);
     }
 
-    bool Data::empty(){
-        return data.empty() && dataArrays.empty() && strings.empty() && stringArrays.empty() && ints.empty() && intArrays.empty() && floats.empty() && floatArrays.empty() && bools.empty() && boolArrays.empty();
-    }
-
     bool Data::writeToJson(const char *target_name, const char *target_path,bool recover, bool storage) {
         if(!needSave())
             return false;

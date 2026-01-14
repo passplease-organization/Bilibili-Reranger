@@ -77,6 +77,8 @@ int main(int argc, char** argv) {
         if (const int& signal = handler(socket); signal != NEED_NORMAL_HANDLE)
             return signal;
     }
+    if (config<bool>(DETAILS))
+        say("爬取工作开始");
     REQUIRE_CLIENT(socket);
     try{
         if(crawl(stop -> load(),socket)) {

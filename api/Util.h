@@ -139,7 +139,7 @@ namespace dataStore{
 
         API void clear();
 
-        API bool empty() const;
+        [[nodiscard]] API bool empty() const;
 
         [[nodiscard]] API bool valid() const noexcept;
 
@@ -204,6 +204,10 @@ namespace dataStore{
 
         API void put(const char *label, const bool &content, bool vector = false, bool recover = true);
 
+        API bool contains(const char* label) const{
+            return data.contains(label) || dataArrays.contains(label) || strings.contains(label) || stringArrays.contains(label) || ints.contains(label) || intArrays.contains(label) || floats.contains(label) || floatArrays.contains(label) || bools.contains(label) || boolArrays.contains(label);
+        }
+
         /**
          * All get function won't recurse to find label, just find in this object.
          * */
@@ -224,8 +228,6 @@ namespace dataStore{
 
         API Nullable void get(const char* label,bool** bools,bool copy = false);
         API Nullable void get(const char* label,vector<bool>** bools,bool copy = false);
-
-        API bool empty();
 
         /**
          * Save to Json, also to file
