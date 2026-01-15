@@ -52,16 +52,27 @@ int login(boost::asio::ip::tcp::socket& socket) {
     LOG(LOGIN, "login");
     REQUIRE_CLIENT(socket);
 #ifdef TEST
-    string platform(BILIBILI);
+    string platform(BILIBILI),test("");
 #else
-    string platform;
+    string platform,test;
     for (auto const& param : crawlInfo -> params) {
-        if (param.key == URL_PARAMS_PLATFORM){
+        if (param.key == URL_PARAMS_PLATFORM)
             platform = param.value;
+        else if (param.key == URL_PARAMS_TEST) {
+            test = param.value;
             break;
         }
     }
 #endif
+    if (!test.empty()) {
+        RELEASE_LOG("测试后台登录状态");
+        if (crawlInfo -> client -> handler() != nullptr) {
+            if (crawlInfo -> client -> handler() -> validCOOKIE())
+                return back(sendMessage(socket,"有效COOKIE"));
+            return back(sendMessage(socket,"无效COOKIE",true));
+        }
+        return back(sendMessage(socket,"未设置平台！",true));
+    }
     if (platform.empty()) {
         RELEASE_LOG("获取全部平台");
         return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
@@ -108,12 +119,12 @@ int key(boost::asio::ip::tcp::socket& socket){
         key = INFO_BODY(BODY_PARAMS_ENCRYPT_KEY);
     }
     if (key.empty()){
-        RELEASE_LOG("注册新客户端");
+        RELEASE_LOG("获取公钥");
         Json json;
         json[BODY_PARAMS_ENCRYPT_KEY] = webAPI::getRSA().publicKey();
         return back(sendMessage(socket, to_string(json),false));
     }
-    RELEASE_LOG("获取公钥");
+    RELEASE_LOG("注册新客户端");
     const auto& id = webAPI::createAndStoreClient(key);
     if (id.empty())
         return failed("Failed on setting client ID !");
@@ -124,13 +135,13 @@ int key(boost::asio::ip::tcp::socket& socket){
 
 int testID(boost::asio::ip::tcp::socket& socket) {
     LOG(TEST_ID,"testID");
-    REQUIRE_CLIENT(socket);
     bool valid = false;
     if (crawlInfo -> checkClient()) {
         valid = true;
     }
     string body = valid ? "ID still valid !" : "ID not valid !";
-    if (BODY_CONTAIN(BODY_PARAMS_ENCRYPT_KEY)) {
+    if (valid && BODY_CONTAIN(BODY_PARAMS_ENCRYPT_KEY)) {
+        RELEASE_LOG("检查对称加密秘钥");
         string key = INFO_BODY(BODY_PARAMS_ENCRYPT_KEY);
         valid = crawlInfo -> client -> encrypt(key) == key;
         body = valid ? "correct key" : "wrong key";

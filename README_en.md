@@ -30,18 +30,20 @@ There is an [example plugin](plugins/ExamplePlugin/main.cpp) in the code, provid
 
 ## URL Requests
 
+### Supported Requests
+
 All supported URL requests:
 
 | URL Path      | Meaning                                           | URL Parameters (except `id` is required by default, unspecified means unsupported)                                        | `Body` Parameters (usually encrypted)                                                               | Other                                                                                     | Status |
 |---------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|--------|
-| /all_category | Get all registered categories                     | No additional parameters                                                                                                  |                                                                                                     |                                                                                           |        |
-| /login        | Login to the crawling platform (get COOKIE, etc.) | No parameters means fetch all supported platforms (no `id` required)<br/>`platform`: platform to set (required each time) | `username`: account<br/>`password`: password                                                        | Varies by platform and plugin; extra parameters can be handled by the plugin              |        |
-| /key          | Exchange encryption keys with backend             | No parameters means get RSA public key                                                                                    | `key`: ESA-encrypted symmetric key (success returns encrypted `id` parameter)<br/>`admin`: admin id | Use RSA for initial handshake, then use symmetric encryption for subsequent communication |        |
-| /test         | Frontend checks various information               | `id` (required)                                                                                                           | `key`: ESA-encrypted key for validating after client re-login                                       | 500 indicates failure; 200 indicates success                                              |        |
+| /all_category | Get all registered categories                     | No additional parameters                                                                                                  |                                                                                                     | Need to be called after setting the platform, otherwise returns `null`                    |        |
+| /login        | Login to the crawling platform (get COOKIE, etc.) | No parameters except `id` means fetch all supported platforms<br/>`platform`: platform to set (required each time)<br/>`test`: this overrides all other parameters, used to test if login is needed, enable with `true` | `username`: account<br/>`password`: password                                                        | Varies by platform and plugin; extra parameters can be handled by the plugin              |        |
+| /key          | Exchange encryption keys with backend             | No parameters means get asymmetric public key                                                                             | `key`: frontend symmetric encryption key (success returns encrypted `id` parameter)<br/>Nothing sent means get asymmetric public key<br/>`admin`: admin id | Use asymmetric encryption for initial connection, then use symmetric encryption for communication |        |
+| /test         | Frontend checks various information               | `id` (required)                                                                                                           | `key`: Symmetrically encrypted key, used to verify key correctness after client re-login            | 500 indicates failure; 200 indicates success                                              |        |
 | /init         | Initialize crawler                                | No additional parameters                                                                                                  | No additional parameters                                                                            | Must be called after `/login`                                                             |        |
 | /set          | Set parameters                                    | `platform`: set working platform                                                                                          | No supported parameters                                                                             |                                                                                           |        |
 
-Additionally, a return value of 500 indicates an internal processing error; check the response body for details.
+Additionally, a return value of 500 indicates an internal processing error; check the response body for details. Also, the Body part is encrypted as a whole (encrypting the entire Json), rather than encrypting each part separately.
 
 Crawling parameters (for other URL paths):
 
@@ -49,7 +51,7 @@ Crawling parameters (for other URL paths):
 |------------|----------------------------------|------------------------------------------------------------------------------------------------|
 | category   | Category for this work           | Must be used with `/set`, only works for the current platform                                  |
 | cookie_env | Set COOKIE for this work         | Only valid for this work (different from /set_cookie)                                          |
-| id         | Backend value to identify client | Required by default for all except `/key`<br/>Encryption applies to the whole body, not fields |
+| id         | Backend value to identify client | Required by default for all except `/key`<br/>Encryption applies to the whole body, not individual fields in json |
 
 ## Login
 
@@ -64,12 +66,12 @@ Required login parameters and meanings (in addition to the common parameters abo
 | token     | One of the captcha request params  |       |
 | challenge | One of the captcha request params  |       |
 
-The first login request is made by the backend to Bilibili, then returned to the frontend. After the user completes verification, the frontend sends the results back and the backend finishes login and returns the final result.<br><br>
-The first request does not need `username` and `password`. The last login request must include them; if both are absent, it is treated as the initial captcha-parameter request.
+The first login request is made by the backend to Bilibili, then returned to the frontend. After the user completes verification, the frontend sends the results back and the backend completes the final login process and returns the login result to the frontend.<br><br>
+The first request does not need `username` and `password`, but the final login must include them. If neither is provided, it defaults to the first request to get captcha parameters.
 
 ### Request Flow
 
-First connect to `/key` to get the public key, then exchange the ESA key and store `id`. Next call `/login` multiple times until login succeeds, then call `/init` to initialize the backend, and finally use `category` to fetch videos for different categories.
+First connect to `/key` to get the public key, then exchange symmetric key and store `id`. Then connect to `/login` multiple times until login succeeds, then `/init` to initialize the backend, and then you can use `category` to get videos of different categories.
 
 ## Admin
 
@@ -77,4 +79,4 @@ Admins can configure their own key by modifying the `admin_client_key` field in 
 
 | Type      | Explanation                                                                                                                                                                                                 | How to Set                 | Other |
 |-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|-------|
-| Data Sync | After admin verification, the same `Client ID` is shared, so views are consistent and no repeated logins are needed.<br/>The connection never expires, even long after the `ID` would otherwise be cleared. | Set via the `/key` request |       |
+| Data Sync | After admin verification, the same `Client ID` can be shared, so the view is the same on any interface, eliminating the need for repeated logins.<br/>Also, the connection never times out, and even after a long time the `ID` will not be cleared | Set via `/key` request     |       |

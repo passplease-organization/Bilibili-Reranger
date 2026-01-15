@@ -371,7 +371,8 @@ bool crawl(const std::atomic<bool>& cancel){
     }while(!cancel && helper.connect() && count < max_count);
 
     #if NEED_PORT
-        return helper.finishCrawl() && sendMessage(socket);
+        const bool& back = helper.finishCrawl();
+        return back && sendMessage(socket,"",!back,false);
     #else
         webAPI::saveVideos();
         return helper.finishCrawl();

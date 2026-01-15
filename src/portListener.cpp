@@ -40,11 +40,18 @@ id(id) {
     }
     if (config<bool>(DETAILS)) {
         say(client == nullptr ? "空客户端ID" : "有效客户端ID");
-        if (body.empty())
-            say("空body参数");
-        else {
+        if (this -> body.empty()){
+            if (body.empty())
+                say("空body参数");
+            else if (client != nullptr){
+                say("前端传输body参数秘钥错误，实际密钥：",false);
+                say(client -> ESAKey(config<string>(ADMIN_CLIENT_KEY)).c_str());
+                say("而前端传输的body是：",false);
+                say(body.c_str());
+            }
+        }else {
             say("本次登录body参数：");
-            say(body.c_str());
+            say(this -> body.dump().c_str());
         }
     }
 }
@@ -136,7 +143,7 @@ int startWork() {
     return 0;
 }
 
-bool sendMessage(ip::tcp::socket& socket,string data,bool failed) {
+bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool releaseOutput) {
     if (data.empty()) {
         Json json = webAPI::getVideoJson();
         data = json.empty() ? "{}" : to_string(json);
@@ -148,6 +155,10 @@ bool sendMessage(ip::tcp::socket& socket,string data,bool failed) {
     response.set(http::field::content_type, "application/json; charset=utf-8");
     response.set(http::field::connection, "close");
     response.body() = crawlInfo -> client == nullptr ? data : crawlInfo -> client -> encrypt(data);
+    if (releaseOutput && config<bool>(DETAILS)) {
+        say("本次工作结果（未加密）：");
+        say(data.c_str());
+    }
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);
