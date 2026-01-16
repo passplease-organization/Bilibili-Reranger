@@ -476,17 +476,18 @@ void CurlHelper::curlSetup() {
 }
 
 bool CurlHelper::connect(bool deal) {
+    clear();
     curl_easy_setopt(curl,CURLOPT_URL,nextURL().c_str());
     CURLcode code = curl_easy_perform(curl);
     if (CURLE_OK != code) {
         clear();
         warn("连接链接失败，信息如下：", false);
-        warn(curl_easy_strerror(code), false);
+        warn(curl_easy_strerror(code));
         warn("错误码：", false);
         warn(to_string(code).c_str());
         return false;
     }
-    return deal ? dealJson() : true;
+    return !deal || dealJson();
 }
 
 bool AutoCurlHelper::dealJson() {

@@ -51,7 +51,7 @@ OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 
 #define URL_PARAMS_CATEGORY "category"
-#define URL_PARAMS_PLATFORM "platform"
+#define BODY_PARAMS_PLATFORM "platform"
 #define URL_PARAMS_USERNAME "username"
 #define URL_PARAMS_PASSWORD "password"
 #define URL_PARAMS_CLIENT_ID "id"

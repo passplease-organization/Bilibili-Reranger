@@ -54,17 +54,15 @@ int login(boost::asio::ip::tcp::socket& socket) {
 #ifdef TEST
     string platform(BILIBILI),test("");
 #else
-    string platform,test;
+    string test;
     for (auto const& param : crawlInfo -> params) {
-        if (param.key == URL_PARAMS_PLATFORM)
-            platform = param.value;
-        else if (param.key == URL_PARAMS_TEST) {
+        if (param.key == URL_PARAMS_TEST) {
             test = param.value;
             break;
         }
     }
 #endif
-    if (!test.empty()) {
+    if (test == "true") {
         RELEASE_LOG("测试后台登录状态");
         if (crawlInfo -> client -> handler() != nullptr) {
             if (crawlInfo -> client -> handler() -> validCOOKIE())
@@ -73,12 +71,12 @@ int login(boost::asio::ip::tcp::socket& socket) {
         }
         return back(sendMessage(socket,"未设置平台！",true));
     }
-    if (platform.empty()) {
+    if (!BODY_CONTAIN(BODY_PARAMS_PLATFORM)) {
         RELEASE_LOG("获取全部平台");
         return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
     }
     RELEASE_LOG("登录操作");
-    crawlInfo -> client -> getHandler(platform,stop);
+    crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client Init failed !");
     auto const handler = getHandler(crawlInfo -> client);
@@ -161,7 +159,7 @@ int set(boost::asio::ip::tcp::socket& socket){
     REQUIRE_CLIENT(socket);
     string platform;
     for (auto const& param : crawlInfo -> params) {
-        if (param.key == URL_PARAMS_PLATFORM){
+        if (param.key == BODY_PARAMS_PLATFORM){
             platform = param.value;
             break;
         }

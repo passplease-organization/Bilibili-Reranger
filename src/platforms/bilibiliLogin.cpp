@@ -27,16 +27,20 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
     failed = false;
     return "登录成功";
 #else
-    if (name.empty() || password.empty()) {
+    if (name.empty() || password.empty() || !BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE)) {
         curl.setURL(BILIBILI_LOGIN_VERIFICATION);
         curl.connect();
-        auto& json = curl.getJson();
+        const auto& json = curl.getJson();
         if (!json.contains("data")) {
             failed = true;
+            if (config<bool>(DETAILS)) {
+                say("获取验证码错误，得到：",false);
+                say(json.dump().c_str());
+            }
             return "错误返回Json";
         }
         failed = false;
-        return json["data"];
+        return json["data"].dump();
     }else {
         string validate = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE),
             seccode = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE),

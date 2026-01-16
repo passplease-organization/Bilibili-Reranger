@@ -3,6 +3,8 @@
 #include <string>
 #include <cpr/response.h>
 #include <sodium.h>
+
+#include "../config.h"
 #include "../interface.h"
 
 class CrawlerHelper;
@@ -238,8 +240,12 @@ namespace webAPI {
         virtual const Json& getJson() noexcept {
             if (!tempData.empty()) {
                 try {
-                    json = tempData;
+                    json = Json::parse(tempData);
                 }catch(...) {
+                    if (config<bool>(DETAILS)) {
+                        say("Json格式错误！当前：");
+                        say(tempData.c_str());
+                    }
                     json = Json();
                 }
             }

@@ -111,12 +111,6 @@ bool crawlTask::registerGroup(Group *group, const char *groupName,const char* pl
         return true;
     }
 
-    if (config<bool>(DETAILS)) {
-        say("注册组，名字：",false);
-        say(group -> name,false);
-        say("平台：",false);
-        say(group -> platform);
-    }
     const auto key = makeGroupKey(group -> name, group -> platform);
     if(groupIndex.contains(key)) {
         *groupIndex[key] += group;

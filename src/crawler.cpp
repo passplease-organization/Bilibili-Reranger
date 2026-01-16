@@ -38,6 +38,7 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
 }
 
 void CrawlerHelper::curlSetup(){
+    CurlHelper::curlSetup();
     #if NEED_PORT
         if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
             warn("Client not initialized, cannot setup curl");
