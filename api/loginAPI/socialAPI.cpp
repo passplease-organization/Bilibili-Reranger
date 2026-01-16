@@ -126,7 +126,11 @@ std::string SimpleRSA::encrypt(const std::string &key, const std::string &conten
     if (sodium_base642bin(pk_bin.data(), crypto_box_PUBLICKEYBYTES,
                           key.c_str(), key.length(),
                           NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        say("无效的公钥格式");
+        warn("无效的公钥格式");
+    #ifdef DEVELOP
+        warn("传入公钥：",false);
+        warn(key.c_str());
+    #endif
         return "";
                           }
 
