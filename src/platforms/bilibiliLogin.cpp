@@ -8,12 +8,30 @@
 
 #include <iostream>
 #include <regex>
+#include <boost/url/parse.hpp>
 #include <cpr/api.h>
-#include <cpr/body.h>
+#include <cpr/payload.h>
 
 #include "../PortListener.h"
 
 using namespace webAPI;
+
+verificationCodeData::verificationCodeData(string url,string captcha_key)
+: url(std::move(url)),
+captcha_key(std::move(captcha_key)) {
+    auto parsed = boost::urls::parse_uri(this -> url);
+    if (!parsed) {
+        return;
+    }
+    auto params = parsed -> params();
+    for (auto const& p : params) {
+        if (p.key == "request_id") {
+            request_id = std::string(p.value);
+        } else if (p.key == "tmp_token") {
+            tmp_code = std::string(p.value);
+        }
+    }
+}
 
 bilibiliLogin::bilibiliLogin(std::shared_ptr<const std::atomic<bool>> &stop)
 : socialAPI(stop),
@@ -27,11 +45,189 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
     failed = false;
     return "登录成功";
 #else
-    if (name.empty() || password.empty() || !BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE)) {
+    if (BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_CODE)) {
+        failed = true;
+        if (data == nullptr)
+            return "数据未储存，请重新登录！";
+        auto&& response = cpr::Post(
+            cpr::Url{BILIBILI_LOGIN_VERIFY},
+            cpr::Payload{
+                {"tmp_code",data -> tmp_code},
+                {"captcha_key",data -> captcha_key},
+                {"type",SMS_TYPE},
+                {"code",INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_CODE)},
+                {"request_id",data -> request_id},
+                {"source","risk"}
+            }
+        );
+        if (!stop -> load() && response.status_code == 200) {
+            auto&& j = Json::parse(response.text);
+            if (containsData(j)) {
+                response = cpr::Post(
+                    cpr::Url{BILIBILI_LOGIN_EXCHANGE_COOKIE},
+                    cpr::Payload{
+                        {"source",{"risk"}},
+                        {"code",getDataFromJson(j)["code"].get<string>()}
+                    }
+                );
+                if (response.status_code == 200) {
+                    cookie = "";
+                    for (const auto& c : response.cookies) {
+                        const auto& name = c.GetName();
+                        const auto& value = c.GetValue();
+                        if (!name.empty()) {
+                            cookie += name;
+                            cookie += "=";
+                            cookie += value;
+                            cookie += "; ";
+                        }
+                    }
+                    if (validCOOKIE()) {
+                        failed = false;
+                        return "登录成功！";
+                    }
+                }
+                return "交换COOKIE错误";
+            }
+            return "错误B站回复";
+        }
+        return "后端访问错误";
+    }else if (
+        BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE) &&
+        BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE) &&
+        BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN) &&
+        BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE)
+    ){
+        string validate = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE),
+            seccode = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE),
+            token = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN),
+            challenge = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE);
+        if (BODY_CONTAIN(BILIBILI_LOGIN_FLAG_PHONE_VERIFICATION)) {
+            failed = true;
+            if (data == nullptr)
+                return "数据未储存，请重新登录！";
+            string url = data -> url;
+            auto&& response = cpr::Post(
+                cpr::Url{BILIBILI_LOGIN_VERIFICATION_SEND},
+                cpr::Payload{
+                    {"tmp_code",data -> tmp_code},
+                    {"sms_type",SMS_TYPE},
+                    {"recaptcha_token",token},
+                    {"gee_challenge",challenge},
+                    {"gee_validate",validate},
+                    {"gee_seccode",seccode}
+                }
+            );
+            if (!stop -> load() && response.status_code == 200) {
+                auto&& j = Json::parse(response.text);
+                if (containsData(j)) {
+                    failed = false;
+                    clearData();
+                    data = new verificationCodeData(url,getDataFromJson(j)["captcha_key"].get<string>());
+                    return "{\"status\":\"手机验证，等待验证码\"}";
+                }
+            }
+            if (config<bool>(DETAILS)) {
+                warn("服务器回复信息：");
+                warn(response.text.c_str());
+            }
+        #ifdef DEVELOP
+            say("登录报错，URL如下，可手动尝试验证：",true,BLUE);
+            say(url.c_str(),true,BLUE);
+        #endif
+            return "发送验证码错误";
+        }
+        curl.setURL(BILIBILI_LOGIN_PUBLIC_KEY);
+        curl.connect();
+        if (stop -> load()) {
+            failed = true;
+            return "后台登录超时";
+        }
+        const auto& json = curl.getJson();
+        if (json.contains("data") && getDataFromJson(json).contains("hash") && getDataFromJson(json).contains("key")) {
+            auto&& salt = getDataFromJson(json)["hash"].get<std::string>();
+            auto&& key = getDataFromJson(json)["key"].get<std::string>();
+            auto&& encryptPassword = SimpleRSA::encrypt(key,salt + password);
+            cpr::Header headers{{"Content-Type", "application/x-www-form-urlencoded"}};
+            if (!user_agent.empty()) {
+                headers["User-Agent"] = user_agent;
+            }
+            auto&& response = cpr::Post(
+                cpr::Url{BILIBILI_LOGIN},
+                cpr::Payload{
+                    {URL_PARAMS_USERNAME, name},
+                    {URL_PARAMS_PASSWORD, encryptPassword},
+                    {"keep", "0"},
+                    {BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN, token},
+                    {BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE, challenge},
+                    {BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE, validate},
+                    {BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE, seccode}
+                },
+                headers
+            );
+            if (response.status_code != 200) {
+                failed = true;
+                return "登录连接失败";
+            }
+            cookie = "";
+            for (const auto& c : response.cookies) {
+                const auto& _name = c.GetName();
+                const auto& value = c.GetValue();
+                if (!_name.empty()) {
+                    cookie += _name;
+                    cookie += "=";
+                    cookie += value;
+                    cookie += "; ";
+                }
+            }
+            if (validCOOKIE()) {
+                failed = false;
+                return "登录成功！";
+            }
+            if (stop -> load()) {
+                failed = true;
+                return "登录超时";
+            }
+            failed = true;
+            auto&& j = Json::parse(response.text);
+            if (containsData(j) && getDataFromJson(j).contains("url")) {
+                const string& url = getDataFromJson(j)["url"].get<string>();
+                response = cpr::Post(
+                    cpr::Url{BILIBILI_LOGIN_VERIFICATION_CODE_CAPTCHA},
+                    headers
+                );
+                if (response.status_code == 200) {
+                    j = Json::parse(response.text);
+                    if (containsData(j)) {
+                        clearData();
+                        data = new verificationCodeData(url,"");
+                        failed = false;
+                        return j.dump();
+                    }
+                }
+                if (config<bool>(DETAILS)) {
+                    warn("服务器回复信息：");
+                    warn(response.text.c_str());
+                }
+            #ifdef DEVELOP
+                say("登录报错，URL如下，可手动尝试验证：",true,BLUE);
+                say(url.c_str(),true,BLUE);
+            #endif
+                return "请求验证码准备工作错误";
+            }
+            if (config<bool>(DETAILS)) {
+                warn("回复body：");
+                warn(response.text.c_str());
+            }
+            return "登录失败！";
+        }
+        failed = true;
+        return "错误公钥信息！";
+    }else {// TODO 改对应条件
         curl.setURL(BILIBILI_LOGIN_VERIFICATION);
         curl.connect();
         const auto& json = curl.getJson();
-        if (!json.contains("data")) {
+        if (!containsData(json)) {
             failed = true;
             if (config<bool>(DETAILS)) {
                 say("获取验证码错误，得到：",false);
@@ -40,62 +236,16 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
             return "错误返回Json";
         }
         failed = false;
-        return json["data"].dump();
-    }else {
-        string validate = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE),
-            seccode = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE),
-            token = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN),
-            challenge = INFO_BODY(BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE);
-        curl.setURL(BILIBILI_LOGIN_PUBLIC_KEY);
-        curl.connect();
-        if (stop) {
-            failed = true;
-            return "后台登录超时";
-        }
-        auto json = curl.getJson();
-        if (json.contains("data") && json["data"].contains("hash") && json["data"].contains("key")) {
-            auto&& salt = json["data"]["hash"].get<std::string>();
-            auto&& key = json["data"]["key"].get<std::string>();
-            std::regex keyRegex(R"(-----BEGIN PUBLIC KEY-----\n([A-Za-z0-9+/\n=]+)\n-----END PUBLIC KEY-----\n?)");
-            std::smatch matches;
-            if (std::regex_search(key, matches, keyRegex)) {
-                key = "";
-                for (auto& c : matches[1].str()) {
-                    if (c != '\n')
-                        key += c;
-                }
-                auto&& encryptPassword = webAPI::SimpleRSA::encrypt(key,salt + password);
-                json.clear();
-                json[URL_PARAMS_USERNAME] = name;
-                json[URL_PARAMS_PASSWORD] = encryptPassword;
-                json["keep"] = 0;
-                json[BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN] = token;
-                json[BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE] = challenge;
-                json[BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE] = validate;
-                json[BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE] = seccode;
-                auto&& response = cpr::Post(
-                    cpr::Url{BILIBILI_LOGIN},
-                    cpr::Body{json}
-                );
-                if (response.status_code != 200) {
-                    failed = true;
-                    return "登录连接失败";
-                }
-                cookie = "";
-                for (const auto& c : response.cookies)
-                    cookie += c.GetValue();
-                if (validCOOKIE()) {
-                    failed = false;
-                    return "登录成功！";
-                }
-                failed = true;
-                return "登录失败！";
-            }
-        }
-        failed = true;
-        return "错误公钥信息！";
+        return getDataFromJson(json).dump();
     }
+    failed = true;
+    return "错误请求参数";
 #endif
+}
+
+bool bilibiliLogin::validCOOKIE() const {
+    return cookie.find("SESSDATA=") != string::npos &&
+        cookie.find("bili_jct=") != string::npos;
 }
 
 string bilibiliLogin::getURL(const crawlTask::Task* task) const {

@@ -11,6 +11,7 @@ This is the backend code for the entire project, with an architecture based on C
 3. [CURL](https://github.com/curl/curl) for low-level HTTP support
 4. [boost](https://github.com/boostorg/boost) for port listening and HTTP handling (asio/beast/url)
 5. [libsodium](https://github.com/jedisct1/libsodium) for login and encryption features
+6. [OpenSSL](https://github.com/openssl/openssl) for RSA public-key encryption and key exchange
 
 The functionality is mainly implemented by plugins. The main program acts as a framework that handles various routine tasks, while the plugins determine which specific videos to keep or remove.
 
@@ -29,6 +30,10 @@ Currently, both `COOKIE` and `USERAGENT` are required. The `config` folder store
 There is an [example plugin](plugins/ExamplePlugin/main.cpp) in the code, providing interfaces in the [API dynamic link library](api/interface.h). All methods exported as C programs in the [API dynamic link library](api) are available for easy plugin development.
 
 ## URL Requests
+
+### Known Issue
+
+Important bug: the program uses [boost](https://github.com/boostorg/boost) to parse URL parameters. In testing, it sometimes parses parameters incorrectly, resulting in wrong or missing parameters. The behavior can vary between IDE/CLI/Docker. To avoid this, the plan is to move affected parameters from `url` to `body`.
 
 ### Supported Requests
 

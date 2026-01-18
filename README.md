@@ -9,6 +9,7 @@
 3. [CURL](https://github.com/curl/curl)底层HTTP请求支持
 4. [Boost](https://github.com/boostorg/boost)端口监听与HTTP处理（asio/beast/url）
 5. [libsodium](https://github.com/jedisct1/libsodium)登录与加密相关功能
+6. [OpenSSL](https://github.com/openssl/openssl)RSA公钥加密与密钥交换
 
 功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。
 ## 使用
@@ -47,6 +48,8 @@ docker run -p 23223:23223 -e COOKIE=<your_bilibili_cookie> -e USERAGENT=<browser
 ## Login
 登录所需参数及其意义（除开上述提到的通用参数）
 ### B站
+相关代码在`src/platforms/bilibiliLogin.cpp`下
+
 | 参数名       | 意义         | 其他 |
 |-----------|------------|----|
 | validate  | 验证码之一      |    |
@@ -55,7 +58,14 @@ docker run -p 23223:23223 -e COOKIE=<your_bilibili_cookie> -e USERAGENT=<browser
 | challenge | 获取验证码的参数之一 |    |
 
 登录时第一次请求由后端代替去请求B站，随后返回给前端，前端让用户验证完成后需带着返回，由后端完成最终的登录过程并返回登录结果给前端<br><br>
-第一次请求时不必带`username`和`password`，但是最后一次登录必须，不带都默认是第一次获取验证码参数
+B站登录流程：
+- 访问后端，获取验证码
+- 携带验证码（共4个）和账户名、密码登录
+
+有时B站会返回不安全，要求手机号验证，这时还需要继续操作，此时，上一步会返回获取的新验证码：
+- 根据上一步的验证码重新人机验证，在包含上述步骤参数的基础上，额外在Body中加上`phone_verification`，内容无所谓，主要是有这个条目就可以了，后端进行人机验证，并发送验证码
+- 用户接收验证码并发送回后端，后端设置COOKIE
+
 ### 请求流程
 首先应连接`/key`先获取公钥，再交换对称密钥并储存`id`，随后连接`/login`多次直至登录成功，然后`/init`初始化后端，然后就可以使用`category`获取不同类别视频了
 

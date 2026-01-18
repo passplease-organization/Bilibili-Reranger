@@ -14,6 +14,7 @@
         COOKIE_WARN \
         return false; \
     }
+#define containsData(json) json.contains("data")
 #define getDataFromJson(json) json["data"]
 #define _getSubscribers(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
 #define _getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()

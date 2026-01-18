@@ -3,13 +3,17 @@
 #include <map>
 #include <mutex>
 
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+
 #include "crawler.h"
 #include "../config.h"
 #include "../Util.h"
 
 using namespace webAPI;
 
-socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(std::ref(stop)) {}
+socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(stop) {}
 
 socialAPI::~socialAPI() = default;
 
@@ -119,38 +123,58 @@ bool SimpleRSA::check() const{
 }
 
 std::string SimpleRSA::encrypt(const std::string &key, const std::string &content) {
-    std::vector<unsigned char> pk_bin(crypto_box_PUBLICKEYBYTES);
+    BIO* bio = BIO_new_mem_buf(key.data(), static_cast<int>(key.size()));
+    if (bio == nullptr) {
+        return "";
+    }
 
-    // 2. 将 Base64 公钥解码为二进制
-    // 如果解码失败（比如公钥格式不对），返回空字符串或抛出异常
-    if (sodium_base642bin(pk_bin.data(), crypto_box_PUBLICKEYBYTES,
-                          key.c_str(), key.length(),
-                          NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        warn("无效的公钥格式");
+    EVP_PKEY* pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+    if (pkey == nullptr) {
+        warn("无效的RSA公钥格式");
     #ifdef DEVELOP
         warn("传入公钥：",false);
         warn(key.c_str());
     #endif
         return "";
-                          }
+    }
 
-    // 3. 计算密文长度
-    // Libsodium 的密封盒加密，密文长度 = 明文长度 + SEALBYTES (48字节)
-    size_t cipher_len = crypto_box_SEALBYTES + content.length();
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (ctx == nullptr) {
+        EVP_PKEY_free(pkey);
+        return "";
+    }
+
+    if (EVP_PKEY_encrypt_init(ctx) <= 0 ||
+        EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0) {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(pkey);
+        return "";
+    }
+
+    size_t cipher_len = 0;
+    if (EVP_PKEY_encrypt(ctx, nullptr, &cipher_len,
+                         reinterpret_cast<const unsigned char*>(content.data()),
+                         content.size()) <= 0) {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(pkey);
+        return "";
+    }
+
     std::vector<unsigned char> cipher_bin(cipher_len);
+    if (EVP_PKEY_encrypt(ctx, cipher_bin.data(), &cipher_len,
+                         reinterpret_cast<const unsigned char*>(content.data()),
+                         content.size()) <= 0) {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(pkey);
+        return "";
+    }
 
-    // 4. 执行加密 (Sealed Box)
-    // 只需要：密文容器、明文、明文长度、对方公钥
-    if (crypto_box_seal(cipher_bin.data(),
-                        (const unsigned char*)content.c_str(), content.length(),
-                        pk_bin.data()) != 0) {
-        return ""; // 加密失败
-                        }
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
 
-    // 5. 将二进制密文转为 Base64 (方便网络传输)
     size_t b64_len = sodium_base64_ENCODED_LEN(cipher_len, sodium_base64_VARIANT_ORIGINAL);
     std::vector<char> b64_str(b64_len);
-
     sodium_bin2base64(b64_str.data(), b64_len,
                       cipher_bin.data(), cipher_len,
                       sodium_base64_VARIANT_ORIGINAL);

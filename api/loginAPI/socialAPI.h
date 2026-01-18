@@ -72,7 +72,7 @@ namespace webAPI {
 
     class socialAPI {
     protected:
-        std::shared_ptr<const std::atomic<bool>>& stop;
+        std::shared_ptr<const std::atomic<bool>> stop;
 
         dataStore::Data _subscribers;
 
@@ -89,9 +89,7 @@ namespace webAPI {
 
         API virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
 
-        API [[nodiscard]] virtual bool validCOOKIE() const {
-            return !getCOOKIE().empty();
-        }
+        API [[nodiscard]] virtual bool validCOOKIE() const = 0;
 
         /**
          * Get if support to log in this specific platform, and the return value will never be changed in this thread
@@ -124,6 +122,10 @@ namespace webAPI {
 
         API [[nodiscard]] const dataStore::Data& subscribers() const{
             return _subscribers;
+        }
+
+        API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) noexcept {
+            stop = timer;
         }
     };
 
@@ -175,6 +177,10 @@ namespace webAPI {
         API [[nodiscard]] bool check() const noexcept;
 
         API [[nodiscard]] std::string ESAKey(const std::string& adminKey) const;
+
+        API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) noexcept {
+            _handler -> resetTimer(timer);
+        }
     };
 
     API Nullable Client* client(const std::string& ID);

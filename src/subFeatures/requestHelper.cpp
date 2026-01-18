@@ -83,8 +83,8 @@ int login(boost::asio::ip::tcp::socket& socket) {
 #ifdef TEST
     string username,password;
 #else
-    string username = INFO_BODY(URL_PARAMS_USERNAME);
-    string password = INFO_BODY(URL_PARAMS_PASSWORD);
+    string username = BODY_CONTAIN(URL_PARAMS_USERNAME) ? INFO_BODY(URL_PARAMS_USERNAME) : "";
+    string password = BODY_CONTAIN(URL_PARAMS_PASSWORD) ? INFO_BODY(URL_PARAMS_PASSWORD) : "";
 #endif
     bool failed = false;
     string payload = handler -> login(username,password,failed);

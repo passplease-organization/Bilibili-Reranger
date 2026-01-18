@@ -30,6 +30,9 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     crawlInfo = &info;
     stop = cancel;
     webAPI::registerBilibili();
+    if (crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr) {
+        crawlInfo -> client -> resetTimer(stop);
+    }
 #else
 int main(int argc, char** argv) {
     string target;
