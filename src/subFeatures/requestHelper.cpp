@@ -149,7 +149,7 @@ int testID(boost::asio::ip::tcp::socket& socket) {
 int init(boost::asio::ip::tcp::socket& socket){
     LOG(INIT, "init");
     REQUIRE_CLIENT(socket);
-    bool ok = crawlInfo -> client -> prepare();
+    const bool& ok = crawlInfo -> client -> prepare();
     return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 

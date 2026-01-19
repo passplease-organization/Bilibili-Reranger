@@ -105,9 +105,9 @@ namespace webAPI {
 
         API static std::string allPlatform();
 
-        API void init();
+        API virtual void init();
 
-        API bool prepare();
+        API virtual bool prepare();
 
         /**
          * Register your platform login handler

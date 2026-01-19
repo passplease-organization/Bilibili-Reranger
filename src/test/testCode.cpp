@@ -7,6 +7,7 @@
 #include <thread>
 #include "../subFeatures/requestHelper.h"
 #include "BilibiliInterface.h"
+#include "loginAPI/platforms.h"
 
 using namespace cpr;
 
@@ -177,7 +178,15 @@ void test() {
         OUTPUT(ADMIN_LOGIN_OUTPUT,ADMIN_CLIENT_KEY);
 
         _say("Login:");
-        response = POST_PARAMS_ID(localhost + LOGIN);
+        json.clear();
+        json[BODY_PARAMS_PLATFORM] = BILIBILI;
+        response = Post(
+            Url{localhost + LOGIN},
+            Body{esa.encrypt(json.dump())},
+            Parameters{{URL_PARAMS_CLIENT_ID,id}},
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
         if (response.status_code != 200) {
             error = true;
             warn("Login failed ! Error: ",false);
@@ -192,6 +201,7 @@ void test() {
         json[DEBUG] = response.text;
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
+        _say("Init:");
         response = POST_PARAMS_ID(localhost + INIT);
         if (response.status_code != 200) {
             error = true;
@@ -201,6 +211,7 @@ void test() {
         _say("Init: ");
         _say(esa.decrypt(response.text));
 
+        _say("Crawl:");
         response = Post(
             Url{localhost},
             Parameters{

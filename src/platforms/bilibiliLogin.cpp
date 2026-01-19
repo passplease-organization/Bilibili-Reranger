@@ -84,6 +84,10 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
                     }
                     if (validCOOKIE()) {
                         failed = false;
+                        if (config<bool>(DETAILS)) {
+                            say("Cookie如下");
+                            say(cookie.c_str());
+                        }
                         return "登录成功！";
                     }
                 }
