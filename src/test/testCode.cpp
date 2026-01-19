@@ -98,7 +98,7 @@ void test() {
         }
         OUTPUT(KEY_OUTPUT,KEY_NO_SLASH);
         string key = json[BODY_PARAMS_ENCRYPT_KEY];
-        key = webAPI::SimpleRSA::encrypt(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
+        key = webAPI::SimpleRSA::encryptSodium(key,"7F3K9M2Q8Z1T5H6J4N0P8R2X6W9B3C7D");
         auto esa = webAPI::SimpleESA(key);// It will automatically decrypt
 
         json.clear();

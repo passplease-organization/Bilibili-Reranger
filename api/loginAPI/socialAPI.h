@@ -35,13 +35,15 @@ namespace webAPI {
 
         API [[nodiscard]] bool check() const;
 
-        API std::string static encrypt(const std::string& key,const std::string& content);
+        API std::string static encrypt(const std::string& RSAKey,const std::string& content);
+
+        API std::string static encryptSodium(const std::string& SodiumKey,const std::string& content);
     };
 
     const SimpleRSA& getRSA();
 
     /*
-     * Done by Gemini's help
+     * Done by Gemini's and ChatG help
      */
     class SimpleESA {
     private:
@@ -63,6 +65,8 @@ namespace webAPI {
         API [[nodiscard]] std::string decrypt(const std::string& content) const;
 
         API [[nodiscard]] bool check() const;
+
+        API [[nodiscard]] bool is(const std::string& key) const;
 
         API [[nodiscard]] std::string getKey(const std::string& adminKey) const;
     };
@@ -152,6 +156,10 @@ namespace webAPI {
 
         API Client& operator= (Client* other) = delete;
 
+        API [[nodiscard]] bool isKey(const string& tryKey) const {
+            return esa.is(tryKey);
+        }
+
         API [[nodiscard]] std::string encrypt(const std::string& content) const {
             return esa.encrypt(content);
         }
@@ -178,7 +186,7 @@ namespace webAPI {
 
         API [[nodiscard]] std::string ESAKey(const std::string& adminKey) const;
 
-        API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) noexcept {
+        API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) const noexcept {
             _handler -> resetTimer(timer);
         }
     };

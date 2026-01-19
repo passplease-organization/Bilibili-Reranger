@@ -122,8 +122,8 @@ bool SimpleRSA::check() const{
     return sizeof publickey == sizeof secretkey;
 }
 
-std::string SimpleRSA::encrypt(const std::string &key, const std::string &content) {
-    BIO* bio = BIO_new_mem_buf(key.data(), static_cast<int>(key.size()));
+std::string SimpleRSA::encrypt(const std::string &RSAKey, const std::string &content) {
+    BIO* bio = BIO_new_mem_buf(RSAKey.data(), static_cast<int>(RSAKey.size()));
     if (bio == nullptr) {
         return "";
     }
@@ -134,7 +134,7 @@ std::string SimpleRSA::encrypt(const std::string &key, const std::string &conten
         warn("无效的RSA公钥格式");
     #ifdef DEVELOP
         warn("传入公钥：",false);
-        warn(key.c_str());
+        warn(RSAKey.c_str());
     #endif
         return "";
     }
@@ -175,6 +175,39 @@ std::string SimpleRSA::encrypt(const std::string &key, const std::string &conten
 
     size_t b64_len = sodium_base64_ENCODED_LEN(cipher_len, sodium_base64_VARIANT_ORIGINAL);
     std::vector<char> b64_str(b64_len);
+    sodium_bin2base64(b64_str.data(), b64_len,
+                      cipher_bin.data(), cipher_len,
+                      sodium_base64_VARIANT_ORIGINAL);
+
+    return std::string(b64_str.data());
+}
+
+std::string SimpleRSA::encryptSodium(const std::string &SodiumKey, const std::string &content) {
+    std::vector<unsigned char> pk_bin(crypto_box_PUBLICKEYBYTES);
+
+    if (sodium_base642bin(pk_bin.data(), crypto_box_PUBLICKEYBYTES,
+                          SodiumKey.c_str(), SodiumKey.length(),
+                          NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
+        warn("无效的公钥格式");
+    #ifdef DEVELOP
+        warn("传入公钥：",false);
+        warn(SodiumKey.c_str());
+    #endif
+        return "";
+                          }
+
+    size_t cipher_len = crypto_box_SEALBYTES + content.length();
+    std::vector<unsigned char> cipher_bin(cipher_len);
+
+    if (crypto_box_seal(cipher_bin.data(),
+                        (const unsigned char*)content.c_str(), content.length(),
+                        pk_bin.data()) != 0) {
+        return "";
+                        }
+
+    size_t b64_len = sodium_base64_ENCODED_LEN(cipher_len, sodium_base64_VARIANT_ORIGINAL);
+    std::vector<char> b64_str(b64_len);
+
     sodium_bin2base64(b64_str.data(), b64_len,
                       cipher_bin.data(), cipher_len,
                       sodium_base64_VARIANT_ORIGINAL);
@@ -326,6 +359,16 @@ std::string SimpleESA::getKey(const std::string &adminKey) const {
 #ifndef TEST
     }else return "";
 #endif
+}
+
+bool SimpleESA::is(const std::string &checkedKey) const {
+    const size_t b64_len = sodium_base64_ENCODED_LEN(crypto_secretbox_KEYBYTES,
+        sodium_base64_VARIANT_ORIGINAL);
+    std::string encoded(b64_len, '\0');
+    sodium_bin2base64(encoded.data(), encoded.size(), key, crypto_secretbox_KEYBYTES,
+        sodium_base64_VARIANT_ORIGINAL);
+    encoded.resize(strlen(encoded.c_str()));
+    return encoded == checkedKey;
 }
 
 namespace {

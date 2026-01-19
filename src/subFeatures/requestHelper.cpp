@@ -140,8 +140,7 @@ int testID(boost::asio::ip::tcp::socket& socket) {
     string body = valid ? "ID still valid !" : "ID not valid !";
     if (valid && BODY_CONTAIN(BODY_PARAMS_ENCRYPT_KEY)) {
         RELEASE_LOG("检查对称加密秘钥");
-        string key = INFO_BODY(BODY_PARAMS_ENCRYPT_KEY);
-        valid = crawlInfo -> client -> encrypt(key) == key;
+        valid = crawlInfo -> client -> isKey(INFO_BODY(BODY_PARAMS_ENCRYPT_KEY));
         body = valid ? "correct key" : "wrong key";
     }
     return back(sendMessage(socket, body, !valid));
