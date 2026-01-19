@@ -38,11 +38,8 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
         return failed();
     auto& groups = crawlTask::getAllGroups();
     dataStore::Data data{};
-    for (const auto group : groups) {
-        dataStore::Data temp{};
-        temp.put(URL_PARAMS_CATEGORY,group -> name,true);
-        data.put(group -> platform,temp,true);
-    }
+    for (const auto group : groups)
+        data.put(group -> platform,group -> name,true);
     const Json json = data;
     const string payload = to_string(json);
     return back(sendMessage(socket,payload,payload.empty()));
