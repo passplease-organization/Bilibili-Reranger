@@ -40,7 +40,7 @@ curl(webAPI::CurlHelper()) {
 }
 
 string bilibiliLogin::login(const std::string& name, const std::string& password,bool& failed){
-#if TEST
+#if EASY_LOGIN
     cookie = getenv(COOKIE);
     failed = false;
     return "登录成功";

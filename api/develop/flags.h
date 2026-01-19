@@ -9,13 +9,16 @@
 #define tempDataName tempDataPath
     #ifdef TEST
         #define NEED_PORT true
+        #define EASY_LOGIN true
     #else
         #define NEED_PORT true
+        #define EASY_LOGIN false
     #endif
 #else
 #define CONNECT_INTERNET true
 #define SLEEP_CRAWL true
 #define NEED_PORT true
+#define EASY_LOGIN false
 #endif
 
 #if CONNECT_INTERNET
