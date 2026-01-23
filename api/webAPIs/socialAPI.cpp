@@ -8,18 +8,23 @@
 #include <openssl/rsa.h>
 
 #include "crawler.h"
+#include "postgres.h"
 #include "../config.h"
 #include "../Util.h"
 
 using namespace webAPI;
 
-socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(stop) {}
+webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(stop) {}
 
-socialAPI::~socialAPI() = default;
+webAPI::socialAPI::~socialAPI() = default;
 
 auto socials = std::map<const std::string,creator>();
 
-bool socialAPI::supportPlatform(const std::string& platform,creator function) {
+bool webAPI::socialAPI::fromData(const ::socialAPI::CookieRow& data) noexcept{
+    return setCOOKIE(data.cookie);
+}
+
+bool webAPI::socialAPI::supportPlatform(const std::string& platform,creator function) {
     if (socials.contains(platform)) {
         return false;
     }else {
@@ -28,9 +33,9 @@ bool socialAPI::supportPlatform(const std::string& platform,creator function) {
     }
 }
 
-void socialAPI::init(){}
+void webAPI::socialAPI::init(){}
 
-bool socialAPI::prepare(){
+bool webAPI::socialAPI::prepare(){
     _subscribers.clear();
     auto* tempHelper = new CrawlerHelper();
     tempHelper -> curlSetup();
@@ -43,7 +48,7 @@ bool socialAPI::prepare(){
     return !_subscribers.empty() && _subscribers.valid();
 }
 
-bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
+bool webAPI::socialAPI::instance(webAPI::socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
     if (handler == nullptr)
         return false;
     if (*handler != nullptr)
@@ -55,7 +60,7 @@ bool socialAPI::instance(socialAPI** handler,const std::string &platform,std::sh
     return true;
 }
 
-string socialAPI::allPlatform() {
+string webAPI::socialAPI::allPlatform() {
     Json json = nlohmann::json::array();
     for (const auto & pair : socials) {
         json.push_back(pair.first);
@@ -215,17 +220,29 @@ std::string SimpleRSA::encryptSodium(const std::string &SodiumKey, const std::st
     return std::string(b64_str.data());
 }
 
-SimpleESA::SimpleESA(const string& key) {
-    const string& k = getRSA().decrypt(key);
-    if (k.length() != crypto_secretbox_KEYBYTES) {
+SimpleESA::SimpleESA(const string& key, bool rawKey) {
+    if (!rawKey) {
+        const string& k = getRSA().decrypt(key);
+        if (k.length() != crypto_secretbox_KEYBYTES) {
+            throwError("Session Key length invalid! Must be 32 bytes.");
+        }
+        std::memcpy(this -> key, k.data(), crypto_secretbox_KEYBYTES);
+        return;
+    }
+    if (key.length() != crypto_secretbox_KEYBYTES) {
         throwError("Session Key length invalid! Must be 32 bytes.");
     }
-
-    std::memcpy(this -> key, k.data(), crypto_secretbox_KEYBYTES);
+    std::memcpy(this -> key, key.data(), crypto_secretbox_KEYBYTES);
 }
 
 SimpleESA::SimpleESA(SimpleESA &&other) noexcept {
     std::memcpy(this -> key, other.key, crypto_secretbox_KEYBYTES);
+}
+
+std::string SimpleESA::randomKey() {
+    unsigned char raw[crypto_secretbox_KEYBYTES];
+    randombytes_buf(raw, sizeof raw);
+    return std::string(reinterpret_cast<const char*>(raw), sizeof raw);
 }
 
 std::string SimpleESA::decrypt(const std::string &content) const {
@@ -320,6 +337,13 @@ handlers(std::move(other.handlers)),
 ID(std::move(other.ID)),
 _handler(other._handler){}
 
+Client::Client(const ::socialAPI::ClientRow& data)
+: esa(data.esa_key_enc),
+handlers(),
+ID(data.client_id){
+    _handler = nullptr;
+}
+
 void Client::getHandler(const std::string& platform, std::shared_ptr<const std::atomic<bool>>& stop){
     if (_handler != nullptr && _handler -> support() == platform)
         return;
@@ -328,6 +352,23 @@ void Client::getHandler(const std::string& platform, std::shared_ptr<const std::
     if (_handler != nullptr) {
         _handler -> init();
         handlers.push_back(_handler);
+    }
+}
+
+bool Client::handlerFromData(const vector<::socialAPI::CookieRow>& datas) noexcept{
+    try{
+        std::shared_ptr<const std::atomic<bool>> stop(new std::atomic<bool>(false));
+        handlers.clear();
+        _handler = nullptr;
+        for (const auto& data : datas){
+            socialAPI::instance(&_handler,data.platform,stop);
+            if (_handler != nullptr && _handler -> fromData(data)){
+                handlers.push_back(_handler);
+            }
+        }
+        return true;
+    }catch(const std::exception& e){
+        return false;
     }
 }
 
@@ -467,6 +508,43 @@ AdminLinkedMap* clients;
 auto client_mutex = std::mutex();
 #define LOCK std::lock_guard<std::mutex> lock(client_mutex);
 bool initialized = false;
+
+extern ::socialAPI::postgres dataBase;
+
+void reInit(){
+    LOCK
+    if (initialized && clients != nullptr)
+        delete clients;
+    initialized = false;
+    Client::init();
+}
+
+void Client::initAndDataBase(){
+    vector<::socialAPI::ClientRow> clients;
+    vector<::socialAPI::CookieRow> cookies;
+    bool back = dataBase.clientsInit(clients, cookies);
+    back &= !clients.empty() && !cookies.empty();
+    init();
+    if (back)
+        return;
+    back &= std::ranges::all_of(clients,[](const auto& data) -> bool{
+        return storeClient(new Client(data));
+    });
+    if (!back){
+        reInit();
+        return;
+    }
+    map<string,vector<::socialAPI::CookieRow>> _cookies{};
+    for (const auto& cookie : cookies){
+        _cookies[cookie.client_id].push_back(cookie);
+    }
+    back &= std::ranges::all_of(_cookies,[](const auto& cookie) -> bool{
+        auto client = webAPI::client(cookie.first);
+        return client == nullptr && client -> handlerFromData(cookie.second);
+    });
+    if (!back)
+        reInit();
+}
 
 void Client::init() {
     if (initialized)

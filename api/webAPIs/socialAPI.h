@@ -7,6 +7,12 @@
 #include "../config.h"
 #include "../interface.h"
 
+namespace socialAPI
+{
+    struct CookieRow;
+    struct ClientRow;
+}
+
 class CrawlerHelper;
 
 namespace webAPI {
@@ -50,7 +56,8 @@ namespace webAPI {
         unsigned char key[crypto_secretbox_KEYBYTES]{};
 
     public:
-        API SimpleESA(const string& key);
+        API SimpleESA(const string& key, bool rawKey = false);// false means decrypted automatically
+        API static std::string randomKey();
 
         API SimpleESA(SimpleESA&& other) noexcept;
 
@@ -80,8 +87,12 @@ namespace webAPI {
 
         dataStore::Data _subscribers;
 
+        API virtual bool setCOOKIE(const string& newCookie) = 0;
+
     public:
         socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
+
+        API [[nodiscard]] bool fromData(const ::socialAPI::CookieRow& data) noexcept;
 
         API virtual ~socialAPI() = 0;
 
@@ -148,9 +159,13 @@ namespace webAPI {
     public:
         API static void init();
 
+        API static void initAndDataBase();
+
         API Client(const std::string& key);
 
         API Client(Client&& other) noexcept;
+
+        API Client(const ::socialAPI::ClientRow& data);
 
         API Client& operator= (Client& other) = delete;
 
@@ -177,6 +192,8 @@ namespace webAPI {
         API [[nodiscard]] Nullable const socialAPI* handler() const{
             return _handler;
         }
+
+        API bool handlerFromData(const vector<::socialAPI::CookieRow>& data) noexcept;
 
         API [[nodiscard]] bool prepare() const {
             return _handler -> prepare();

@@ -81,6 +81,23 @@ jobs:
       env:
         COOKIE: "wrong"
         USERAGENT: "wrong"
+        DB_HOST: "postgres"
+        DB_PORT: "5432"
+        DB_NAME: "bilibili_test"
+        DB_USER: "bilibili"
+        DB_PASSWORD: "bilibili"
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: github_test
+          POSTGRES_USER: github
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd "pg_isready -U bilibili -d bilibili_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -110,7 +127,7 @@ jobs:
 
   cleanup-temp-image:
     runs-on: ubuntu-latest
-    needs: [prepare, build-temp-image, test-code]
+    needs: [prepare, build-temp-image, Test-Code]
     if: ${{ always() && needs.prepare.outputs.build_temp == 'true' && needs.build-temp-image.result == 'success' }}
     permissions:
       packages: write

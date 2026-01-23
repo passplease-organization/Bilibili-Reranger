@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "subFeatures/requestHelper.h"
+#include "webAPIs/postgres.h"
 
 #ifdef TEST
     #include "test/testCode.h"
@@ -60,11 +61,11 @@ int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket so
 auto WorkFunction = &work;
 
 int startWork() {
+    readConfig();
     if(checkEnv()) {
         return 1;
     }
-    readConfig();
-    webAPI::Client::init();
+    webAPI::Client::initAndDataBase();
     PluginHandler::loadAll();
     say("Listening thread start");
     try {

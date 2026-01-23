@@ -1,7 +1,7 @@
 #include "bilibiliLogin.h"
 #include "bilibiliAPIs.h"
 #include "config.h"
-#include "loginAPI/crawler.h"
+#include "webAPIs/crawler.h"
 #include "../Crawler.h"
 
 #if NEED_PORT
@@ -37,6 +37,11 @@ bilibiliLogin::bilibiliLogin(std::shared_ptr<const std::atomic<bool>> &stop)
 : socialAPI(stop),
 curl(webAPI::CurlHelper()) {
     curl.curlSetup();
+}
+
+bool bilibiliLogin::setCOOKIE(const string& newCookie){
+    cookie = newCookie;
+    return validCOOKIE();
 }
 
 string bilibiliLogin::login(const std::string& name, const std::string& password,bool& failed){

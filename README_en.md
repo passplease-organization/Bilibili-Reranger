@@ -12,6 +12,7 @@ This is the backend code for the entire project, with an architecture based on C
 4. [boost](https://github.com/boostorg/boost) for port listening and HTTP handling (asio/beast/url)
 5. [libsodium](https://github.com/jedisct1/libsodium) for login and encryption features
 6. [OpenSSL](https://github.com/openssl/openssl) for RSA public-key encryption and key exchange
+7. [libpqxx](https://github.com/jtv/libpqxx) for PostgreSQL access (client data and cookie persistence)
 
 The functionality is mainly implemented by plugins. The main program acts as a framework that handles various routine tasks, while the plugins determine which specific videos to keep or remove.
 

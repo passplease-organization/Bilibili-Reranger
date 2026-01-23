@@ -2,7 +2,7 @@
 
 #include "Util.h"
 #include "pluginInterface.h"
-#include "loginAPI/socialAPI.h"
+#include "webAPIs/socialAPI.h"
 
 #pragma once
 

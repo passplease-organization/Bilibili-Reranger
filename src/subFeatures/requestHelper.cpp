@@ -14,8 +14,8 @@
 #include "interface.h"
 #include "../Crawler.h"
 #include "../PluginHandler.h"
-#include "loginAPI/socialAPI.h"
-#include "loginAPI/platforms.h"
+#include "webAPIs/socialAPI.h"
+#include "webAPIs/platforms.h"
 
 #define LOG(URL,NAME) \
     say("Accept URL: " URL);\

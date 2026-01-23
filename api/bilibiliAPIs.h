@@ -31,3 +31,11 @@
 // Environments:
 #define COOKIE "COOKIE"
 #define USERAGENT "USERAGENT"
+#if NEED_PORT
+    #define POSTGRES_SCHEMA "DB_NAME"
+    #define POSTGRES_USER "DB_USER"
+    #define POSTGRES_PASSWORD "DB_PASSWORD"
+    #define POSTGRES_HOST "DB_HOST"
+    #define POSTGRES_DELETE "DB_DELETE"
+    #define POSTGRES_PORT "DB_PORT"
+#endif

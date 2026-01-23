@@ -6,10 +6,11 @@
 这是整个项目的后端代码，架构基于C++实现，选择原因无他，只是因为我想学习一下C++怎么编程。第三方库：
 1. [nlohmann-json](https://github.com/nlohmann/json)处理Json序列化/反序列化
 2. [cpr](https://github.com/libcpr/cpr)进行B站API的请求与AI调用
-3. [CURL](https://github.com/curl/curl)底层HTTP请求支持
-4. [Boost](https://github.com/boostorg/boost)端口监听与HTTP处理（asio/beast/url）
-5. [libsodium](https://github.com/jedisct1/libsodium)登录与加密相关功能
-6. [OpenSSL](https://github.com/openssl/openssl)RSA公钥加密与密钥交换
+3. [CURL](https://github.com/curl/curl)负责底层HTTP请求支持
+4. [Boost](https://github.com/boostorg/boost)实现端口监听与HTTP处理（asio/beast/url）
+5. [libsodium](https://github.com/jedisct1/libsodium)完成登录与加密相关功能
+6. [OpenSSL](https://github.com/openssl/openssl)处理RSA公钥加密与密钥交换
+7. [libpqxx](https://github.com/jtv/libpqxx)处理PostgreSQL访问（用于客户端数据与Cookie持久化）
 
 功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。
 ## 使用

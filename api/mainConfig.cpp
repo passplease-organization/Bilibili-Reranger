@@ -1,4 +1,5 @@
 #include "config.h"
+#include "webAPIs/socialAPI.h"
 
 #ifdef DEVELOP
 #define FORCE_GENERATE_CONFIG true
@@ -45,7 +46,11 @@ void createConfig(){
         #endif
         config.put(KEY_LENGTH,2048,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_CLIENT,32,false,FORCE_GENERATE_CONFIG);
-        config.put(ADMIN_CLIENT_KEY,randomString(16).c_str(),false,FORCE_GENERATE_CONFIG);
+        string adminKey = randomString(16);
+        config.put(ADMIN_CLIENT_KEY,adminKey.c_str(),false,FORCE_GENERATE_CONFIG);
+        config.put(POSTGRES_SSL_MODE,"prefer",false,FORCE_GENERATE_CONFIG);
+        webAPI::SimpleESA esa(webAPI::SimpleESA::randomKey());
+        config.put(POSTGRES_ENCRYPT_KEY,esa.getKey(adminKey).c_str(),false,FORCE_GENERATE_CONFIG);
         config.writeToJson();
     }
     freeOutputChar(&path);
@@ -101,4 +106,6 @@ void _readConfig() noexcept(false){
     getAndStore<int>(&config, KEY_LENGTH);
     getAndStore<int>(&config, MAX_CLIENT);
     getAndStore<string>(&config, ADMIN_CLIENT_KEY);
+    getAndStore<string>(&config, POSTGRES_SSL_MODE);
+    getAndStore<string>(&config, POSTGRES_ENCRYPT_KEY);
 }

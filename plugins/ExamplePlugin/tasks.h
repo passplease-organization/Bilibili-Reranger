@@ -2,7 +2,7 @@
 
 #include "Util.h"
 #include "pluginInterface.h"
-#include "loginAPI/platforms.h"
+#include "webAPIs/platforms.h"
 
 crawlTask::Group political("political",BILIBILI,0);
 crawlTask::Group math("math",BILIBILI,0);

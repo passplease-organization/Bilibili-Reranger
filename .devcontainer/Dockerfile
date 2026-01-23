@@ -18,6 +18,7 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
 RUN apt update && apt install -y libboost-all-dev
+RUN apt install -y bison flex && vcpkg install libpqxx
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install curl

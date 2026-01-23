@@ -24,6 +24,8 @@
 #define KEY_LENGTH "key_length"
 #define MAX_CLIENT "max_client_count"
 #define ADMIN_CLIENT_KEY "admin_client_key"
+#define POSTGRES_SSL_MODE "postgres_connection_mode"
+#define POSTGRES_ENCRYPT_KEY "postgres_encrypt_key"
 
 extern API map<const string,std::any> defaultConfigs;
 

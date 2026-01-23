@@ -23,10 +23,13 @@ add_library(${PROJECT_NAME} SHARED
         utils.cpp
         BilibiliInterface.cpp
         mainConfig.cpp
-        loginAPI/socialAPI.h
-        loginAPI/socialAPI.cpp
-        loginAPI/crawler.h
-        loginAPI/platforms.h
+        webAPIs/socialAPI.h
+        webAPIs/socialAPI.cpp
+        webAPIs/crawler.h
+        webAPIs/platforms.h
+        webAPIs/postgres.cpp
+        webAPIs/postgres.h
+        webAPIs/socialAPI.cpp
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -38,13 +41,15 @@ endif ()
 
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
-#find_package(OpenSSL CONFIG REQUIRED)
+find_package(OpenSSL CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::Crypto)
 find_package(unofficial-sodium CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial-sodium::sodium)
 find_package(cpr CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
+find_package(libpqxx CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE libpqxx::pqxx)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY ENABLE_EXPORTS ON)# Allow export
 

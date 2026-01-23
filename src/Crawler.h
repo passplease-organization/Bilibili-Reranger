@@ -2,7 +2,7 @@
 #include <atomic>
 #include "pluginInterface.h"
 #include "develop/flags.h"
-#include "loginAPI/socialAPI.h"
+#include "webAPIs/socialAPI.h"
 #if NEED_PORT
     #include <boost/asio.hpp>
 #endif
@@ -16,6 +16,10 @@ extern string pluginGetURL();
 
 #if NEED_PORT
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+    namespace socialAPI {
+        class postgres;
+    }
+    extern socialAPI::postgres dataBase;
 #else
     extern string cookie;
 #endif

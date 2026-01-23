@@ -5,14 +5,15 @@
 #include "config.h"
 #include "bilibiliAPIs.h"
 #include "BilibiliInterface.h"
-#include "loginAPI/crawler.h"
+#include "webAPIs/crawler.h"
 
 #include "platforms/bilibiliLogin.h"
 #include "subFeatures/requestHelper.h"
+#include "webAPIs/postgres.h"
 #if NEED_PORT
     #include "PortListener.h"
     #include <boost/asio.hpp>
-#include <utility>
+    #include <utility>
 #endif
 
 CrawlerHelper::CrawlerHelper(){
@@ -84,7 +85,7 @@ bool CrawlerHelper::connect(bool deal){
                 return true;
             }
             return !deal;
-        }catch (exception e){
+        }catch (exception& e){
     #if DEVELOP
             warn("Dealing Json encounters problem !");
             say("Json content: ",false,RED);
@@ -117,7 +118,7 @@ bool CrawlerHelper::dealJson() {
             say("保存此次爬取临时数据");
             data.writeToJson();
     #endif
-        }catch (exception e){
+        }catch (exception& e){
     #ifdef DEVELOP
             warn("爬取数据格式错误！");
             warn("数据如下：");
@@ -334,6 +335,8 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
 
 #if NEED_PORT
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+    socialAPI::DbConfig postgresConfig;
+    socialAPI::postgres dataBase(postgresConfig);
 #else
     string cookie;
 #endif
@@ -417,9 +420,24 @@ string getURL(const crawlTask::Task* task){
     #endif
 }
 
+#define LOG_ENV(NAME) \
+    string err = "未找到环境变量: "; \
+    err += (NAME); \
+    warn(err.c_str()); \
+    error |= true;
+
 bool checkEnv(){
     bool error = false;
 #if NEED_PORT
+    if (getenv(POSTGRES_SCHEMA) == nullptr || getenv(POSTGRES_USER) == nullptr || getenv(POSTGRES_PASSWORD) == nullptr || getenv(POSTGRES_HOST) == nullptr || getenv(POSTGRES_PORT) == nullptr) {
+        LOG_ENV(POSTGRES_SCHEMA "或" POSTGRES_USER "或" POSTGRES_PASSWORD "或" POSTGRES_HOST "或" POSTGRES_PORT);
+    }else {
+        postgresConfig = socialAPI::DbConfig(getenv(POSTGRES_HOST),stoi(getenv(POSTGRES_PORT)),getenv(POSTGRES_SCHEMA),getenv(POSTGRES_USER),getenv(POSTGRES_PASSWORD));
+        dataBase = socialAPI::postgres(postgresConfig);
+        error |= !dataBase.init();
+        if (error)
+            warn("数据库初始化失败！");
+    }
 #else
     if(cookie.empty()){
         if (getenv(COOKIE) == nullptr){
@@ -432,10 +450,7 @@ bool checkEnv(){
 #endif
     if(user_agent.empty()){
         if (getenv(USERAGENT) == nullptr){
-            string err = "未找到环境变量: ";
-            err += USERAGENT;
-            warn(err.c_str());
-            error |= true;
+            LOG_ENV(USERAGENT);
         }else user_agent = getenv(USERAGENT);
     }
     return error;

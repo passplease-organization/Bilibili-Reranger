@@ -3,12 +3,12 @@
 #include <utility>
 
 #include "develop/flags.h"
-#include "loginAPI/platforms.h"
+#include "webAPIs/platforms.h"
 
 #if NEED_PORT
 
 #include "BilibiliInterface.h"
-#include "loginAPI/socialAPI.h"
+#include "webAPIs/socialAPI.h"
 
 class CrawlerHelper;
 
@@ -49,6 +49,8 @@ namespace webAPI{
         bilibiliLogin(std::shared_ptr<const std::atomic<bool>>& stop);
 
         ~bilibiliLogin() override = default;
+
+        bool setCOOKIE(const string& newCookie) override;
 
         string login(const std::string &name, const std::string &password,bool& failed) override;
 
