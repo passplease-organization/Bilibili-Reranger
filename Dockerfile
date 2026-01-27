@@ -3,6 +3,7 @@ FROM mcr.microsoft.com/devcontainers/cpp:dev-debian AS compiler
 WORKDIR /compiler
 
 RUN apt update && apt install -y libboost-all-dev
+RUN apt install -y bison flex && vcpkg install libpqxx
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install curl
