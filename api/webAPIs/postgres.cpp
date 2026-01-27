@@ -1,11 +1,11 @@
 #include "postgres.h"
 #include <algorithm>
-#include <cpr/error.h>
 #include <pqxx/pqxx>
 #include <sodium.h>
 
 #include "../config.h"
 #include "../Util.h"
+#include "../develop/flags.h"
 
 namespace {
     std::string decodeKey(const std::string& key) {
@@ -25,7 +25,7 @@ namespace {
     }
 }
 
-namespace socialAPI {
+namespace webAPI {
 
     postgres::postgres(DbConfig config) : config_(std::move(config)) {}
 
@@ -61,6 +61,35 @@ namespace socialAPI {
             return false;
         }
         const std::vector<std::string> statements = {
+        #ifdef DEVELOP
+            R"sql(CREATE TABLE IF NOT EXISTS develop_clients (
+  client_id   text PRIMARY KEY,
+  esa_key_enc bytea NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  last_seen   timestamptz NOT NULL DEFAULT now(),
+  status      smallint NOT NULL DEFAULT 1
+))sql",
+            R"sql(CREATE TABLE IF NOT EXISTS develop_client_roles (
+  client_id text NOT NULL REFERENCES develop_clients(client_id) ON DELETE CASCADE,
+  role      text NOT NULL,
+  PRIMARY KEY (client_id, role)
+))sql",
+            R"sql(CREATE TABLE IF NOT EXISTS develop_client_socials (
+  client_id  text NOT NULL REFERENCES develop_clients(client_id) ON DELETE CASCADE,
+  platform   text NOT NULL,
+  cookie     text NOT NULL DEFAULT '',
+  data       jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (client_id, platform)
+))sql",
+            R"sql(CREATE INDEX IF NOT EXISTS develop_idx_clients_last_seen ON develop_clients(last_seen))sql",
+            R"sql(CREATE INDEX IF NOT EXISTS develop_idx_socials_platform ON develop_client_socials(platform))sql",
+            R"sql(CREATE TABLE IF NOT EXISTS develop_retention_policy (
+  name      text PRIMARY KEY,
+  mode      text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+))sql"
+        #else
             R"sql(CREATE TABLE IF NOT EXISTS clients (
   client_id   text PRIMARY KEY,
   esa_key_enc bytea NOT NULL,
@@ -73,29 +102,23 @@ namespace socialAPI {
   role      text NOT NULL,
   PRIMARY KEY (client_id, role)
 ))sql",
-            R"sql(CREATE TABLE IF NOT EXISTS client_cookies (
-  client_id  text NOT NULL REFERENCES clients(client_id) ON DELETE CASCADE,
-  platform   text NOT NULL,
-  cookie bytea NOT NULL,
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  disabled   boolean NOT NULL DEFAULT false,
-  PRIMARY KEY (client_id, platform)
-))sql",
             R"sql(CREATE TABLE IF NOT EXISTS client_socials (
   client_id  text NOT NULL REFERENCES clients(client_id) ON DELETE CASCADE,
   platform   text NOT NULL,
+  cookie     bytea NOT NULL DEFAULT ''::bytea,
   data       jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (client_id, platform)
 ))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen))sql",
-            R"sql(CREATE INDEX IF NOT EXISTS idx_cookies_enabled ON client_cookies(disabled))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_socials_platform ON client_socials(platform))sql",
+            R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS cookie bytea NOT NULL DEFAULT ''::bytea)sql",
             R"sql(CREATE TABLE IF NOT EXISTS retention_policy (
   name      text PRIMARY KEY,
   mode      text NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 ))sql"
+        #endif
         };
 
         return std::ranges::all_of(statements, [this](const auto& sql) {
@@ -113,14 +136,25 @@ namespace socialAPI {
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
             txn.exec(
-                "INSERT INTO clients (client_id, esa_key_enc, created_at, last_seen, status) "
-                "VALUES ($1, $2, now(), now(), 1) "
+                "INSERT INTO develop_clients (client_id, esa_key_enc, created_at, last_seen, status) "
+                "VALUES ($1, decode($2, 'base64'), now(), now(), 1) "
                 "ON CONFLICT (client_id) DO UPDATE SET "
                 "esa_key_enc = EXCLUDED.esa_key_enc, "
                 "last_seen = now()",
                 pqxx::params{client_id, encrypted}
             );
+        #else
+            txn.exec(
+                "INSERT INTO clients (client_id, esa_key_enc, created_at, last_seen, status) "
+                "VALUES ($1, decode($2, 'base64'), now(), now(), 1) "
+                "ON CONFLICT (client_id) DO UPDATE SET "
+                "esa_key_enc = EXCLUDED.esa_key_enc, "
+                "last_seen = now()",
+                pqxx::params{client_id, encrypted}
+            );
+        #endif
             txn.commit();
             return true;
         } catch (const std::exception&) {
@@ -134,10 +168,17 @@ namespace socialAPI {
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
+            const auto result = txn.exec(
+                "UPDATE develop_clients SET last_seen = now() WHERE client_id = $1",
+                pqxx::params{client_id}
+            );
+        #else
             const auto result = txn.exec(
                 "UPDATE clients SET last_seen = now() WHERE client_id = $1",
                 pqxx::params{client_id}
             );
+        #endif
             txn.commit();
             return result.affected_rows() > 0;
         } catch (const std::exception&) {
@@ -151,10 +192,17 @@ namespace socialAPI {
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
+            const auto result = txn.exec(
+                "UPDATE develop_clients SET status = 0 WHERE client_id = $1",
+                pqxx::params{client_id}
+            );
+        #else
             const auto result = txn.exec(
                 "UPDATE clients SET status = 0 WHERE client_id = $1",
                 pqxx::params{client_id}
             );
+        #endif
             txn.commit();
             return result.affected_rows() > 0;
         } catch (const std::exception&) {
@@ -169,11 +217,19 @@ namespace socialAPI {
         const char* mode_str = config_.deleteOrDisable ? "true" : "false";
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
+            txn.exec(
+                "INSERT INTO develop_retention_policy (name, mode, updated_at) VALUES ('client', $1, now()) "
+                "ON CONFLICT (name) DO UPDATE SET mode = EXCLUDED.mode, updated_at = now()",
+                pqxx::params{mode_str}
+            );
+        #else
             txn.exec(
                 "INSERT INTO retention_policy (name, mode, updated_at) VALUES ('client', $1, now()) "
                 "ON CONFLICT (name) DO UPDATE SET mode = EXCLUDED.mode, updated_at = now()",
                 pqxx::params{mode_str}
             );
+        #endif
             txn.commit();
             return true;
         } catch (const std::exception&) {
@@ -188,16 +244,31 @@ namespace socialAPI {
         try {
             pqxx::work txn(*connection_);
             if (enabled) {
+            #ifdef DEVELOP
+                txn.exec(
+                    "INSERT INTO develop_client_roles (client_id, role) VALUES ($1, 'admin') "
+                    "ON CONFLICT DO NOTHING",
+                    pqxx::params{client_id}
+                );
+            #else
                 txn.exec(
                     "INSERT INTO client_roles (client_id, role) VALUES ($1, 'admin') "
                     "ON CONFLICT DO NOTHING",
                     pqxx::params{client_id}
                 );
+            #endif
             } else {
+            #ifdef DEVELOP
+                txn.exec(
+                    "DELETE FROM develop_client_roles WHERE client_id = $1 AND role = 'admin'",
+                    pqxx::params{client_id}
+                );
+            #else
                 txn.exec(
                     "DELETE FROM client_roles WHERE client_id = $1 AND role = 'admin'",
                     pqxx::params{client_id}
                 );
+            #endif
             }
             txn.commit();
             return true;
@@ -212,7 +283,11 @@ namespace socialAPI {
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
+            txn.exec("DELETE FROM develop_client_roles WHERE role = 'admin'");
+        #else
             txn.exec("DELETE FROM client_roles WHERE role = 'admin'");
+        #endif
             txn.commit();
             return true;
         } catch (const std::exception&) {
@@ -226,10 +301,17 @@ namespace socialAPI {
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
+            const auto result = txn.exec(
+                "SELECT 1 FROM develop_client_roles WHERE client_id = $1 AND role = 'admin' LIMIT 1",
+                pqxx::params{client_id}
+            );
+        #else
             const auto result = txn.exec(
                 "SELECT 1 FROM client_roles WHERE client_id = $1 AND role = 'admin' LIMIT 1",
                 pqxx::params{client_id}
             );
+        #endif
             txn.commit();
             return !result.empty();
         } catch (const std::exception&) {
@@ -237,44 +319,91 @@ namespace socialAPI {
         }
     }
 
-    bool postgres::upsertCookie(const std::string& client_id,
-                                const std::string& platform,
-                                const std::string& cookie_enc) const {
-        if (!isConnected()) {
+    bool postgres::upsertHandler(const socialAPI* handler, const std::string& client_id) const {
+        if (handler == nullptr || client_id.empty()) {
             return false;
         }
-        const auto encrypted = encryptDb(cookie_enc);
-        if (encrypted.empty() && !cookie_enc.empty()) {
+        HandlerRow row;
+        row.client_id = client_id;
+        row.platform = handler->support();
+        {
+            std::vector<HandlerRow> existing;
+            if (listClientHandlers(client_id, existing)) {
+                for (const auto& item : existing) {
+                    if (item.platform == row.platform) {
+                        row.cookie = item.cookie;
+                        row.data_json = item.data_json;
+                        row.updated_at = item.updated_at;
+                        break;
+                    }
+                }
+            }
+        }
+        handler->writeToDataBase(row);
+        return upsertHandler(row);
+    }
+
+    bool postgres::upsertHandler(const HandlerRow& row) const {
+        if (!isConnected() || row.client_id.empty() || row.platform.empty()) {
             return false;
         }
+        const auto encrypted = encryptDb(row.cookie);
+        if (encrypted.empty() && !row.cookie.empty()) {
+            return false;
+        }
+        const auto json = row.data_json.empty() ? "{}" : row.data_json;
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
             txn.exec(
-                "INSERT INTO client_cookies (client_id, platform, cookie, updated_at, disabled) "
-                "VALUES ($1, $2, $3, now(), false) "
+                "INSERT INTO develop_client_socials (client_id, platform, cookie, data, updated_at) "
+                "VALUES ($1, $2, $3, $4::jsonb, now()) "
                 "ON CONFLICT (client_id, platform) DO UPDATE SET "
                 "cookie = EXCLUDED.cookie, "
-                "updated_at = now(), "
-                "disabled = false",
-                pqxx::params{client_id, platform, encrypted}
+                "data = EXCLUDED.data, "
+                "updated_at = now()",
+                pqxx::params{row.client_id, row.platform, row.cookie, json}
             );
+        #else
+            txn.exec(
+                "INSERT INTO client_socials (client_id, platform, cookie, data, updated_at) "
+                "VALUES ($1, $2, decode($3, 'base64'), $4::jsonb, now()) "
+                "ON CONFLICT (client_id, platform) DO UPDATE SET "
+                "cookie = EXCLUDED.cookie, "
+                "data = EXCLUDED.data, "
+                "updated_at = now()",
+                pqxx::params{row.client_id, row.platform, encrypted, json}
+            );
+        #endif
+        #if MORE_DETAILS
+            say("写入数据库");
+        #endif
             txn.commit();
             return true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            warn("写入数据库失败，报错：",false);
+            warn(e.what());
             return false;
         }
     }
 
-    bool postgres::deleteCookie(const std::string& client_id, const std::string& platform) const {
+    bool postgres::deleteHandler(const std::string& client_id, const std::string& platform) const {
         if (!isConnected()) {
             return false;
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
             const auto result = txn.exec(
-                "DELETE FROM client_cookies WHERE client_id = $1 AND platform = $2",
+                "DELETE FROM develop_client_socials WHERE client_id = $1 AND platform = $2",
                 pqxx::params{client_id, platform}
             );
+        #else
+            const auto result = txn.exec(
+                "DELETE FROM client_socials WHERE client_id = $1 AND platform = $2",
+                pqxx::params{client_id, platform}
+            );
+        #endif
             txn.commit();
             return result.affected_rows() > 0;
         } catch (const std::exception&) {
@@ -282,66 +411,44 @@ namespace socialAPI {
         }
     }
 
-    bool postgres::getCookie(const std::string& client_id,
-                             const std::string& platform,
-                             CookieRow& out) const {
+    bool postgres::listClientHandlers(const std::string& client_id, std::vector<HandlerRow>& out) const {
         if (!isConnected()) {
             return false;
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
             const auto result = txn.exec(
-                "SELECT client_id, platform, cookie, updated_at, disabled "
-                "FROM client_cookies WHERE client_id = $1 AND platform = $2 LIMIT 1",
-                pqxx::params{client_id, platform}
-            );
-            txn.commit();
-            if (result.empty()) {
-                return false;
-            }
-            const auto& row = result[0];
-            out.client_id = row["client_id"].as<std::string>();
-            out.platform = row["platform"].as<std::string>();
-            const auto encrypted = row["cookie"].as<std::string>();
-            const auto decrypted = decryptDb(encrypted);
-            if (decrypted.empty() && !encrypted.empty()) {
-                return false;
-            }
-            out.cookie = decrypted;
-            out.updated_at = row["updated_at"].as<std::string>();
-            out.disabled = row["disabled"].as<bool>();
-            return true;
-        } catch (const std::exception&) {
-            return false;
-        }
-    }
-
-    bool postgres::listClientCookies(const std::string& client_id, std::vector<CookieRow>& out) const {
-        if (!isConnected()) {
-            return false;
-        }
-        try {
-            pqxx::work txn(*connection_);
-            const auto result = txn.exec(
-                "SELECT client_id, platform, cookie, updated_at, disabled "
-                "FROM client_cookies WHERE client_id = $1 ORDER BY platform",
+                "SELECT client_id, platform, cookie, data::text AS data, updated_at "
+                "FROM develop_client_socials WHERE client_id = $1 ORDER BY platform",
                 pqxx::params{client_id}
             );
+        #else
+            const auto result = txn.exec(
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, data::text AS data, updated_at "
+                "FROM client_socials WHERE client_id = $1 ORDER BY platform",
+                pqxx::params{client_id}
+            );
+        #endif
             txn.commit();
             out.clear();
             out.reserve(result.size());
             for (const auto& row : result) {
-                CookieRow entry;
+                HandlerRow entry;
                 entry.client_id = row["client_id"].as<std::string>();
                 entry.platform = row["platform"].as<std::string>();
                 const auto encrypted = row["cookie"].as<std::string>();
+            #ifdef DEVELOP
+                entry.cookie = encrypted;
+            #else
                 const auto decrypted = decryptDb(encrypted);
                 if (decrypted.empty() && !encrypted.empty()) {
                     return false;
                 }
                 entry.cookie = decrypted;
+            #endif
+                entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();
-                entry.disabled = row["disabled"].as<bool>();
                 out.push_back(std::move(entry));
             }
             return true;
@@ -375,19 +482,32 @@ namespace socialAPI {
         }
     }
 
-    bool postgres::clientsInit(std::vector<ClientRow>& clients, std::vector<CookieRow>& cookies) const {
+    bool postgres::clientsInit(std::vector<ClientRow>& clients, std::vector<HandlerRow>& handlers) const {
         if (!isConnected()) {
             return false;
         }
         try {
             pqxx::work txn(*connection_);
+        #ifdef DEVELOP
             const auto client_result = txn.exec(
-                "SELECT client_id, esa_key_enc, status, created_at, last_seen FROM clients"
+                "SELECT client_id, encode(esa_key_enc, 'base64') AS esa_key_enc, status, created_at, last_seen FROM develop_clients"
             );
-            const auto cookie_result = txn.exec(
-                "SELECT client_id, platform, cookie, updated_at, disabled "
-                "FROM client_cookies WHERE disabled = false"
+        #else
+            const auto client_result = txn.exec(
+                "SELECT client_id, encode(esa_key_enc, 'base64') AS esa_key_enc, status, created_at, last_seen FROM clients"
             );
+        #endif
+        #ifdef DEVELOP
+            const auto handler_result = txn.exec(
+                "SELECT client_id, platform, cookie, data::text AS data, updated_at "
+                "FROM develop_client_socials"
+            );
+        #else
+            const auto handler_result = txn.exec(
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, data::text AS data, updated_at "
+                "FROM client_socials"
+            );
+        #endif
             txn.commit();
 
             clients.clear();
@@ -407,21 +527,25 @@ namespace socialAPI {
                 clients.push_back(std::move(entry));
             }
 
-            cookies.clear();
-            cookies.reserve(cookie_result.size());
-            for (const auto& row : cookie_result) {
-                CookieRow entry;
+            handlers.clear();
+            handlers.reserve(handler_result.size());
+            for (const auto& row : handler_result) {
+                HandlerRow entry;
                 entry.client_id = row["client_id"].as<std::string>();
                 entry.platform = row["platform"].as<std::string>();
                 const auto enc_cookie = row["cookie"].as<std::string>();
+            #ifdef DEVELOP
+                entry.cookie = enc_cookie;
+            #else
                 const auto dec_cookie = decryptDb(enc_cookie);
                 if (dec_cookie.empty() && !enc_cookie.empty()) {
                     return false;
                 }
                 entry.cookie = dec_cookie;
+            #endif
+                entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();
-                entry.disabled = row["disabled"].as<bool>();
-                cookies.push_back(std::move(entry));
+                handlers.push_back(std::move(entry));
             }
             return true;
         } catch (const std::exception&) {
@@ -430,6 +554,9 @@ namespace socialAPI {
     }
 
     bool postgres::ensureCrypto() const {
+    #ifdef DEVELOP
+        return true;
+    #else
         if (crypto_) {
             return true;
         }
@@ -443,9 +570,13 @@ namespace socialAPI {
         }
         crypto_ = std::make_unique<webAPI::SimpleESA>(raw, true);
         return true;
+    #endif
     }
 
     std::string postgres::encryptDb(const std::string& plain) const {
+    #ifdef DEVELOP
+        return plain;
+    #else
         if (plain.empty()) {
             return plain;
         }
@@ -453,9 +584,13 @@ namespace socialAPI {
             return "";
         }
         return crypto_->encrypt(plain);
+    #endif
     }
 
     std::string postgres::decryptDb(const std::string& cipher) const {
+    #ifdef DEVELOP
+        return cipher;
+    #else
         if (cipher.empty()) {
             return cipher;
         }
@@ -463,5 +598,6 @@ namespace socialAPI {
             return "";
         }
         return crypto_->decrypt(cipher);
+    #endif
     }
 }

@@ -14,13 +14,15 @@
 
 using namespace webAPI;
 
+extern ::webAPI::postgres dataBase;
+
 webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(stop) {}
 
 webAPI::socialAPI::~socialAPI() = default;
 
 auto socials = std::map<const std::string,creator>();
 
-bool webAPI::socialAPI::fromData(const ::socialAPI::CookieRow& data) noexcept{
+bool webAPI::socialAPI::fromData(const ::webAPI::HandlerRow& data) noexcept{
     return setCOOKIE(data.cookie);
 }
 
@@ -46,6 +48,14 @@ bool webAPI::socialAPI::prepare(){
     _subscribers = tempHelper -> getSubscribers();
     delete tempHelper;
     return !_subscribers.empty() && _subscribers.valid();
+}
+
+void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
+    data.platform = support();
+    if (validCOOKIE())
+        data.cookie = getCOOKIE();
+    if (data.data_json.empty())
+        data.data_json = "{}";
 }
 
 bool webAPI::socialAPI::instance(webAPI::socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
@@ -229,10 +239,19 @@ SimpleESA::SimpleESA(const string& key, bool rawKey) {
         std::memcpy(this -> key, k.data(), crypto_secretbox_KEYBYTES);
         return;
     }
-    if (key.length() != crypto_secretbox_KEYBYTES) {
+    if (key.length() == crypto_secretbox_KEYBYTES) {
+        std::memcpy(this -> key, key.data(), crypto_secretbox_KEYBYTES);
+        return;
+    }
+    std::vector<unsigned char> bin(key.size());
+    size_t bin_len = 0;
+    if (sodium_base642bin(bin.data(), bin.size(),
+                          key.c_str(), key.size(),
+                          NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0 ||
+        bin_len != crypto_secretbox_KEYBYTES) {
         throwError("Session Key length invalid! Must be 32 bytes.");
     }
-    std::memcpy(this -> key, key.data(), crypto_secretbox_KEYBYTES);
+    std::memcpy(this -> key, bin.data(), crypto_secretbox_KEYBYTES);
 }
 
 SimpleESA::SimpleESA(SimpleESA &&other) noexcept {
@@ -242,7 +261,11 @@ SimpleESA::SimpleESA(SimpleESA &&other) noexcept {
 std::string SimpleESA::randomKey() {
     unsigned char raw[crypto_secretbox_KEYBYTES];
     randombytes_buf(raw, sizeof raw);
-    return std::string(reinterpret_cast<const char*>(raw), sizeof raw);
+    const size_t b64_len = sodium_base64_ENCODED_LEN(sizeof raw, sodium_base64_VARIANT_ORIGINAL);
+    std::string encoded(b64_len, '\0');
+    sodium_bin2base64(encoded.data(), encoded.size(), raw, sizeof raw, sodium_base64_VARIANT_ORIGINAL);
+    encoded.resize(strlen(encoded.c_str()));
+    return encoded;
 }
 
 std::string SimpleESA::decrypt(const std::string &content) const {
@@ -337,8 +360,8 @@ handlers(std::move(other.handlers)),
 ID(std::move(other.ID)),
 _handler(other._handler){}
 
-Client::Client(const ::socialAPI::ClientRow& data)
-: esa(data.esa_key_enc),
+Client::Client(const ::webAPI::ClientRow& data,const bool& rawKey)
+: esa(data.esa_key_enc,rawKey),
 handlers(),
 ID(data.client_id){
     _handler = nullptr;
@@ -348,17 +371,25 @@ void Client::getHandler(const std::string& platform, std::shared_ptr<const std::
     if (_handler != nullptr && _handler -> support() == platform)
         return;
     _handler = nullptr;
+    for (const auto& h : handlers) {
+        if (h -> support() == platform) {
+            _handler = h;
+            return;
+        }
+    }
     socialAPI::instance(&_handler,platform,stop);
     if (_handler != nullptr) {
         _handler -> init();
-        handlers.push_back(_handler);
+        if (dataBase.upsertHandler(_handler,ID))
+            handlers.push_back(_handler);
+        else _handler = nullptr;
     }
 }
 
-bool Client::handlerFromData(const vector<::socialAPI::CookieRow>& datas) noexcept{
+bool Client::handlerFromData(const vector<::webAPI::HandlerRow>& datas) noexcept{
     try{
         std::shared_ptr<const std::atomic<bool>> stop(new std::atomic<bool>(false));
-        handlers.clear();
+        handlers = vector<socialAPI*>();
         _handler = nullptr;
         for (const auto& data : datas){
             socialAPI::instance(&_handler,data.platform,stop);
@@ -509,38 +540,67 @@ auto client_mutex = std::mutex();
 #define LOCK std::lock_guard<std::mutex> lock(client_mutex);
 bool initialized = false;
 
-extern ::socialAPI::postgres dataBase;
-
 void reInit(){
-    LOCK
+    #ifdef DEVELOP
+        warn("初始化失败，重初始化");
+    #endif
+    client_mutex.lock();
     if (initialized && clients != nullptr)
         delete clients;
+    client_mutex.unlock();
     initialized = false;
     Client::init();
 }
 
 void Client::initAndDataBase(){
-    vector<::socialAPI::ClientRow> clients;
-    vector<::socialAPI::CookieRow> cookies;
-    bool back = dataBase.clientsInit(clients, cookies);
-    back &= !clients.empty() && !cookies.empty();
+    say("初始化客户端数据");
+    vector<::webAPI::ClientRow> clients;
+    vector<::webAPI::HandlerRow> handlers;
+    bool back = dataBase.clientsInit(clients, handlers);
+    back &= !clients.empty();
     init();
-    if (back)
+    if (!back)
         return;
     back &= std::ranges::all_of(clients,[](const auto& data) -> bool{
-        return storeClient(new Client(data));
+        try {
+            #ifdef DEVELOP
+                return storeClient(new Client(data,true));
+            #else
+                return storeClient(new Client(data));
+            #endif
+        }catch (const exception& e) {
+            warn("初始化客户端handler报错");
+            warn("客户端ID: ",false);
+            warn(data.client_id.c_str());
+            if (config<bool>(DETAILS)) {
+                warn("ESA秘钥: ",false);
+                warn(data.esa_key_enc.c_str());
+            }
+            warn("已跳过这个客户端初始化");
+            return true;
+        }
     });
     if (!back){
         reInit();
         return;
     }
-    map<string,vector<::socialAPI::CookieRow>> _cookies{};
-    for (const auto& cookie : cookies){
-        _cookies[cookie.client_id].push_back(cookie);
+    map<string,vector<::webAPI::HandlerRow>> _handlers{};
+    for (const auto& handler : handlers){
+        _handlers[handler.client_id].push_back(handler);
     }
-    back &= std::ranges::all_of(_cookies,[](const auto& cookie) -> bool{
-        auto client = webAPI::client(cookie.first);
-        return client == nullptr && client -> handlerFromData(cookie.second);
+    back &= std::ranges::all_of(_handlers,[](const auto& handler) -> bool{
+        auto client = webAPI::client(handler.first);
+        try {
+            return client != nullptr && client -> handlerFromData(handler.second);
+        }catch (const exception& e) {
+            warn("handler初始化失败");
+            warn("客户端ID是: ",false);
+            warn(handler.first.c_str());
+            client -> handlers.clear();
+            client -> _handler = nullptr;
+            warn("已跳过此客户端handler数据初始化");
+            return true;
+        }
     });
     if (!back)
         reInit();
@@ -570,7 +630,7 @@ bool webAPI::storeClient(Client* client){
         return false;
     }
     clients -> put(client -> getID(),client);
-    return clients -> contains(client -> getID());
+    return clients -> contains(client -> getID()) && dataBase.upsertClient(client -> getID(),client -> esa.getKey(config<string>(ADMIN_CLIENT_KEY)));
 }
 
 std::string webAPI::createAndStoreClient(const std::string &key) {

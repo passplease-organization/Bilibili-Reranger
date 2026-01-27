@@ -10,6 +10,7 @@
 #include <boost/beast/core.hpp>
 #include <utility>
 
+#include "platforms/bilibiliLogin.h"
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
 
@@ -65,6 +66,7 @@ int startWork() {
     if(checkEnv()) {
         return 1;
     }
+    webAPI::registerBilibili();
     webAPI::Client::initAndDataBase();
     PluginHandler::loadAll();
     say("Listening thread start");

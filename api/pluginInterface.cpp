@@ -1,7 +1,7 @@
 #include "pluginInterface.h"
 #include "config.h"
 #ifdef TEST
-    #include "loginAPI/platforms.h"
+    #include "webAPIs/platforms.h"
 #endif
 
 using namespace crawlTask;

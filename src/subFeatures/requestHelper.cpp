@@ -85,6 +85,11 @@ int login(boost::asio::ip::tcp::socket& socket) {
 #endif
     bool failed = false;
     string payload = handler -> login(username,password,failed);
+    if (!failed && handler -> validCOOKIE()) {
+        failed = !dataBase.upsertHandler(handler,crawlInfo -> client -> getID());
+        if (failed)
+            payload = "写库失败";
+    }
     return back(sendMessage(socket,payload,failed));
 }
 

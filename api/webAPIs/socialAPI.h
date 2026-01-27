@@ -7,9 +7,8 @@
 #include "../config.h"
 #include "../interface.h"
 
-namespace socialAPI
-{
-    struct CookieRow;
+namespace webAPI{
+    struct HandlerRow;
     struct ClientRow;
 }
 
@@ -92,7 +91,7 @@ namespace webAPI {
     public:
         socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
 
-        API [[nodiscard]] bool fromData(const ::socialAPI::CookieRow& data) noexcept;
+        API [[nodiscard]] virtual bool fromData(const ::webAPI::HandlerRow& data) noexcept;
 
         API virtual ~socialAPI() = 0;
 
@@ -105,6 +104,8 @@ namespace webAPI {
         API virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
 
         API [[nodiscard]] virtual bool validCOOKIE() const = 0;
+
+        API virtual void writeToDataBase(::webAPI::HandlerRow& data) const;
 
         /**
          * Get if support to log in this specific platform, and the return value will never be changed in this thread
@@ -165,7 +166,7 @@ namespace webAPI {
 
         API Client(Client&& other) noexcept;
 
-        API Client(const ::socialAPI::ClientRow& data);
+        API Client(const ::webAPI::ClientRow& data,const bool& rawKey = false);
 
         API Client& operator= (Client& other) = delete;
 
@@ -193,7 +194,7 @@ namespace webAPI {
             return _handler;
         }
 
-        API bool handlerFromData(const vector<::socialAPI::CookieRow>& data) noexcept;
+        API bool handlerFromData(const vector<::webAPI::HandlerRow>& data) noexcept;
 
         API [[nodiscard]] bool prepare() const {
             return _handler -> prepare();

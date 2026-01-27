@@ -9,7 +9,7 @@
 
 // All done by Codex
 
-namespace socialAPI {
+namespace webAPI {
 
     struct DbConfig {
         std::string host;
@@ -35,12 +35,12 @@ namespace socialAPI {
         std::string last_seen;
     };
 
-    struct CookieRow {
+    struct HandlerRow {
         std::string client_id;
         std::string platform;
         std::string cookie;
+        std::string data_json;
         std::string updated_at;
-        bool disabled = false;
     };
 
     class postgres {
@@ -68,16 +68,12 @@ namespace socialAPI {
         [[nodiscard]] bool clearAllAdmins() const;
         [[nodiscard]] bool isAdmin(const std::string& client_id) const;
 
-        [[nodiscard]] bool upsertCookie(const std::string& client_id,
-                          const std::string& platform,
-                          const std::string& cookie_enc) const;
-        [[nodiscard]] bool deleteCookie(const std::string& client_id, const std::string& platform) const;
-        bool getCookie(const std::string& client_id,
-                       const std::string& platform,
-                       CookieRow& out) const;
-        bool listClientCookies(const std::string& client_id, std::vector<CookieRow>& out) const;
+        [[nodiscard]] bool upsertHandler(const socialAPI* handler, const std::string& client_id) const;
+        [[nodiscard]] bool upsertHandler(const HandlerRow& row) const;
+        [[nodiscard]] bool deleteHandler(const std::string& client_id, const std::string& platform) const;
+        bool listClientHandlers(const std::string& client_id, std::vector<HandlerRow>& out) const;
 
-        bool clientsInit(std::vector<ClientRow>& clients, std::vector<CookieRow>& cookies) const;
+        bool clientsInit(std::vector<ClientRow>& clients, std::vector<HandlerRow>& handlers) const;
 
     private:
         [[nodiscard]] std::string buildConnectionString() const;
@@ -89,6 +85,8 @@ namespace socialAPI {
         DbConfig config_;
         bool connected_ = false;
         std::unique_ptr<pqxx::connection> connection_;
-        mutable std::unique_ptr<webAPI::SimpleESA> crypto_;
+        #ifndef DEVELOP
+            mutable std::unique_ptr<webAPI::SimpleESA> crypto_;
+        #endif
     };
 }

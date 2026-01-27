@@ -36,6 +36,7 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
     CurlHelper::curlSetup();
     curl_easy_setopt(curl,CURLOPT_COOKIE,cookie.c_str());
     curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent.c_str());
+    curl_easy_setopt(curl,CURLOPT_REFERER,"https://bilibili.com/");
 }
 
 void CrawlerHelper::curlSetup(){
@@ -335,8 +336,8 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
 
 #if NEED_PORT
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
-    socialAPI::DbConfig postgresConfig;
-    socialAPI::postgres dataBase(postgresConfig);
+    webAPI::DbConfig postgresConfig;
+    webAPI::postgres dataBase(postgresConfig);
 #else
     string cookie;
 #endif
@@ -432,11 +433,13 @@ bool checkEnv(){
     if (getenv(POSTGRES_SCHEMA) == nullptr || getenv(POSTGRES_USER) == nullptr || getenv(POSTGRES_PASSWORD) == nullptr || getenv(POSTGRES_HOST) == nullptr || getenv(POSTGRES_PORT) == nullptr) {
         LOG_ENV(POSTGRES_SCHEMA "或" POSTGRES_USER "或" POSTGRES_PASSWORD "或" POSTGRES_HOST "或" POSTGRES_PORT);
     }else {
-        postgresConfig = socialAPI::DbConfig(getenv(POSTGRES_HOST),stoi(getenv(POSTGRES_PORT)),getenv(POSTGRES_SCHEMA),getenv(POSTGRES_USER),getenv(POSTGRES_PASSWORD));
-        dataBase = socialAPI::postgres(postgresConfig);
+        postgresConfig = webAPI::DbConfig(getenv(POSTGRES_HOST),stoi(getenv(POSTGRES_PORT)),getenv(POSTGRES_SCHEMA),getenv(POSTGRES_USER),getenv(POSTGRES_PASSWORD));
+        dataBase = webAPI::postgres(postgresConfig);
+        say("数据库初始化");
         error |= !dataBase.init();
         if (error)
             warn("数据库初始化失败！");
+        else say("数据库初始化完成");
     }
 #else
     if(cookie.empty()){

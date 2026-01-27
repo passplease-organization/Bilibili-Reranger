@@ -29,7 +29,6 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     setThreadId(info.id);
     crawlInfo = &info;
     stop = cancel;
-    webAPI::registerBilibili();
     if (crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr) {
         crawlInfo -> client -> resetTimer(stop);
     }

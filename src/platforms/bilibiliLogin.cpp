@@ -87,6 +87,15 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
                             cookie += "; ";
                         }
                     }
+                    curl.setURL(BILIBILI_LOGIN_COOKIE_GET_BVID3);
+                    curl.connect();
+                    if (const auto& json = curl.getJson(); containsData(json)) {
+                        cookie += "buvid3=";
+                        cookie += getDataFromJson(json)["b_3"].get<string>();
+                        cookie += " ;buvid4=";
+                        cookie += getDataFromJson(json)["b_4"].get<string>();
+                        cookie += "; ";
+                    }
                     if (validCOOKIE()) {
                         failed = false;
                         if (config<bool>(DETAILS)) {
@@ -153,7 +162,7 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
             return "后台登录超时";
         }
         const auto& json = curl.getJson();
-        if (json.contains("data") && getDataFromJson(json).contains("hash") && getDataFromJson(json).contains("key")) {
+        if (containsData(json) && getDataFromJson(json).contains("hash") && getDataFromJson(json).contains("key")) {
             auto&& salt = getDataFromJson(json)["hash"].get<std::string>();
             auto&& key = getDataFromJson(json)["key"].get<std::string>();
             auto&& encryptPassword = SimpleRSA::encrypt(key,salt + password);
@@ -254,7 +263,9 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
 
 bool bilibiliLogin::validCOOKIE() const {
     return cookie.find("SESSDATA=") != string::npos &&
-        cookie.find("bili_jct=") != string::npos;
+        cookie.find("bili_jct=") != string::npos &&
+        cookie.find("buvid3=") != string::npos &&
+        cookie.find("buvid4=") != string::npos;
 }
 
 string bilibiliLogin::getURL(const crawlTask::Task* task) const {

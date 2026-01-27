@@ -20,6 +20,7 @@ namespace webAPI{
     #define BILIBILI_LOGIN_VERIFICATION_SEND "https://passport.bilibili.com/x/safecenter/common/sms/send"
     #define BILIBILI_LOGIN_VERIFY "https://passport.bilibili.com/x/safecenter/login/tel/verify"
     #define BILIBILI_LOGIN_EXCHANGE_COOKIE "https://passport.bilibili.com/x/passport-login/web/exchange_cookie"
+    #define BILIBILI_LOGIN_COOKIE_GET_BVID3 "https://api.bilibili.com/x/frontend/finger/spi"
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_VALIDATE "validate"
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_SECCODE "seccode"
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN "token"
