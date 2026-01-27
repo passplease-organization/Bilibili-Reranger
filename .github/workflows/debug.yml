@@ -26,18 +26,18 @@ jobs:
       env:
         COOKIE: ${{ secrets.COOKIE }}
         USERAGENT: ${{ secrets.USERAGENT }}
-        DB_HOST: "postgres"
-        DB_PORT: "5432"
-        DB_NAME: "bilibili_test"
-        DB_USER: "bilibili"
-        DB_PASSWORD: "bilibili"
+        DB_HOST: postgres
+        DB_PORT: 5432
+        DB_NAME: bilibili_test
+        DB_USER: bilibili
+        DB_PASSWORD: bilibili
     services:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_DB: github_test
-          POSTGRES_USER: github
-          POSTGRES_PASSWORD: test
+          POSTGRES_DB: bilibili_test
+          POSTGRES_USER: bilibili
+          POSTGRES_PASSWORD: bilibili
         options: >-
           --health-cmd "pg_isready -U bilibili -d bilibili_test"
           --health-interval 10s
