@@ -115,8 +115,7 @@ namespace webAPI{
         Json json;
         for(const auto& group : getVideos())
             for(int i = 0;i < group.second.size();i++) {
-                json[group.first.second][group.first.first][i] = Json();
-                group.second[i].write_necessary(json[group.first.second][group.first.first][i]);
+                group.second[i].write_necessary(json[group.first.first][i]);
             }
         return json;
     }

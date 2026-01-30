@@ -25,8 +25,8 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/subFeatures/requestHelper.cpp
         src/subFeatures/requestHelper.h
         src/exit.h
-        src/platforms/bilibiliLogin.cpp
-        src/platforms/bilibiliLogin.h
+        src/platforms/bilibiliHandler.cpp
+        src/platforms/bilibiliHandler.h
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

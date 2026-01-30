@@ -11,6 +11,8 @@
 #include "postgres.h"
 #include "../config.h"
 #include "../Util.h"
+#include "../develop/flags.h"
+#include "browseController.h"
 
 using namespace webAPI;
 
@@ -23,7 +25,10 @@ webAPI::socialAPI::~socialAPI() = default;
 auto socials = std::map<const std::string,creator>();
 
 bool webAPI::socialAPI::fromData(const ::webAPI::HandlerRow& data) noexcept{
-    return setCOOKIE(data.cookie);
+    context -> cookie = data.browse.cookie;
+    context -> url = data.browse.url;
+    context -> ua = data.browse.ua;
+    return true;
 }
 
 bool webAPI::socialAPI::supportPlatform(const std::string& platform,creator function) {
@@ -53,7 +58,11 @@ bool webAPI::socialAPI::prepare(){
 void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
     data.platform = support();
     if (validCOOKIE())
-        data.cookie = getCOOKIE();
+        data.browse.cookie = getCOOKIE();
+    if (context != nullptr) {
+        data.browse.url = context->url;
+        data.browse.ua = context->ua;
+    }
     if (data.data_json.empty())
         data.data_json = "{}";
 }
@@ -682,6 +691,9 @@ void CurlHelper::curlSetup() {
     }
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlHelper::saveData);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, this);
+#if MORE_DETAILS
+    curl_easy_setopt(curl, CURLOPT_VERBOSE,1);
+#endif
 }
 
 bool CurlHelper::connect(bool deal) {

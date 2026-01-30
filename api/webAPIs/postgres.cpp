@@ -78,12 +78,16 @@ namespace webAPI {
   client_id  text NOT NULL REFERENCES develop_clients(client_id) ON DELETE CASCADE,
   platform   text NOT NULL,
   cookie     text NOT NULL DEFAULT '',
+  browse_url text NOT NULL DEFAULT '',
+  browse_ua  text NOT NULL DEFAULT '',
   data       jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (client_id, platform)
 ))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_clients_last_seen ON develop_clients(last_seen))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_socials_platform ON develop_client_socials(platform))sql",
+            R"sql(ALTER TABLE develop_client_socials ADD COLUMN IF NOT EXISTS browse_url text NOT NULL DEFAULT '')sql",
+            R"sql(ALTER TABLE develop_client_socials ADD COLUMN IF NOT EXISTS browse_ua text NOT NULL DEFAULT '')sql",
             R"sql(CREATE TABLE IF NOT EXISTS develop_retention_policy (
   name      text PRIMARY KEY,
   mode      text NOT NULL,
@@ -106,6 +110,8 @@ namespace webAPI {
   client_id  text NOT NULL REFERENCES clients(client_id) ON DELETE CASCADE,
   platform   text NOT NULL,
   cookie     bytea NOT NULL DEFAULT ''::bytea,
+  browse_url text NOT NULL DEFAULT '',
+  browse_ua  text NOT NULL DEFAULT '',
   data       jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (client_id, platform)
@@ -113,6 +119,8 @@ namespace webAPI {
             R"sql(CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_socials_platform ON client_socials(platform))sql",
             R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS cookie bytea NOT NULL DEFAULT ''::bytea)sql",
+            R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS browse_url text NOT NULL DEFAULT '')sql",
+            R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS browse_ua text NOT NULL DEFAULT '')sql",
             R"sql(CREATE TABLE IF NOT EXISTS retention_policy (
   name      text PRIMARY KEY,
   mode      text NOT NULL,
@@ -331,7 +339,7 @@ namespace webAPI {
             if (listClientHandlers(client_id, existing)) {
                 for (const auto& item : existing) {
                     if (item.platform == row.platform) {
-                        row.cookie = item.cookie;
+                        row.browse = item.browse;
                         row.data_json = item.data_json;
                         row.updated_at = item.updated_at;
                         break;
@@ -347,8 +355,8 @@ namespace webAPI {
         if (!isConnected() || row.client_id.empty() || row.platform.empty()) {
             return false;
         }
-        const auto encrypted = encryptDb(row.cookie);
-        if (encrypted.empty() && !row.cookie.empty()) {
+        const auto encrypted = encryptDb(row.browse.cookie);
+        if (encrypted.empty() && !row.browse.cookie.empty()) {
             return false;
         }
         const auto json = row.data_json.empty() ? "{}" : row.data_json;
@@ -356,23 +364,27 @@ namespace webAPI {
             pqxx::work txn(*connection_);
         #ifdef DEVELOP
             txn.exec(
-                "INSERT INTO develop_client_socials (client_id, platform, cookie, data, updated_at) "
-                "VALUES ($1, $2, $3, $4::jsonb, now()) "
+                "INSERT INTO develop_client_socials (client_id, platform, cookie, browse_url, browse_ua, data, updated_at) "
+                "VALUES ($1, $2, $3, $4, $5, $6::jsonb, now()) "
                 "ON CONFLICT (client_id, platform) DO UPDATE SET "
                 "cookie = EXCLUDED.cookie, "
+                "browse_url = EXCLUDED.browse_url, "
+                "browse_ua = EXCLUDED.browse_ua, "
                 "data = EXCLUDED.data, "
                 "updated_at = now()",
-                pqxx::params{row.client_id, row.platform, row.cookie, json}
+                pqxx::params{row.client_id, row.platform, row.browse.cookie, row.browse.url, row.browse.ua, json}
             );
         #else
             txn.exec(
-                "INSERT INTO client_socials (client_id, platform, cookie, data, updated_at) "
-                "VALUES ($1, $2, decode($3, 'base64'), $4::jsonb, now()) "
+                "INSERT INTO client_socials (client_id, platform, cookie, browse_url, browse_ua, data, updated_at) "
+                "VALUES ($1, $2, decode($3, 'base64'), $4, $5, $6::jsonb, now()) "
                 "ON CONFLICT (client_id, platform) DO UPDATE SET "
                 "cookie = EXCLUDED.cookie, "
+                "browse_url = EXCLUDED.browse_url, "
+                "browse_ua = EXCLUDED.browse_ua, "
                 "data = EXCLUDED.data, "
                 "updated_at = now()",
-                pqxx::params{row.client_id, row.platform, encrypted, json}
+                pqxx::params{row.client_id, row.platform, encrypted, row.browse.url, row.browse.ua, json}
             );
         #endif
         #if MORE_DETAILS
@@ -419,13 +431,13 @@ namespace webAPI {
             pqxx::work txn(*connection_);
         #ifdef DEVELOP
             const auto result = txn.exec(
-                "SELECT client_id, platform, cookie, data::text AS data, updated_at "
+                "SELECT client_id, platform, cookie, browse_url, browse_ua, data::text AS data, updated_at "
                 "FROM develop_client_socials WHERE client_id = $1 ORDER BY platform",
                 pqxx::params{client_id}
             );
         #else
             const auto result = txn.exec(
-                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, data::text AS data, updated_at "
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_url, browse_ua, data::text AS data, updated_at "
                 "FROM client_socials WHERE client_id = $1 ORDER BY platform",
                 pqxx::params{client_id}
             );
@@ -439,14 +451,16 @@ namespace webAPI {
                 entry.platform = row["platform"].as<std::string>();
                 const auto encrypted = row["cookie"].as<std::string>();
             #ifdef DEVELOP
-                entry.cookie = encrypted;
+                entry.browse.cookie = encrypted;
             #else
                 const auto decrypted = decryptDb(encrypted);
                 if (decrypted.empty() && !encrypted.empty()) {
                     return false;
                 }
-                entry.cookie = decrypted;
+                entry.browse.cookie = decrypted;
             #endif
+                entry.browse.url = row["browse_url"].as<std::string>();
+                entry.browse.ua = row["browse_ua"].as<std::string>();
                 entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();
                 out.push_back(std::move(entry));
@@ -499,12 +513,12 @@ namespace webAPI {
         #endif
         #ifdef DEVELOP
             const auto handler_result = txn.exec(
-                "SELECT client_id, platform, cookie, data::text AS data, updated_at "
+                "SELECT client_id, platform, cookie, browse_url, browse_ua, data::text AS data, updated_at "
                 "FROM develop_client_socials"
             );
         #else
             const auto handler_result = txn.exec(
-                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, data::text AS data, updated_at "
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_url, browse_ua, data::text AS data, updated_at "
                 "FROM client_socials"
             );
         #endif
@@ -535,14 +549,16 @@ namespace webAPI {
                 entry.platform = row["platform"].as<std::string>();
                 const auto enc_cookie = row["cookie"].as<std::string>();
             #ifdef DEVELOP
-                entry.cookie = enc_cookie;
+                entry.browse.cookie = enc_cookie;
             #else
                 const auto dec_cookie = decryptDb(enc_cookie);
                 if (dec_cookie.empty() && !enc_cookie.empty()) {
                     return false;
                 }
-                entry.cookie = dec_cookie;
+                entry.browse.cookie = dec_cookie;
             #endif
+                entry.browse.url = row["browse_url"].as<std::string>();
+                entry.browse.ua = row["browse_ua"].as<std::string>();
                 entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();
                 handlers.push_back(std::move(entry));

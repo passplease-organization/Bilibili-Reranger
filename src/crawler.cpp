@@ -7,7 +7,7 @@
 #include "BilibiliInterface.h"
 #include "webAPIs/crawler.h"
 
-#include "platforms/bilibiliLogin.h"
+#include "platforms/bilibiliHandler.h"
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
 #if NEED_PORT
@@ -36,7 +36,6 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
     CurlHelper::curlSetup();
     curl_easy_setopt(curl,CURLOPT_COOKIE,cookie.c_str());
     curl_easy_setopt(curl,CURLOPT_USERAGENT,useragent.c_str());
-    curl_easy_setopt(curl,CURLOPT_REFERER,"https://bilibili.com/");
 }
 
 void CrawlerHelper::curlSetup(){
@@ -119,7 +118,7 @@ bool CrawlerHelper::dealJson() {
             say("保存此次爬取临时数据");
             data.writeToJson();
     #endif
-        }catch (exception& e){
+        }catch (const exception& e){
     #ifdef DEVELOP
             warn("爬取数据格式错误！");
             warn("数据如下：");
@@ -132,7 +131,7 @@ bool CrawlerHelper::dealJson() {
                 warn("请检查COOKIE是否正常，客户端ID: ",false);
                 warn(crawlInfo -> clientId.c_str());
             }
-            throwError(e.what());
+            return false;
         }
     }
     auto task = crawlTask::nowTask();
@@ -377,7 +376,13 @@ bool crawl(const std::atomic<bool>& cancel){
 
     #if NEED_PORT
         const bool& back = helper.finishCrawl();
-        return back && sendMessage(socket,"",!back,false);
+        return back && sendMessage(socket,"",!back,
+        #ifdef MORE_DETAILS
+            true
+        #else
+            false
+        #endif
+        );
     #else
         webAPI::saveVideos();
         return helper.finishCrawl();
@@ -398,7 +403,7 @@ string getURL(const crawlTask::Task* task){
             warn("Client handler not initialized, call /set or /login first");
             return "";
         }
-        return handler -> getURL(task);
+        return handler -> getWorker(task);
     #else
         switch (task -> mode) {
             case crawlTask::WorkingMode::SUBSCRIBE: {

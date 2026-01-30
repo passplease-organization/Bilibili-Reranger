@@ -80,13 +80,15 @@ namespace webAPI {
     class socialAPI;
     typedef socialAPI* (FUNCTION_CALLER *creator)(std::shared_ptr<const std::atomic<bool>>&);
 
+    struct BrowseWorkingContext;
+    class BrowseWorker;
     class socialAPI {
     protected:
         std::shared_ptr<const std::atomic<bool>> stop;
 
         dataStore::Data _subscribers;
 
-        API virtual bool setCOOKIE(const string& newCookie) = 0;
+        BrowseWorkingContext* context;
 
     public:
         socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
@@ -97,7 +99,7 @@ namespace webAPI {
 
         API virtual string login(const std::string &name, const std::string &password,bool& failed) = 0;
 
-        API virtual string getURL(const crawlTask::Task* task) const = 0;
+        API virtual BrowseWorker getWorker(const crawlTask::Task *task) const = 0;
 
         API virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const = 0;
 

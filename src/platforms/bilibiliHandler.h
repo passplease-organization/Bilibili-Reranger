@@ -39,7 +39,7 @@ namespace webAPI{
         verificationCodeData(string url,string captcha_key);
     };
 
-    class bilibiliLogin : public webAPI::socialAPI {
+    class bilibiliHandler : public webAPI::socialAPI {
         std::string cookie;
 
         webAPI::CurlHelper curl;
@@ -47,15 +47,13 @@ namespace webAPI{
         verificationCodeData* data = nullptr;
 
     public:
-        bilibiliLogin(std::shared_ptr<const std::atomic<bool>>& stop);
+        bilibiliHandler(std::shared_ptr<const std::atomic<bool>>& stop);
 
-        ~bilibiliLogin() override = default;
-
-        bool setCOOKIE(const string& newCookie) override;
+        ~bilibiliHandler() override = default;
 
         string login(const std::string &name, const std::string &password,bool& failed) override;
 
-        string getURL(const crawlTask::Task* task) const override;
+        BrowseWorker getWorker(const crawlTask::Task *task) const override;
 
         bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const override;
 
@@ -81,7 +79,7 @@ namespace webAPI{
 
     inline void registerBilibili() {
         webAPI::socialAPI::supportPlatform(BILIBILI,[](std::shared_ptr<const std::atomic<bool>>& stop) -> webAPI::socialAPI* {
-            return new bilibiliLogin(stop);
+            return new bilibiliHandler(stop);
         });
     }
 }

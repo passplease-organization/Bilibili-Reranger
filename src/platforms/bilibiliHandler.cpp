@@ -1,4 +1,4 @@
-#include "bilibiliLogin.h"
+#include "bilibiliHandler.h"
 #include "bilibiliAPIs.h"
 #include "config.h"
 #include "webAPIs/crawler.h"
@@ -13,6 +13,7 @@
 #include <cpr/payload.h>
 
 #include "../PortListener.h"
+#include "webAPIs/browseController.h"
 
 using namespace webAPI;
 
@@ -33,18 +34,13 @@ captcha_key(std::move(captcha_key)) {
     }
 }
 
-bilibiliLogin::bilibiliLogin(std::shared_ptr<const std::atomic<bool>> &stop)
+bilibiliHandler::bilibiliHandler(std::shared_ptr<const std::atomic<bool>> &stop)
 : socialAPI(stop),
 curl(webAPI::CurlHelper()) {
     curl.curlSetup();
 }
 
-bool bilibiliLogin::setCOOKIE(const string& newCookie){
-    cookie = newCookie;
-    return validCOOKIE();
-}
-
-string bilibiliLogin::login(const std::string& name, const std::string& password,bool& failed){
+string bilibiliHandler::login(const std::string& name, const std::string& password,bool& failed){
 #if EASY_LOGIN
     cookie = getenv(COOKIE);
     failed = false;
@@ -241,7 +237,7 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
         }
         failed = true;
         return "错误公钥信息！";
-    }else {// TODO 改对应条件
+    }else {
         curl.setURL(BILIBILI_LOGIN_VERIFICATION);
         curl.connect();
         const auto& json = curl.getJson();
@@ -261,14 +257,14 @@ string bilibiliLogin::login(const std::string& name, const std::string& password
 #endif
 }
 
-bool bilibiliLogin::validCOOKIE() const {
+bool bilibiliHandler::validCOOKIE() const {
     return cookie.find("SESSDATA=") != string::npos &&
         cookie.find("bili_jct=") != string::npos &&
         cookie.find("buvid3=") != string::npos &&
         cookie.find("buvid4=") != string::npos;
 }
 
-string bilibiliLogin::getURL(const crawlTask::Task* task) const {
+BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE: {
             string back = mySubscribers;
@@ -289,7 +285,7 @@ string bilibiliLogin::getURL(const crawlTask::Task* task) const {
     }
 }
 
-bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const {
+bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const {
     if (task == nullptr)
         return false;
     switch (task -> mode) {
@@ -392,7 +388,7 @@ bool bilibiliLogin::dealJson(CrawlerHelper& helper, const Json& json, const craw
     }
 }
 
-bool bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) const {
+bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force) const {
     #if MORE_DETAILS
         say("开始准备关注博主名单");
     #endif
@@ -400,7 +396,7 @@ bool bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) 
     if(helper.getSubscribers().empty() || force) {
         helper.clearNextURL();
         crawlTask::Task t("", 0, crawlTask::WorkingMode::SUBSCRIBE);
-        helper.nextSearch(getURL(&t));
+        helper.nextSearch(getWorker(&t));
         do{
             helper.markMustCrawl();
             helper.connect(false);
@@ -414,10 +410,6 @@ bool bilibiliLogin::refreshSubscribers(CrawlerHelper& helper, const bool force) 
                 helper.clearNextURL();
                 return false;
             }
-
-        #ifdef DEVELOP
-            auto _json = to_string(json);
-        #endif
 
             checkAndReturn(json);
             auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();

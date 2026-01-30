@@ -6,6 +6,7 @@
 #include <pqxx/pqxx>
 
 #include "socialAPI.h"
+#include "browseController.h"
 
 // All done by Codex
 
@@ -38,7 +39,7 @@ namespace webAPI {
     struct HandlerRow {
         std::string client_id;
         std::string platform;
-        std::string cookie;
+        BrowseWorkingContext browse;
         std::string data_json;
         std::string updated_at;
     };

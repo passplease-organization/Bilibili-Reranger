@@ -12,6 +12,8 @@
 #define checkAndReturn(json) \
     if (!checkResponse(json)) { \
         COOKIE_WARN \
+        warn("收到Json: ",false); \
+        warn((json).dump().c_str()); \
         return false; \
     }
 #define containsData(json) json.contains("data")

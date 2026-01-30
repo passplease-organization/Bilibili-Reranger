@@ -12,7 +12,9 @@
 6. [OpenSSL](https://github.com/openssl/openssl)处理RSA公钥加密与密钥交换
 7. [libpqxx](https://github.com/jtv/libpqxx)处理PostgreSQL访问（用于客户端数据与Cookie持久化）
 
-功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。
+功能实现主要依靠插件，主程序只是一个框架，只是处理各种琐事，具体视频的去留都是插件决定。而具体的爬取操作也不是C++代码进行的，而是**BrowserManager**所在的另一个容器进行的，C++代码主要负责与**BrowserManager**的交互。
+> 在2026年1月28日前基于B站逆向完成，后来[参考文献](https://github.com/SocialSisterYi/bilibili-API-collect)吃律师函了，并且考虑到兼容其他平台，最终更改使用此架构
+
 ## 使用
 强烈建议使用docker部署，使用打包镜像直接部署，使用下述命令
 ```bash

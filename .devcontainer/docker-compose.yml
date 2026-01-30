@@ -10,6 +10,7 @@ services:
     depends_on:
       - api
       - backend
+      - browser
 
   api:
     image: noname602/bilibili_reranger_frontend_api
@@ -46,3 +47,18 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
     volumes:
       - ./postgres-data:/var/lib/postgresql
+
+  browser:
+    build:
+      context: ../browser
+      dockerfile: dev.dockerfile
+    domainname: browser
+    environment:
+      BM_API_PORT: 3001
+      BM_VNC_PORT: 5900
+      BM_NOVNC_PORT: 6080
+      BM_VIEWER_PATH: /browser/vnc.html
+    shm_size: '1gb'
+    volumes:
+      - ../browser:/crawler
+    entrypoint: "npm install && npm run dev"

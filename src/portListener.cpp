@@ -10,7 +10,7 @@
 #include <boost/beast/core.hpp>
 #include <utility>
 
-#include "platforms/bilibiliLogin.h"
+#include "platforms/bilibiliHandler.h"
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
 
