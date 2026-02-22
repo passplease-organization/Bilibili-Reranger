@@ -27,6 +27,7 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/exit.h
         src/platforms/bilibiliHandler.cpp
         src/platforms/bilibiliHandler.h
+        src/platforms/browse.cpp
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

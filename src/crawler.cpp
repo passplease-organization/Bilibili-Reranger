@@ -7,9 +7,11 @@
 #include "BilibiliInterface.h"
 #include "webAPIs/crawler.h"
 
+#include "PluginHandler.h"
 #include "platforms/bilibiliHandler.h"
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
+#include "webAPIs/browse.h"
 #if NEED_PORT
     #include "PortListener.h"
     #include <boost/asio.hpp>
@@ -50,7 +52,7 @@ void CrawlerHelper::curlSetup(){
             warn("Client handler not initialized, call /set or /login first");
             return;
         }
-        curlSetup(handler -> getCOOKIE(), user_agent);
+        curlSetup(handler -> getWorker(nullptr).context->cookie, user_agent);
     #else
         curlSetup(cookie,user_agent);
     #endif
@@ -118,16 +120,16 @@ bool CrawlerHelper::dealJson() {
             say("保存此次爬取临时数据");
             data.writeToJson();
     #endif
-        }catch (const exception& e){
+        }catch (const exception&){
     #ifdef DEVELOP
             warn("爬取数据格式错误！");
             warn("数据如下：");
             warn(tempData.c_str());
     #endif
-            const auto* handler = (crawlInfo != nullptr && crawlInfo -> client != nullptr)
+            const auto* handler = crawlInfo != nullptr && crawlInfo -> client != nullptr
                 ? crawlInfo -> client -> handler()
                 : nullptr;
-            if (handler != nullptr && !handler -> validCOOKIE()) {
+            if (handler != nullptr && !handler -> validBrowse()) {
                 warn("请检查COOKIE是否正常，客户端ID: ",false);
                 warn(crawlInfo -> clientId.c_str());
             }
@@ -326,8 +328,8 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     if (name.empty())
         return subscribers;
     Json sub = subscribers;
-    for (auto &up: _getSubscribers(sub, false).items()) {
-        if (_getSubscriberName(up) == name)
+    for (auto &up: _getListFromData(sub, false).items()) {
+        if (_getSubscriberName(up.value()) == name)
             return up.value().get<dataStore::Data>();
     }
     return dataStore::Data();
@@ -337,25 +339,21 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
     webAPI::DbConfig postgresConfig;
     webAPI::postgres dataBase(postgresConfig);
+    string browseManagerUrl;
 #else
     string cookie;
 #endif
-string user_agent;
+[[deprecated]] string user_agent;
 
 #if NEED_PORT
 bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
 #else
 bool crawl(const std::atomic<bool>& cancel){
 #endif
-    CrawlerHelper helper = CrawlerHelper();
-    helper.curlSetup();
-    #if NEED_PORT
-        dealParams(helper);
-    #else
-        helper.refreshSubscribers();
-    #endif
     const int max_count = config<int>(MAX_CRAWL_COUNT);
     int count = 0;
+    const auto& handler = crawlInfo -> client -> handler();
+    bool back = true;
     do{
         count++;
 
@@ -367,22 +365,19 @@ bool crawl(const std::atomic<bool>& cancel){
             sleep(config<int>(WAIT_TIME));
         #endif
     #endif
-
-        const auto task = crawlTask::nowTask();
-        if(task == nullptr)
-            break;
-        helper.nextSearch(getURL(task));
-    }while(!cancel && helper.connect() && count < max_count);
+        const auto& task = crawlTask::nowTask();
+        back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
+    }while(!cancel && back && count < max_count);
 
     #if NEED_PORT
-        const bool& back = helper.finishCrawl();
-        return back && sendMessage(socket,"",!back,
+        back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
+        return sendMessage(socket,"",!back,
         #ifdef MORE_DETAILS
             true
         #else
             false
         #endif
-        );
+        ) && back;
     #else
         webAPI::saveVideos();
         return helper.finishCrawl();
@@ -403,7 +398,7 @@ string getURL(const crawlTask::Task* task){
             warn("Client handler not initialized, call /set or /login first");
             return "";
         }
-        return handler -> getWorker(task);
+        return handler -> getWorker(task).context -> cookie;
     #else
         switch (task -> mode) {
             case crawlTask::WorkingMode::SUBSCRIBE: {
@@ -424,6 +419,22 @@ string getURL(const crawlTask::Task* task){
             default: return "";
         }
     #endif
+}
+
+webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
+    auto worker = pluginGetWorker();
+    if (worker.valid())
+        return worker;
+    if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+        warn("Client not initialized, cannot get url");
+        return webAPI::nullWorker();
+    }
+    auto* handler = crawlInfo -> client -> handler();
+    if (handler == nullptr) {
+        warn("Client handler not initialized, call /set or /login first");
+        return webAPI::nullWorker();
+    }
+    return handler -> getWorker(task);
 }
 
 #define LOG_ENV(NAME) \
@@ -456,10 +467,26 @@ bool checkEnv(){
         }else cookie = getenv(COOKIE);
     }
 #endif
-    if(user_agent.empty()){
+    /*if(user_agent.empty()){
         if (getenv(USERAGENT) == nullptr){
             LOG_ENV(USERAGENT);
         }else user_agent = getenv(USERAGENT);
-    }
+    }*/
+    user_agent = "";
+    if (!getenv(BROWSE_MANAGER_URL)) {
+        browseManagerUrl = "http://browse_manager:3000"; // Docker compose 内部子网使用
+    }else browseManagerUrl = getenv(BROWSE_MANAGER_URL);
+    webAPI::BrowseController::controller = webAPI::BrowseController(browseManagerUrl);
     return error;
+}
+
+bool webAPI::socialAPI::checkVideo(const Video & video) const {
+    webAPI::setVideo(&video);
+    if(roughCheckVideo() && finalCheckVideo()) {
+        const auto* group = crawlTask::getGroup();
+        const char* groupName = group == nullptr ? "" : group -> name;
+        webAPI::keepVideo(video,groupName,this -> support().c_str());
+        return true;
+    }
+    return false;
 }

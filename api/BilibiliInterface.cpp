@@ -219,8 +219,8 @@ namespace webAPI{
     }
 
     bool enoughVideo(const char* label,const char* platform){
-        string name(label == nullptr ? "" : label);
-        string plat(platform == nullptr ? "" : platform);
+        string name(label == nullptr ? crawlTask::getGroup() -> name : label);
+        string plat(platform == nullptr ? crawlTask::getGroup() -> platform : platform);
         return videos[{name,plat}].size() >= crawlTask::nowTask() -> videoCount;
     }
 

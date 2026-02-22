@@ -11,7 +11,7 @@
         #define NEED_PORT true
         #define EASY_LOGIN true
     #else
-        #define NEED_PORT true
+        #define NEED_PORT true // TODO Delete it for some time
         #define EASY_LOGIN false
     #endif
 #else

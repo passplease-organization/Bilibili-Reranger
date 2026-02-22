@@ -6,7 +6,7 @@
 #include <pqxx/pqxx>
 
 #include "socialAPI.h"
-#include "browseController.h"
+#include "browse.h"
 
 // All done by Codex
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <utility>
-
 #include "develop/flags.h"
 #include "webAPIs/platforms.h"
 
@@ -13,6 +11,9 @@
 class CrawlerHelper;
 
 namespace webAPI{
+    /**
+    * These interfaces are deprecated now
+    */
     #define BILIBILI_LOGIN_VERIFICATION "https://passport.bilibili.com/x/passport-login/captcha"
     #define BILIBILI_LOGIN_PUBLIC_KEY "https://passport.bilibili.com/x/passport-login/web/key"
     #define BILIBILI_LOGIN "https://passport.bilibili.com/x/passport-login/web/login"
@@ -28,6 +29,14 @@ namespace webAPI{
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_CODE "code"
     #define BILIBILI_LOGIN_FLAG_PHONE_VERIFICATION "phone_verification"
 
+    #define BILIBILI_USER_MAIN_PAGE_URL "https://space.bilibili.com/"
+    #define BILIBILI_USER_MAIN_PAGE(userId) (BILIBILI_USER_MAIN_PAGE_URL + (userId) + "/")
+    #define BILIBILI_SEARCH_PAGE_URL "https://search.bilibili.com/all"
+    #define BILIBILI_SEARCH_PAGE_HELPER(a,b,helper,...)  helper(a,b,__VA_ARGS__)
+    #define BILIBILI_SEARCH_PAGE_HELPER1(keyword,page,...) (BILIBILI_SEARCH_PAGE_URL "?keyword=" + (keyword) + "&page=" + to_string(page))
+    #define BILIBILI_SEARCH_PAGE_HELPER2(keyword,...) (BILIBILI_SEARCH_PAGE_URL "?keyword=" + (keyword))
+    #define BILIBILI_SEARCH_PAGE(...) BILIBILI_SEARCH_PAGE_HELPER(__VA_ARGS__,BILIBILI_SEARCH_PAGE_HELPER1,BILIBILI_SEARCH_PAGE_HELPER2)
+
     #define SMS_TYPE "loginTelCheck"
 
     struct verificationCodeData {
@@ -40,8 +49,6 @@ namespace webAPI{
     };
 
     class bilibiliHandler : public webAPI::socialAPI {
-        std::string cookie;
-
         webAPI::CurlHelper curl;
 
         verificationCodeData* data = nullptr;
@@ -51,19 +58,17 @@ namespace webAPI{
 
         ~bilibiliHandler() override = default;
 
-        string login(const std::string &name, const std::string &password,bool& failed) override;
+        [[deprecated]] string login(const std::string &name, const std::string &password,bool& failed) override;
+        [[nodiscard]] cpr::Url login(const string &clientID, bool &failed) override;
 
         BrowseWorker getWorker(const crawlTask::Task *task) const override;
 
-        bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const override;
+        [[deprecated]] bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const override;
+        bool dealJson(const Json &json, const crawlTask::Task *task) const override;
 
-        bool refreshSubscribers(CrawlerHelper& helper, bool force) const override;
+        [[deprecated]] bool refreshSubscribers(CrawlerHelper& helper, bool force) const override;
 
-        [[nodiscard]] const string& getCOOKIE() const override {
-            return cookie;
-        }
-
-        [[nodiscard]] bool validCOOKIE() const override;
+        [[nodiscard]] bool prepare() override;
 
         [[nodiscard]] std::string support() const override {
             return BILIBILI;

@@ -78,7 +78,6 @@ namespace webAPI {
   client_id  text NOT NULL REFERENCES develop_clients(client_id) ON DELETE CASCADE,
   platform   text NOT NULL,
   cookie     text NOT NULL DEFAULT '',
-  browse_url text NOT NULL DEFAULT '',
   browse_ua  text NOT NULL DEFAULT '',
   data       jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -86,7 +85,6 @@ namespace webAPI {
 ))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_clients_last_seen ON develop_clients(last_seen))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_socials_platform ON develop_client_socials(platform))sql",
-            R"sql(ALTER TABLE develop_client_socials ADD COLUMN IF NOT EXISTS browse_url text NOT NULL DEFAULT '')sql",
             R"sql(ALTER TABLE develop_client_socials ADD COLUMN IF NOT EXISTS browse_ua text NOT NULL DEFAULT '')sql",
             R"sql(CREATE TABLE IF NOT EXISTS develop_retention_policy (
   name      text PRIMARY KEY,
@@ -110,7 +108,6 @@ namespace webAPI {
   client_id  text NOT NULL REFERENCES clients(client_id) ON DELETE CASCADE,
   platform   text NOT NULL,
   cookie     bytea NOT NULL DEFAULT ''::bytea,
-  browse_url text NOT NULL DEFAULT '',
   browse_ua  text NOT NULL DEFAULT '',
   data       jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -119,7 +116,6 @@ namespace webAPI {
             R"sql(CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_socials_platform ON client_socials(platform))sql",
             R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS cookie bytea NOT NULL DEFAULT ''::bytea)sql",
-            R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS browse_url text NOT NULL DEFAULT '')sql",
             R"sql(ALTER TABLE client_socials ADD COLUMN IF NOT EXISTS browse_ua text NOT NULL DEFAULT '')sql",
             R"sql(CREATE TABLE IF NOT EXISTS retention_policy (
   name      text PRIMARY KEY,
@@ -364,27 +360,25 @@ namespace webAPI {
             pqxx::work txn(*connection_);
         #ifdef DEVELOP
             txn.exec(
-                "INSERT INTO develop_client_socials (client_id, platform, cookie, browse_url, browse_ua, data, updated_at) "
-                "VALUES ($1, $2, $3, $4, $5, $6::jsonb, now()) "
+                "INSERT INTO develop_client_socials (client_id, platform, cookie, browse_ua, data, updated_at) "
+                "VALUES ($1, $2, $3, $4, $5::jsonb, now()) "
                 "ON CONFLICT (client_id, platform) DO UPDATE SET "
                 "cookie = EXCLUDED.cookie, "
-                "browse_url = EXCLUDED.browse_url, "
                 "browse_ua = EXCLUDED.browse_ua, "
                 "data = EXCLUDED.data, "
                 "updated_at = now()",
-                pqxx::params{row.client_id, row.platform, row.browse.cookie, row.browse.url, row.browse.ua, json}
+                pqxx::params{row.client_id, row.platform, row.browse.cookie, row.browse.ua, json}
             );
         #else
             txn.exec(
-                "INSERT INTO client_socials (client_id, platform, cookie, browse_url, browse_ua, data, updated_at) "
-                "VALUES ($1, $2, decode($3, 'base64'), $4, $5, $6::jsonb, now()) "
+                "INSERT INTO client_socials (client_id, platform, cookie, browse_ua, data, updated_at) "
+                "VALUES ($1, $2, decode($3, 'base64'), $4, $5::jsonb, now()) "
                 "ON CONFLICT (client_id, platform) DO UPDATE SET "
                 "cookie = EXCLUDED.cookie, "
-                "browse_url = EXCLUDED.browse_url, "
                 "browse_ua = EXCLUDED.browse_ua, "
                 "data = EXCLUDED.data, "
                 "updated_at = now()",
-                pqxx::params{row.client_id, row.platform, encrypted, row.browse.url, row.browse.ua, json}
+                pqxx::params{row.client_id, row.platform, encrypted, row.browse.ua, json}
             );
         #endif
         #if MORE_DETAILS
@@ -431,13 +425,13 @@ namespace webAPI {
             pqxx::work txn(*connection_);
         #ifdef DEVELOP
             const auto result = txn.exec(
-                "SELECT client_id, platform, cookie, browse_url, browse_ua, data::text AS data, updated_at "
+                "SELECT client_id, platform, cookie, browse_ua, data::text AS data, updated_at "
                 "FROM develop_client_socials WHERE client_id = $1 ORDER BY platform",
                 pqxx::params{client_id}
             );
         #else
             const auto result = txn.exec(
-                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_url, browse_ua, data::text AS data, updated_at "
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_ua, data::text AS data, updated_at "
                 "FROM client_socials WHERE client_id = $1 ORDER BY platform",
                 pqxx::params{client_id}
             );
@@ -459,7 +453,6 @@ namespace webAPI {
                 }
                 entry.browse.cookie = decrypted;
             #endif
-                entry.browse.url = row["browse_url"].as<std::string>();
                 entry.browse.ua = row["browse_ua"].as<std::string>();
                 entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();
@@ -513,12 +506,12 @@ namespace webAPI {
         #endif
         #ifdef DEVELOP
             const auto handler_result = txn.exec(
-                "SELECT client_id, platform, cookie, browse_url, browse_ua, data::text AS data, updated_at "
+                "SELECT client_id, platform, cookie, browse_ua, data::text AS data, updated_at "
                 "FROM develop_client_socials"
             );
         #else
             const auto handler_result = txn.exec(
-                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_url, browse_ua, data::text AS data, updated_at "
+                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_ua, data::text AS data, updated_at "
                 "FROM client_socials"
             );
         #endif
@@ -557,7 +550,6 @@ namespace webAPI {
                 }
                 entry.browse.cookie = dec_cookie;
             #endif
-                entry.browse.url = row["browse_url"].as<std::string>();
                 entry.browse.ua = row["browse_ua"].as<std::string>();
                 entry.data_json = row["data"].as<std::string>();
                 entry.updated_at = row["updated_at"].as<std::string>();

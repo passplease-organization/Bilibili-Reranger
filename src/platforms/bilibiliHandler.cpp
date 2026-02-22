@@ -13,7 +13,7 @@
 #include <cpr/payload.h>
 
 #include "../PortListener.h"
-#include "webAPIs/browseController.h"
+#include "webAPIs/browse.h"
 
 using namespace webAPI;
 
@@ -42,10 +42,11 @@ curl(webAPI::CurlHelper()) {
 
 string bilibiliHandler::login(const std::string& name, const std::string& password,bool& failed){
 #if EASY_LOGIN
-    cookie = getenv(COOKIE);
+    context -> cookie = getenv(COOKIE);
     failed = false;
     return "登录成功";
 #else
+    string& cookie = context -> cookie; // avoid error
     if (BODY_CONTAIN(BILIBILI_LOGIN_VERIFICATION_PARAMS_CODE)) {
         failed = true;
         if (data == nullptr)
@@ -92,7 +93,7 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
                         cookie += getDataFromJson(json)["b_4"].get<string>();
                         cookie += "; ";
                     }
-                    if (validCOOKIE()) {
+                    if (validBrowse()) {
                         failed = false;
                         if (config<bool>(DETAILS)) {
                             say("Cookie如下");
@@ -169,8 +170,8 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
             auto&& response = cpr::Post(
                 cpr::Url{BILIBILI_LOGIN},
                 cpr::Payload{
-                    {URL_PARAMS_USERNAME, name},
-                    {URL_PARAMS_PASSWORD, encryptPassword},
+                    // {URL_PARAMS_USERNAME, name},
+                    // {URL_PARAMS_PASSWORD, encryptPassword},
                     {"keep", "0"},
                     {BILIBILI_LOGIN_VERIFICATION_PARAMS_TOKEN, token},
                     {BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE, challenge},
@@ -194,7 +195,7 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
                     cookie += "; ";
                 }
             }
-            if (validCOOKIE()) {
+            if (validBrowse()) {
                 failed = false;
                 return "登录成功！";
             }
@@ -205,7 +206,7 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
             failed = true;
             auto&& j = Json::parse(response.text);
             if (containsData(j) && getDataFromJson(j).contains("url")) {
-                const string& url = getDataFromJson(j)["url"].get<string>();
+                const std::string& url = getDataFromJson(j)["url"].get<std::string>();
                 response = cpr::Post(
                     cpr::Url{BILIBILI_LOGIN_VERIFICATION_CODE_CAPTCHA},
                     headers
@@ -257,40 +258,62 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
 #endif
 }
 
-bool bilibiliHandler::validCOOKIE() const {
-    return cookie.find("SESSDATA=") != string::npos &&
-        cookie.find("bili_jct=") != string::npos &&
-        cookie.find("buvid3=") != string::npos &&
-        cookie.find("buvid4=") != string::npos;
+cpr::Url bilibiliHandler::login(const string &clientID, bool &failed) {
+    return getController().openBridge(clientID,cpr::Url(BILIBILI_USER_MAIN_PAGE_URL));
 }
 
 BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
+    // switch (task -> mode) {
+    //     case crawlTask::WorkingMode::SUBSCRIBE: {
+    //         string back = deprecated_mySubscribers;
+    //         back += "?vmid=";
+    //         back += config<string>(VMID);
+    //         return back;
+    //     }
+    //     case crawlTask::WorkingMode::TAG :
+    //     case crawlTask::WorkingMode::SEARCH : {
+    //         string back = deprecated_searchVideos;
+    //         back += "&page_size=";
+    //         back += to_string(config<int>(SEARCH_PAGE_SIZE));
+    //         back += "&keyword=";
+    //         back += task -> keyword;
+    //         return back;
+    //     }
+    //     default: return "";
+    // }
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE: {
-            string back = mySubscribers;
-            back += "?vmid=";
-            back += config<string>(VMID);
-            return back;
+            const char* id;
+            _subscribers.get(task -> keyword,&id);
+            return {
+                context,
+                UrlAction{BILIBILI_USER_MAIN_PAGE(string(id))},
+                ClickAction{ElementSelector::SelectMode::CLASS,"nav-tab__item",2},
+                DoWhileAction{false,5,
+                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/space/wbi/arc/search"},
+                    ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
+                }
+            };
         }
-        case crawlTask::WorkingMode::TAG :
-        case crawlTask::WorkingMode::SEARCH : {
-            string back = searchVideos;
-            back += "&page_size=";
-            back += to_string(config<int>(SEARCH_PAGE_SIZE));
-            back += "&keyword=";
-            back += task -> keyword;
-            return back;
+        case crawlTask::WorkingMode::TAG:
+        case crawlTask::WorkingMode::SEARCH: {
+            return {
+                context,
+                UrlAction{BILIBILI_SEARCH_PAGE(string(task -> keyword),1)},
+                JSAction{MAIN_JS_GROUP,"bilibili_crawlsearch",Json()["count"] = task -> videoCount}
+            };
         }
-        default: return "";
+        default: return nullWorker();
     }
 }
 
 bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const {
-    if (task == nullptr)
+    return false;
+    /*if (task == nullptr)
         return false;
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE : {
-            if(!startWith(helper.nextURL().c_str(),videoByUser)) {
+            if(!startWith(helper.nextURL().c_str(),deprecated_videoByUser)) {
 
             #if MORE_DETAILS
                 say("当前搜索的关注用户名：", false);
@@ -307,7 +330,7 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
 
                     if (_getSubscriberName(up) == task->keyword) {
                         helper.clearNextURL();
-                        string url(videoByUser);
+                        string url(deprecated_videoByUser);
                         url += "?vmid=";
                         url += to_string(up.value().at(VMID).get<int>());
                         url += "&ps=";
@@ -385,6 +408,42 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
             return true;
         }
         default: return false;
+    }*/
+}
+
+bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) const {
+    if (!validWorkerData(json))
+        return false;
+    switch (task -> mode) {
+        case crawlTask::WorkingMode::SUBSCRIBE : {
+            const auto& crawlData = json[0];
+            if (!validWhileData(crawlData))
+                return false;
+            forEachWhileData(crawlData,_data) {
+                const auto& data = _data[0];
+                if (!containsData(data) || !containsList(data))
+                    break;
+                forEachVideo(data) {
+                    checkVideo(Video::fromJson(videoData));
+                    if (enoughVideo())
+                        return true;
+                }
+            }
+            return false;
+        }
+        case crawlTask::WorkingMode::TAG :
+        case crawlTask::WorkingMode::SEARCH : {
+            const auto& data = json[0];
+            if (!containsData(data) || !containsList(data))
+                return false;
+            forEachVideo(data) {
+                checkVideo(Video::fromJson(videoData));
+                if (enoughVideo())
+                    return true;
+            }
+            return false;
+        }
+        default: return false;
     }
 }
 
@@ -396,7 +455,7 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
     if(helper.getSubscribers().empty() || force) {
         helper.clearNextURL();
         crawlTask::Task t("", 0, crawlTask::WorkingMode::SUBSCRIBE);
-        helper.nextSearch(getWorker(&t));
+        // helper.nextSearch(getWorker(&t).context -> url);
         do{
             helper.markMustCrawl();
             helper.connect(false);
@@ -438,6 +497,34 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
         say("关注博主名单已准备完成");
     #endif
     return !helper.getSubscribers().empty() && helper.getSubscribers().valid();
+}
+
+bool bilibiliHandler::prepare() {
+    const auto& _crawlData = webAPI::getController().perform({
+        context,
+        UrlAction{BILIBILI_USER_MAIN_PAGE_URL},
+        ClickAction{ElementSelector::SelectMode::CLASS,"active router-link-exact-active nav-statistics__item jumpable"},
+        DoWhileAction{false,
+            CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/relation/followings"},
+            ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
+        }
+    });
+    if (!validWorkerData(_crawlData))
+        return false;
+    const auto& crawlData = _crawlData[0];
+    if (!validWhileData(crawlData))
+        return false;
+    _subscribers.clear();
+    forEachWhileData(crawlData,_data) {
+        const auto& data = _data[0];
+        if (!containsData(data) || !containsList(data))
+            break;
+        for (const auto& d : _getListFromData(data,false)) {
+            if (_hasSubscriberMid(d) && _hasSubscriberName(d))
+                _subscribers.put(_getSubscriberName(d).c_str(),_getSubscriberMid(d).c_str());
+        }
+    }
+    return !_subscribers.empty();
 }
 
 #endif

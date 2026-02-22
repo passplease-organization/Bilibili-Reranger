@@ -18,10 +18,11 @@ extern string pluginGetURL();
 #if NEED_PORT
     #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
     extern webAPI::postgres dataBase;
+    extern string browseManagerUrl;
 #else
     extern string cookie;
 #endif
-extern string user_agent;
+[[deprecated]] extern string user_agent;
 
 #if NEED_PORT
 bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket);
@@ -29,6 +30,11 @@ bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket)
 bool crawl(const std::atomic<bool>& cancel);
 #endif
 
-string getURL(const crawlTask::Task* task = crawlTask::nowTask());
+[[deprecated]] string getURL(const crawlTask::Task* task = crawlTask::nowTask());
+
+namespace webAPI {
+    class BrowseWorker;
+}
+webAPI::BrowseWorker getWorker(const crawlTask::Task* task = crawlTask::nowTask());
 
 bool checkEnv();

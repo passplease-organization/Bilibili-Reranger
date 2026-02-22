@@ -101,7 +101,7 @@ namespace webAPI {
 
     API void keepVideo(const Video& video,const char* label,const char* platform);
 
-    API bool enoughVideo(const char* label,const char* platform);
+    API bool enoughVideo(const char* label = nullptr,const char* platform = nullptr);
 }
 
 }

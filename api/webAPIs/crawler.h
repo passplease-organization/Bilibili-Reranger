@@ -1,7 +1,8 @@
 #pragma once
 
-class CrawlerHelper : public webAPI::CurlHelper {
+class [[deprecated]] CrawlerHelper : public webAPI::CurlHelper {
     friend string getURL(const crawlTask::Task* task);
+    friend webAPI::BrowseWorker getWorker(const crawlTask::Task* task);
 
 public:
     CrawlerHelper();

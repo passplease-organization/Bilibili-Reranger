@@ -7,27 +7,34 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 
-#include "crawler.h"
+// #include "crawler.h"
 #include "postgres.h"
 #include "../config.h"
 #include "../Util.h"
 #include "../develop/flags.h"
-#include "browseController.h"
+#include "browse.h"
 
 using namespace webAPI;
 
 extern ::webAPI::postgres dataBase;
 
-webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop) : stop(stop) {}
+webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop):
+stop(stop),
+context()
+{}
 
-webAPI::socialAPI::~socialAPI() = default;
+webAPI::socialAPI::~socialAPI() {
+    if (context != nullptr && !webAPI::getController().closeWorker(context)) {
+        warn("delete browse failed !");
+    }
+};
 
 auto socials = std::map<const std::string,creator>();
 
 bool webAPI::socialAPI::fromData(const ::webAPI::HandlerRow& data) noexcept{
-    context -> cookie = data.browse.cookie;
-    context -> url = data.browse.url;
-    context -> ua = data.browse.ua;
+    if (context == nullptr) {
+        context = new BrowseWorkingContext(data.browse);
+    }else *context = data.browse;
     return true;
 }
 
@@ -42,29 +49,21 @@ bool webAPI::socialAPI::supportPlatform(const std::string& platform,creator func
 
 void webAPI::socialAPI::init(){}
 
-bool webAPI::socialAPI::prepare(){
-    _subscribers.clear();
-    auto* tempHelper = new CrawlerHelper();
-    tempHelper -> curlSetup();
-    if (!tempHelper -> refreshSubscribers()) {
-        delete tempHelper;
-        return false;
-    }
-    _subscribers = tempHelper -> getSubscribers();
-    delete tempHelper;
-    return !_subscribers.empty() && _subscribers.valid();
+bool socialAPI::validBrowse() const {
+    return getController().testContext(context);
 }
 
 void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
     data.platform = support();
-    if (validCOOKIE())
-        data.browse.cookie = getCOOKIE();
-    if (context != nullptr) {
-        data.browse.url = context->url;
-        data.browse.ua = context->ua;
-    }
+    if (validBrowse())
+        data.browse = *context;
     if (data.data_json.empty())
         data.data_json = "{}";
+}
+
+void socialAPI::ensureContext() {
+    if (context == nullptr)
+        context = new BrowseWorkingContext();
 }
 
 bool webAPI::socialAPI::instance(webAPI::socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
@@ -407,7 +406,7 @@ bool Client::handlerFromData(const vector<::webAPI::HandlerRow>& datas) noexcept
             }
         }
         return true;
-    }catch(const std::exception& e){
+    }catch(const std::exception&){
         return false;
     }
 }

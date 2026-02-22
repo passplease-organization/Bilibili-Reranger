@@ -1,27 +1,32 @@
 #pragma once
 
-#define videoByUser "https://app.biliapi.com/x/v2/space/archive/cursor"
-#define mySubscribers "https://api.bilibili.com/x/relation/followings"
-#define searchVideos "https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video"
+#include "develop/flags.h"
 
-#define checkResponse(json) json.contains("data")
+#define deprecated_videoByUser "https://app.biliapi.com/x/v2/space/archive/cursor"
+#define deprecated_mySubscribers "https://api.bilibili.com/x/relation/followings"
+#define deprecated_searchVideos "https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video"
+
+#define containsData(json) json.contains("data")
 #define COOKIE_WARN \
     warn("COOKIE可能不合法，请重新登录！"); \
     helper.clearData(); \
     helper.clearNextURL();
 #define checkAndReturn(json) \
-    if (!checkResponse(json)) { \
+    if (!containsData(json)) { \
         COOKIE_WARN \
         warn("收到Json: ",false); \
         warn((json).dump().c_str()); \
         return false; \
     }
-#define containsData(json) json.contains("data")
 #define getDataFromJson(json) json["data"]
-#define _getSubscribers(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
+#define containsList(json) getDataFromJson(json).contains("list")
+#define _getListFromData(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
 #define _getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()
-#define _getSubscriberName(json) json.value().at("uname").get<string>()
-#define forEachVideo(json,label) for(const auto& videoData : getDataFromJson(json)[label])
+#define _getSubscriberName(json) json.at("uname").get<string>()
+#define _getSubscriberMid(json) json.at("mid").get<string>()
+#define _hasSubscriberName(json) json.contains("uname")
+#define _hasSubscriberMid(json) json.contains("mid")
+#define forEachVideo(json) for(const auto& videoData : _getListFromData(json,true)["vList"])
 #define ofPerson "item"
 #define ofSearch "result"
 #define checkResult(json) \
@@ -40,4 +45,5 @@
     #define POSTGRES_HOST "DB_HOST"
     #define POSTGRES_DELETE "DB_DELETE"
     #define POSTGRES_PORT "DB_PORT"
+    #define BROWSE_MANAGER_URL "BROWSE_URL"
 #endif

@@ -6,9 +6,6 @@
 #include "interface.h"
 #include "../Crawler.h"
 #include <boost/asio/ip/tcp.hpp>
-#include "webAPIs/crawler.h"
-
-void dealParams(CrawlerHelper& helper);
 
 typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define GET_ALL_CATEGORIES_NO_SLASH "all_category"

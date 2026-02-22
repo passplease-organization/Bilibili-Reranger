@@ -7,7 +7,6 @@
 #ifdef TEST
     #include "BilibiliInterface.h"
 #endif
-#include <iostream>
 
 #include "../PortListener.h"
 #include "../exit.h"
@@ -15,7 +14,6 @@
 #include "../Crawler.h"
 #include "../PluginHandler.h"
 #include "webAPIs/socialAPI.h"
-#include "webAPIs/platforms.h"
 
 #define LOG(URL,NAME) \
     say("Accept URL: " URL);\
@@ -29,8 +27,6 @@ namespace webAPI{
         return client -> _handler;
     }
 }
-
-void dealParams(CrawlerHelper& helper) {}
 
 int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     LOG(GET_ALL_CATEGORIES,"getAllCategories");
@@ -62,7 +58,7 @@ int login(boost::asio::ip::tcp::socket& socket) {
     if (test == "true") {
         RELEASE_LOG("测试后台登录状态");
         if (crawlInfo -> client -> handler() != nullptr) {
-            if (crawlInfo -> client -> handler() -> validCOOKIE())
+            if (crawlInfo -> client -> handler() -> validBrowse())
                 return back(sendMessage(socket,"有效COOKIE"));
             return back(sendMessage(socket,"无效COOKIE",true));
         }
@@ -75,22 +71,24 @@ int login(boost::asio::ip::tcp::socket& socket) {
     RELEASE_LOG("登录操作");
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
-        return failed("Client Init failed !");
+        return failed("Client login failed !");
     auto const handler = getHandler(crawlInfo -> client);
 #ifdef TEST
-    string username,password;
+    // string username,password;
 #else
-    string username = BODY_CONTAIN(URL_PARAMS_USERNAME) ? INFO_BODY(URL_PARAMS_USERNAME) : "";
-    string password = BODY_CONTAIN(URL_PARAMS_PASSWORD) ? INFO_BODY(URL_PARAMS_PASSWORD) : "";
+    // string username = BODY_CONTAIN(URL_PARAMS_USERNAME) ? INFO_BODY(URL_PARAMS_USERNAME) : "";
+    // string password = BODY_CONTAIN(URL_PARAMS_PASSWORD) ? INFO_BODY(URL_PARAMS_PASSWORD) : "";
 #endif
     bool failed = false;
-    string payload = handler -> login(username,password,failed);
-    if (!failed && handler -> validCOOKIE()) {
+    Json response;
+    response["url"] = handler -> login(crawlInfo -> clientId,failed).str();
+    if (!failed && handler -> validBrowse()) {
         failed = !dataBase.upsertHandler(handler,crawlInfo -> client -> getID());
         if (failed)
-            payload = "写库失败";
+            response["error"] = "写库失败";
     }
-    return back(sendMessage(socket,payload,failed));
+    response["success"] = !failed;
+    return back(sendMessage(socket,response.dump(),failed));
 }
 
 int key(boost::asio::ip::tcp::socket& socket){

@@ -18,8 +18,8 @@ RUN apt-get update \
   && echo $TZ > /etc/timezone \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g typescript @types/node
+RUN npm install -g typescript @types/node @google/gemini-cli @openai/codex @qwen-code/qwen-code@latest
 
-EXPOSE 3001 6080
+EXPOSE 3000 6080
 
 CMD ["bash", "./start.sh"]

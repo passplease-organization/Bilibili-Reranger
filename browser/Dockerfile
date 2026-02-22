@@ -27,7 +27,7 @@ RUN npm run build
 FROM base
 
 COPY start.sh ./start.sh
-EXPOSE 3001 6080
+EXPOSE 3000 6080
 
 COPY --from compiler /crawler/dist ./
 

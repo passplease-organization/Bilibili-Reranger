@@ -2,8 +2,8 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
 {
   "name": "C++",
-  dockerComposeFile: "docker-compose.yml",
-  service: "backend",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "backend",
   //  "build": {
 //    "dockerfile": "Dockerfile"
 //  },

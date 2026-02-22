@@ -1,6 +1,7 @@
 #include "PluginHandler.h"
 #include "Util.h"
 #include <iostream>
+#include "webAPIs/browse.h"
 
 #ifdef WIN32
     #include <minwindef.h>
@@ -89,6 +90,13 @@ string PluginHandler::getURL() {
     if(plugin == nullptr)
         return "";
     return string(plugin());
+}
+
+webAPI::BrowseWorker PluginHandler::getWorker() {
+    auto plugin = (GETWORKER) getFunction("getWorker");
+    if(plugin == nullptr)
+        return webAPI::nullWorker();
+    return plugin();
 }
 
 bool PluginHandler::dealJson(const string &tempdata) {
@@ -220,6 +228,23 @@ string pluginGetURL() {
                 return handler.getURL();
             },[](string& back,string& now) -> bool{
                 if(now.empty())
+                    return true;
+                else {
+                    back = now;
+                    return false;
+                }
+            }
+    );
+    return back;
+}
+
+webAPI::BrowseWorker pluginGetWorker() {
+    auto back = PluginHandler::forEachPlugin<webAPI::BrowseWorker>(
+            webAPI::nullWorker(),
+            [](PluginHandler& handler) -> webAPI::BrowseWorker{
+                return handler.getWorker();
+            },[](webAPI::BrowseWorker& back,webAPI::BrowseWorker& now) -> bool{
+                if(now == webAPI::nullWorker())
                     return true;
                 else {
                     back = now;

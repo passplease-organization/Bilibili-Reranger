@@ -66,8 +66,7 @@ Nullable Group* crawlTask::getGroup(const char* groupName,const char* platform) 
     if (groupName == nullptr || platform == nullptr) {
         return groups[workingOn];
     }
-    const auto key = makeGroupKey(groupName,platform);
-    if (groupIndex.contains(key))
+    if (const auto& key = makeGroupKey(groupName,platform); groupIndex.contains(key))
         return groupIndex[key];
     return nullptr;
 }

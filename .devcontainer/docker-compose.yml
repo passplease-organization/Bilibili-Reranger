@@ -21,7 +21,8 @@ services:
       dockerfile: Dockerfile
     domainname: backend
     volumes:
-      - ./session/codex:/home/vscode/.codex # You can change to C:\Users\Administrator\.codex
+      - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
       - ./session/qwen:/root/.qwen
     env_file:
       - .env
@@ -38,8 +39,6 @@ services:
   postgres:
     image: postgres:18
     domainname: ${POSTGRES_HOST:-postgres}
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-noname}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nopassword}
@@ -58,7 +57,12 @@ services:
       BM_VNC_PORT: 5900
       BM_NOVNC_PORT: 6080
       BM_VIEWER_PATH: /browser/vnc.html
+    env_file:
+      - .env
     shm_size: '1gb'
     volumes:
       - ../browser:/crawler
-    entrypoint: "npm install && npm run dev"
+      - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
+      - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
+      - ./session/qwen:/root/.qwen
+    command: ["sleep", "infinity"]

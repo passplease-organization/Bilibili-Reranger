@@ -1,186 +1,149 @@
 import Fastify from 'fastify';
-import { chromium, Page, BrowserContext } from 'playwright';
-import type { StorageState } from 'playwright';
+import {Browser, BrowserContext, chromium, Page} from 'playwright';
+import serverInit from "./init";
 
 const fastify = Fastify({ logger: true });
 
-type TaskStep = {
-  op: string;
-  url?: string;
-  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit';
-  selector?: string;
-  timeout?: number;
-  text?: string;
-  key?: string;
-  name?: string;
-  script?: string;
-  saveAs?: string;
-};
-
-type ContextEntry = {
-  context: BrowserContext;
-  page: Page;
-};
-
-const contexts = new Map<string, ContextEntry>();
-let browserPromise: ReturnType<typeof chromium.launch> | null = null;
-
-const API_PORT = Number.parseInt(process.env.BM_API_PORT || '3001', 10);
-const VIEWER_PATH = process.env.BM_VIEWER_PATH || '/browser/vnc.html';
-
-async function ensureBrowser() {
-  if (!browserPromise) {
-    browserPromise = chromium.launch({
-      headless: false,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-    });
-  }
-  return browserPromise;
+export interface WorkContext {
+    cookie: string;
+    user_agent: string;
 }
+export interface WorkResult{}
+export interface WorkerDescription{
+    type: string;
+    info: unknown;
+}
+export class Handler{
+    public browse: Browser;
+    public context: BrowserContext;
+    public page: Page;
 
-async function getContext(clientId: string, storageState: StorageState | string | undefined, force: boolean) {
-  const existing = contexts.get(clientId);
-  if (existing && force) {
-    try {
-      await existing.context.close();
-    } catch (err) {
-      fastify.log.warn({ err, clientId }, 'failed to close old context');
+    constructor(browser: Browser) {
+        this.browse = browser;
     }
-    contexts.delete(clientId);
-  }
 
-  const cached = contexts.get(clientId);
-  if (cached) {
-    return cached;
-  }
-
-  const browser = await ensureBrowser();
-  const normalizedState = storageState as StorageState | string | undefined;
-  const context = normalizedState
-    ? await browser.newContext({ storageState: normalizedState })
-    : await browser.newContext();
-  const page = await context.newPage();
-  const entry = { context, page };
-  contexts.set(clientId, entry);
-  return entry;
-}
-
-async function runTask(page: Page, task: TaskStep[]) {
-  const result: Record<string, unknown> = {};
-  let lastValue: unknown = null;
-
-  for (const step of task || []) {
-    switch (step.op) {
-      case 'goto':
-        lastValue = await page.goto(step.url || '', {
-          waitUntil: step.waitUntil || 'domcontentloaded'
+    public async init(context: WorkContext) : Promise<boolean>{
+        this.context = await this.browse.newContext({
+            userAgent: context.user_agent
         });
-        break;
-      case 'wait':
-        await page.waitForSelector(step.selector || '', {
-          timeout: step.timeout || 30000
-        });
-        lastValue = true;
-        break;
-      case 'wait_timeout':
-        await page.waitForTimeout(step.timeout || 1000);
-        lastValue = true;
-        break;
-      case 'click':
-        await page.click(step.selector || '');
-        lastValue = true;
-        break;
-      case 'type':
-        await page.fill(step.selector || '', step.text || '');
-        lastValue = true;
-        break;
-      case 'press':
-        await page.press(step.selector || '', step.key || 'Enter');
-        lastValue = true;
-        break;
-      case 'text':
-        lastValue = await page.textContent(step.selector || '');
-        break;
-      case 'attr':
-        lastValue = await page.getAttribute(step.selector || '', step.name || '');
-        break;
-      case 'eval':
-        lastValue = await page.evaluate((script) => {
-          // eslint-disable-next-line no-eval
-          return eval(script);
-        }, step.script || 'null');
-        break;
-      default:
-        throw new Error(`unsupported op: ${step.op}`);
+        const cookies = context.cookie
+            .split(";")
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(pair => {
+                const eq = pair.indexOf("=");
+                const name = eq >= 0 ? pair.slice(0, eq).trim() : pair.trim();
+                const value = eq >= 0 ? pair.slice(eq + 1).trim() : "";
+                return { name, value };
+            });
+        await this.context.addCookies(cookies);
+        return true;
     }
-
-    if (step.saveAs) {
-      result[step.saveAs] = lastValue;
-    }
-  }
-
-  return { result, lastValue };
+}
+declare interface WorkerFactory{
+    getWorker: (info: unknown) => Worker;
+}
+const registeredWorker : Record<string,WorkerFactory> = {}
+export function registerWorker(name: string, workerFactory:WorkerFactory): boolean{
+    if(registeredWorker[name])
+        return false;
+    registeredWorker[name] = workerFactory;
+    return true;
 }
 
-fastify.get('/health', async () => ({ ok: true }));
+export abstract class Worker{
+    protected constructor(info: unknown){}
 
-fastify.post('/context/restore', async (request, reply) => {
-  const body = (request.body || {}) as Record<string, unknown>;
-  const clientId = body.client_id as string | undefined;
-  if (!clientId) {
-    reply.code(400);
-    return { ok: false, error: 'client_id required' };
-  }
+    public abstract work(handler : Handler): Promise<WorkResult>;
 
-  await getContext(clientId, body.storage_state as StorageState | string | undefined, true);
-  return { ok: true, context_id: clientId };
+    public static fromDescription(description: WorkerDescription) :Worker{
+        if(!registeredWorker[description.type])
+            throw new Error(`${description.type} is not registered`);
+        return registeredWorker[description.type].getWorker(description.info);
+    }
+}
+
+export interface RequestBody {
+    clientID: string;
+    platform: string;
+    context: WorkContext;
+    workers?: WorkerDescription[];
+    mode?: string;
+}
+type BackBody = {
+    ok: boolean;
+    error?: Error;
+    back:[
+        WorkResult | WorkResult[]
+    ] | []
+}
+
+type HandlerMap = Record<string, Record<string, Handler>>;
+function closeHandler(clientID: string,platform: string): void{
+    if(Boolean(handlers[clientID]?.[platform])){
+        delete handlers[clientID][platform];
+        if (Object.keys(handlers[clientID]).length === 0) {
+            delete handlers[clientID];
+        }
+    }
+}
+
+async function getHandler(clientID: string,platform: string): Promise<Handler>{
+    if(Boolean(handlers[clientID]?.[platform])){
+        return handlers[clientID][platform];
+    }
+    if(!Boolean(handlers[clientID]))
+        handlers[clientID] = {};
+    const handler : Handler = new Handler(await chromium.launch())
+    handlers[clientID][platform] = handler;
+    return handler;
+}
+
+const handlers: HandlerMap = {};
+
+serverInit()
+fastify.get('/test',() => ({ok: true}));
+fastify.post('/',async (request) => {
+    const body = request.body as RequestBody;
+    if(!body.workers)
+        return {
+            ok: false,
+            error: {
+                name: "Invalid Request",
+                message: "workers are empty or invalid"
+            },
+            back: []
+        } as BackBody;
+    const handler = await getHandler(body.clientID,body.platform);
+    if(!await handler.init(body.context))
+        return {
+            ok: false,
+            error: {
+                name: "Invalid Request",
+                message: "context is invalid"
+            },
+            back: []
+        } as BackBody;
+    for(const description of body.workers) {
+        Worker.fromDescription(description).work(handler)
+    }
 });
-
-fastify.post('/context/save', async (request, reply) => {
-  const body = (request.body || {}) as Record<string, unknown>;
-  const clientId = body.client_id as string | undefined;
-  const entry = clientId ? contexts.get(clientId) : undefined;
-  if (!entry) {
-    reply.code(404);
-    return { ok: false, error: 'context not found' };
-  }
-
-  const storageState = await entry.context.storageState();
-  return { ok: true, storage_state: storageState };
+fastify.post('/other/closeWorker',(request) => {
+    const body = request.body as RequestBody;
+    if(body.mode && body.mode != 'closeWorker')
+        return {
+            ok:false,
+            error:{
+                name: "Wrong request mode",
+                message: `request mode is closeWorker, but received ${body.mode}`
+            },
+            back:[]
+        } as BackBody;
+    closeHandler(body.clientID,body.platform);
+    return {
+        ok: !Boolean(handlers[body.clientID]?.[body.platform]),
+        back: []
+    } as BackBody
 });
-
-fastify.post('/task/run', async (request, reply) => {
-  const body = (request.body || {}) as Record<string, unknown>;
-  const clientId = body.client_id as string | undefined;
-  const task = (body.task || []) as TaskStep[];
-
-  if (!clientId) {
-    reply.code(400);
-    return { ok: false, error: 'client_id required' };
-  }
-
-  const entry = await getContext(clientId, body.storage_state as StorageState | string | undefined, false);
-  try {
-    const output = await runTask(entry.page, task);
-    return { ok: true, result: output.result, last_value: output.lastValue };
-  } catch (err) {
-    fastify.log.error({ err, clientId }, 'task failed');
-    reply.code(500);
-    return { ok: false, error: (err as Error).message };
-  }
-});
-
-fastify.post('/captcha/open', async () => {
-  return { ok: true, viewer_path: VIEWER_PATH };
-});
-
-fastify.post('/captcha/continue', async () => {
-  return { ok: true };
-});
-
-fastify.listen({ port: API_PORT, host: '0.0.0.0' })
-  .catch((err) => {
-    fastify.log.error(err);
-    process.exit(1);
-  });
-console.log("运行")
+fastify.post('/other/testContext',(request) => ({ok:false}));
+fastify.post('/other/login',(request) => ({ok:false}));

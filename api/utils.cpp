@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <random>
+
 #include "Util.h"
 
 using namespace std;
@@ -614,7 +615,7 @@ namespace dataStore{
         dataStore::getVector<Data>(this,label,data,copy);
     }
 
-    void Data::get(const char *label,const char **string, bool) const{
+    void Data::get(const char *label,const char* *string, bool) const{
         *string = this -> strings.at(label).c_str();
     }
 

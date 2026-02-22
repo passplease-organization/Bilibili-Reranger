@@ -2,7 +2,7 @@
 set -euo pipefail
 
 export DISPLAY=${DISPLAY:-:99}
-export BM_API_PORT=${BM_API_PORT:-3001}
+export BM_API_PORT=${BM_API_PORT:-3000}
 export BM_VNC_PORT=${BM_VNC_PORT:-5900}
 export BM_NOVNC_PORT=${BM_NOVNC_PORT:-6080}
 

@@ -29,9 +29,7 @@ add_library(${PROJECT_NAME} SHARED
         webAPIs/platforms.h
         webAPIs/postgres.cpp
         webAPIs/postgres.h
-        webAPIs/socialAPI.cpp
-        webAPIs/browseController.cpp
-        webAPIs/browseController.h
+        webAPIs/browse.h
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

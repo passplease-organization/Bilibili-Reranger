@@ -14,6 +14,8 @@ namespace webAPI{
 
 class CrawlerHelper;
 
+#define POST_JSON_HEADER std::pair{"accept","application/json"}
+
 namespace webAPI {
 
     /*
@@ -82,6 +84,7 @@ namespace webAPI {
 
     struct BrowseWorkingContext;
     class BrowseWorker;
+    class Video;
     class socialAPI {
     protected:
         std::shared_ptr<const std::atomic<bool>> stop;
@@ -89,25 +92,35 @@ namespace webAPI {
         dataStore::Data _subscribers;
 
         BrowseWorkingContext* context;
-
     public:
-        socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
+        explicit socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
 
         API [[nodiscard]] virtual bool fromData(const ::webAPI::HandlerRow& data) noexcept;
 
         API virtual ~socialAPI() = 0;
 
-        API virtual string login(const std::string &name, const std::string &password,bool& failed) = 0;
+        API [[deprecated]] virtual string login(const std::string &name, const std::string &password,bool& failed) {
+            failed = true;
+            return "";
+        }
+        API [[nodiscard]] virtual cpr::Url login(const string &clientID, bool& failed) = 0;
 
-        API virtual BrowseWorker getWorker(const crawlTask::Task *task) const = 0;
+        API virtual BrowseWorker getWorker(Nullable const crawlTask::Task *task) const = 0;
 
-        API virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const = 0;
+        API [[deprecated]] virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const {
+            return false;
+        }
+        API virtual bool dealJson(const Json& json, const crawlTask::Task* task) const = 0;
 
-        API virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const = 0;
+        API [[deprecated,nodiscard]] virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const {
+            return false;
+        }
 
-        API [[nodiscard]] virtual bool validCOOKIE() const = 0;
+        API [[nodiscard]] virtual bool validBrowse() const;
 
         API virtual void writeToDataBase(::webAPI::HandlerRow& data) const;
+
+        API virtual void ensureContext();
 
         /**
          * Get if support to log in this specific platform, and the return value will never be changed in this thread
@@ -121,7 +134,7 @@ namespace webAPI {
 
         API virtual void init();
 
-        API virtual bool prepare();
+        API virtual bool prepare() = 0;
 
         /**
          * Register your platform login handler
@@ -130,11 +143,6 @@ namespace webAPI {
          * @return succeed or not
          */
         API static bool supportPlatform(const std::string& platform,creator function);
-
-        /**
-         * Called when main function needs
-         */
-        API [[nodiscard]] const string virtual &getCOOKIE() const = 0;
 
         API [[nodiscard]] virtual std::string support() const = 0;
 
@@ -145,6 +153,8 @@ namespace webAPI {
         API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) noexcept {
             stop = timer;
         }
+
+        API bool checkVideo(const Video& video) const;
     };
 
     class Client {
@@ -164,11 +174,11 @@ namespace webAPI {
 
         API static void initAndDataBase();
 
-        API Client(const std::string& key);
+        API explicit Client(const std::string& key);
 
         API Client(Client&& other) noexcept;
 
-        API Client(const ::webAPI::ClientRow& data,const bool& rawKey = false);
+        API explicit Client(const ::webAPI::ClientRow& data,const bool& rawKey = false);
 
         API Client& operator= (Client& other) = delete;
 
