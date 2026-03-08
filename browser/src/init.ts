@@ -1,4 +1,5 @@
-import {Handler, registerWorker, Worker, WorkResult} from "./server";
+import {Handler, WorkResult} from "./server";
+import {registerWorker, Worker} from "./PluginAPI";
 
 export enum SelectMode{
     ID,

@@ -1,12 +1,19 @@
-import Fastify from 'fastify';
 import {Browser, BrowserContext, chromium, Page} from 'playwright';
+import {closeServerPlugins, fastify, initServerPlugins, Worker} from "./PluginAPI";
 import serverInit from "./init";
-
-const fastify = Fastify({ logger: true });
+import {login} from "./login";
+import LoginRequest = login.LoginRequest;
+import LoginResponse = login.LoginResponse;
+import {API_PORT} from "./env";
+import buildNginxURL = login.buildNginxURL;
+import collectContext = login.collectContext;
+import getSession = login.getSession;
+import CollectRequest = login.CollectRequest;
+import CollectResponse = login.CollectResponse;
+import closeAll = login.closeAll;
 
 export interface WorkContext {
     cookie: string;
-    user_agent: string;
 }
 export interface WorkResult{}
 export interface WorkerDescription{
@@ -23,9 +30,7 @@ export class Handler{
     }
 
     public async init(context: WorkContext) : Promise<boolean>{
-        this.context = await this.browse.newContext({
-            userAgent: context.user_agent
-        });
+        this.context = await this.browse.newContext();
         const cookies = context.cookie
             .split(";")
             .map(s => s.trim())
@@ -40,28 +45,6 @@ export class Handler{
         return true;
     }
 }
-declare interface WorkerFactory{
-    getWorker: (info: unknown) => Worker;
-}
-const registeredWorker : Record<string,WorkerFactory> = {}
-export function registerWorker(name: string, workerFactory:WorkerFactory): boolean{
-    if(registeredWorker[name])
-        return false;
-    registeredWorker[name] = workerFactory;
-    return true;
-}
-
-export abstract class Worker{
-    protected constructor(info: unknown){}
-
-    public abstract work(handler : Handler): Promise<WorkResult>;
-
-    public static fromDescription(description: WorkerDescription) :Worker{
-        if(!registeredWorker[description.type])
-            throw new Error(`${description.type} is not registered`);
-        return registeredWorker[description.type].getWorker(description.info);
-    }
-}
 
 export interface RequestBody {
     clientID: string;
@@ -70,7 +53,7 @@ export interface RequestBody {
     workers?: WorkerDescription[];
     mode?: string;
 }
-type BackBody = {
+export interface BackBody {
     ok: boolean;
     error?: Error;
     back:[
@@ -101,49 +84,118 @@ async function getHandler(clientID: string,platform: string): Promise<Handler>{
 
 const handlers: HandlerMap = {};
 
+fastify.addHook("onClose", closeAll);
+
 serverInit()
+initServerPlugins();
+
 fastify.get('/test',() => ({ok: true}));
 fastify.post('/',async (request) => {
-    const body = request.body as RequestBody;
-    if(!body.workers)
+    try{
+        const body = request.body as RequestBody;
+        console.log(`启动爬取，平台：${body.platform}`)
+        if(!body.workers)
+            return {
+                ok: false,
+                error: {
+                    name: "Invalid Request",
+                    message: "workers are empty or invalid"
+                },
+                back: []
+            } as BackBody;
+        const handler = await getHandler(body.clientID,body.platform);
+        if(!await handler.init(body.context))
+            return {
+                ok: false,
+                error: {
+                    name: "Invalid Request",
+                    message: "context is invalid"
+                },
+                back: []
+            } as BackBody;
+        const back: BackBody = {back: [], ok: false};
+        for(const description of body.workers) {
+            const result = await Worker.fromDescription(description).work(handler)
+        }
+    }catch(e){
+        console.error(`Working Error:${e}`);
         return {
             ok: false,
-            error: {
-                name: "Invalid Request",
-                message: "workers are empty or invalid"
-            },
+            error: e,
             back: []
         } as BackBody;
-    const handler = await getHandler(body.clientID,body.platform);
-    if(!await handler.init(body.context))
-        return {
-            ok: false,
-            error: {
-                name: "Invalid Request",
-                message: "context is invalid"
-            },
-            back: []
-        } as BackBody;
-    for(const description of body.workers) {
-        Worker.fromDescription(description).work(handler)
     }
 });
 fastify.post('/other/closeWorker',(request) => {
-    const body = request.body as RequestBody;
-    if(body.mode && body.mode != 'closeWorker')
+    try{
+        const body = request.body as RequestBody;
+        if(body.mode && body.mode != 'closeWorker')
+            return {
+                ok:false,
+                error:{
+                    name: "Wrong request mode",
+                    message: `request mode is closeWorker, but received ${body.mode}`
+                },
+                back:[]
+            } as BackBody;
+        closeHandler(body.clientID,body.platform);
         return {
-            ok:false,
-            error:{
-                name: "Wrong request mode",
-                message: `request mode is closeWorker, but received ${body.mode}`
-            },
-            back:[]
+            ok: !Boolean(handlers[body.clientID]?.[body.platform]),
+            back: []
+        } as BackBody
+    }catch (e) {
+        console.error(`CloseWorker Error:${e}`);
+        return {
+            ok: false,
+            error: e,
+            back: []
         } as BackBody;
-    closeHandler(body.clientID,body.platform);
-    return {
-        ok: !Boolean(handlers[body.clientID]?.[body.platform]),
-        back: []
-    } as BackBody
+    }
 });
 fastify.post('/other/testContext',(request) => ({ok:false}));
-fastify.post('/other/login',(request) => ({ok:false}));
+fastify.post('/other/login',(request) => {
+    try {
+        return login.login(request.body as LoginRequest);
+    }catch(e){
+        console.error(`Login Error:${e}`);
+        return {
+            ok: false,
+            error: e,
+            back: [],
+            login: ''
+        }as LoginResponse;
+    }
+});
+fastify.get('/screen',(request,reply) => {
+    try{
+        const url = new URL(request.url,`http://${request.host}`);
+        reply.header("X-Accel-Redirect",encodeURI(buildNginxURL(url.searchParams.get('token'),url.searchParams.get('session')))).send();
+    }catch(e){
+        console.error(`访问登录屏幕错误:${e}`);
+        reply.code(500);
+    }
+})
+fastify.post('/other/login/backend',(request) => {
+    try {
+        const body = request.body as CollectRequest;
+        return collectContext(getSession(body.clientID,body.platform),body.token)
+    }catch(e){
+        console.error(`backend收集数据错误:\n${e}`)
+        return {
+            ok: false,
+            error: e,
+            back: [],
+            context: {
+                cookie: ''
+            }
+        } as CollectResponse
+    }
+})
+
+fastify.listen({port: API_PORT, host: '0.0.0.0'})
+    .catch((err) => {
+        fastify.log.error(err);
+        process.exit(1);
+    });
+
+console.log('主程序已启动');

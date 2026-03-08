@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.42.1-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.58.2-jammy AS base
 
 WORKDIR /crawler
 
@@ -26,9 +26,8 @@ RUN npm run build
 
 FROM base
 
-COPY start.sh ./start.sh
 EXPOSE 3000 6080
 
 COPY --from compiler /crawler/dist ./
 
-CMD ["bash", "./start.sh"]
+CMD ["node", "/crawler/dist/server.js"]

@@ -8,7 +8,8 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "strict": false,
-    "types": ["node"]
+    "types": ["node"],
+    "sourceMap": true
   },
   "include": ["src/**/*.ts"]
 }

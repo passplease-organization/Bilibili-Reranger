@@ -1,8 +1,8 @@
-FROM mcr.microsoft.com/playwright:v1.42.1-jammy
+FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 
 WORKDIR /crawler
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Shanghai

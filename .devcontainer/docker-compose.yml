@@ -22,7 +22,9 @@ services:
     domainname: backend
     volumes:
       - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
       - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
+      - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
       - ./session/qwen:/root/.qwen
     env_file:
       - .env
@@ -52,11 +54,6 @@ services:
       context: ../browser
       dockerfile: dev.dockerfile
     domainname: browser
-    environment:
-      BM_API_PORT: 3001
-      BM_VNC_PORT: 5900
-      BM_NOVNC_PORT: 6080
-      BM_VIEWER_PATH: /browser/vnc.html
     env_file:
       - .env
     shm_size: '1gb'

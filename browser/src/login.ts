@@ -1,0 +1,266 @@
+import {BackBody, RequestBody, WorkContext} from "./server";
+import {Browser, chromium} from "playwright";
+import {ChildProcessWithoutNullStreams, spawn} from "child_process";
+import {LOGIN_IDLE_SECONDS, MAX_LOGIN_PORT} from "./env";
+import * as net from "node:net";
+
+export namespace login{
+    type ScreenSize = {
+        width: number,
+        height: number,
+        depth: number
+    }
+    export interface LoginRequest extends RequestBody{
+        platform_url: string,
+        screen: ScreenSize,
+    }
+
+    export interface LoginResponse extends BackBody{
+        login: string
+    }
+
+    export function getSession(clientID: string,platform: string): string{
+        return `${clientID}:${platform}`
+    }
+
+    type xvfb = {
+        xvfb: ChildProcessWithoutNullStreams,
+        display: number
+    }
+    type web = {
+        websockify: ChildProcessWithoutNullStreams,
+        port: number
+    }
+    type vnc = {
+        vnc: ChildProcessWithoutNullStreams,
+        port: number
+    }
+    export interface LoginSession{
+        url: string,
+        browser: Browser;
+        token: string;
+        createdAt: number;
+        Xvfb: xvfb;
+        Websockify: web;
+        Vnc: vnc;
+    }
+
+    export function randomToken(len: number = 32): string {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let out = "";
+        for (let i = 0; i < len; i++) {
+            out += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return out;
+    }
+
+    const loginSessions: Map<string, LoginSession> = new Map();
+
+    export async function login(body: LoginRequest): Promise<LoginResponse>{
+        const session = getSession(body.clientID, body.platform);
+        if(loginSessions.has(session))
+            return {
+                ok: true,
+                back: [],
+                login: buildVisitURL(loginSessions.get(session).token,session)
+            };
+        const token = randomToken();
+        let Xvfb: xvfb | null = null;
+        let Vnc: vnc | null = null;
+        let Web: web | null = null;
+        let browser: Browser | null = null;
+        try{
+            Xvfb = startXvfb(body.screen);
+            Vnc = await startVnc(Xvfb.display);
+            Web = await startWebsockify(async () => await close(session),Vnc);
+            browser = await chromium.launch({
+                headless: false,
+                env: {
+                    DISPLAY: `:${Xvfb.display}`
+                }
+            });
+            await browser.newPage().then(page => page.goto(body.platform_url));
+        }catch (e) {
+            if(browser)
+                await browser.close();
+            if(Xvfb && !Xvfb.xvfb.killed)
+                Xvfb.xvfb.kill("SIGKILL");
+            if(Vnc && !Vnc.vnc.killed)
+                Vnc.vnc.kill("SIGKILL");
+            if(Web && !Web.websockify.killed)
+                Web.websockify.kill("SIGKILL");
+            throw e;
+        }
+        loginSessions.set(session, {
+            url: body.platform_url,
+            browser,
+            token,
+            createdAt: Date.now(),
+            Xvfb,
+            Vnc,
+            Websockify: Web
+        });
+        return {
+            ok: true,
+            back: [],
+            login: buildVisitURL(token,session)
+        }
+    }
+
+    function buildVisitURL(token: string,session: string): string {
+        return `/screen?token=${token}&session=${session}`;
+    }
+
+    export function buildNginxURL(token: string,session: string): string{
+        if(loginSessions.has(session)){
+            const login = loginSessions.get(session);
+            if(login.token == token) {
+                return `/nginx/browser_screen/${login.Websockify.port}/vnc.html?autoconnect=1&resize=remote&reconnect=1`
+            }
+        }
+        throw new Error("错误Token和Session参数！")
+    }
+
+    function startXvfb(size: ScreenSize): xvfb{
+        const allDisplay = Array.from(loginSessions.values()).map(session => session.Xvfb.display)
+        let display = 0;
+        for (; display <= MAX_LOGIN_PORT; display++){
+            if(!allDisplay.includes(display))
+                break;
+        }
+        if(display == MAX_LOGIN_PORT)
+            throw new Error(`无可用登录屏幕端口！已达到上限${MAX_LOGIN_PORT}个！`)
+        const xvfb = spawn("Xvfb", [
+            `:${display}`,
+            "-screen", "0", `${size.width}x${size.height}x${size.depth}`,
+            "-nolisten", "tcp"
+        ])
+        xvfb.on("error", (err) => {
+            throw new Error(`启动Xvfb失败，原因如下：\n${err.stack}`)
+        })
+        return {xvfb,display}
+    }
+
+    export async function validPort(): Promise<number>{
+        return new Promise((resolve, reject) => {
+            const s = net.createServer();
+            s.on("error", reject);
+            s.listen(0, "127.0.0.1", () => {
+                const addr = s.address();
+                if (!addr || typeof addr === "string") {
+                    s.close();
+                    reject(new Error("failed to get free port"));
+                    return;
+                }
+                const port = addr.port;
+                s.close(err => (err ? reject(err) : resolve(port)));
+            });
+        });
+    }
+
+    async function startVnc(display: number): Promise<vnc>{
+        const port = await validPort();
+        const vnc = spawn("x11vnc",[
+            "-display", `:${display}`,
+            "-rfbport", `${port}`,
+            "-localhost",
+            "-ssl","SAVE",
+            "-sslonly",
+            "-nopw"
+        ]);
+        vnc.on("error", (err) => {
+            throw new Error(`启动VNC失败，原因如下：\n${err.stack}`);
+        })
+        return {
+            vnc,
+            port
+        };
+    }
+
+    async function startWebsockify(closer: () => void,vnc: vnc): Promise<web>{
+        const port = await validPort();
+        const web = spawn("websockify",[
+            "--web", "/usr/share/novnc",
+            "--ssl-target",
+            "--idle-timeout", `${LOGIN_IDLE_SECONDS}`,
+            `${port}`, `localhost:${vnc.port}`
+        ]);
+        web.addListener("exit",(code,signal) => {
+            console.log(`Websockify关闭，状态码：${code}，收到信号：${signal}`);
+            closer();
+        })
+        web.on("error", (err) => {
+            throw new Error(`启动Websockify失败，原因如下：\n${err.stack}`);
+        })
+        web.addListener("error", (err) => {
+            console.log(`Websockify遇到错误：${err}`);
+            closer();
+        })
+        return {
+            websockify: web,
+            port
+        };
+    }
+
+    async function close(session: string): Promise<void>{
+        if(!loginSessions.has(session))
+            return;
+        const {browser: browser,Xvfb: xvfb,Vnc: vnc,Websockify: web} = loginSessions.get(session);
+        await browser.close();
+        if(!xvfb.xvfb.killed)
+            xvfb.xvfb.kill("SIGQUIT");
+        if(!vnc.vnc.killed)
+            vnc.vnc.kill("SIGQUIT");
+        if(!web.websockify.killed)
+            web.websockify.kill("SIGQUIT");
+        loginSessions.delete(session);
+    }
+
+    export async function closeAll(): Promise<void>{
+        return Array.from(loginSessions.keys()).forEach(close)
+    }
+
+    export interface CollectRequest extends RequestBody {
+        token: string;
+    }
+
+    export interface CollectResponse extends BackBody {
+        context: WorkContext
+    }
+
+    export async function collectContext(token: string,session: string): Promise<CollectResponse>{
+        if(loginSessions.has(session)){
+            const login: LoginSession = loginSessions.get(session);
+            if(login.token == token) {
+                for (const context of login.browser.contexts()) {
+                    const cookies = Array.from(await context.cookies(login.url));
+                    if(typeof cookies.find(c => c.name == "_uuid") != undefined) {
+                        let cookie = "";
+                        for (const c of cookies) {
+                            cookie += `${c.name}=${c.value}; `;
+                        }
+                        return {
+                            ok: true,
+                            back: [],
+                            context: {
+                                cookie
+                            }
+                        }
+                    }
+                }
+                return {
+                    ok: false,
+                    error: {
+                        name: "未找到Context",
+                        message: "没有找到合适要求的Context"
+                    },
+                    back: [],
+                    context: {
+                        cookie: ''
+                    }
+                }
+            }
+        }
+        throw new Error("错误Token和Session参数！")
+    }
+}
