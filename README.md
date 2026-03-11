@@ -1,5 +1,7 @@
 是[English](README_en.md)
 
+BrowserManager文档： [中文](browser/README.md) / [English](browser/README_en.md)
+
 # 服务后端
 
 ## 架构

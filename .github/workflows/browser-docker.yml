@@ -1,0 +1,38 @@
+name: build browser docker
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - backend
+    paths:
+      - browser/dev.dockerfile
+      - .github/workflows/browser-docker.yml
+  fork:
+
+jobs:
+  CreateDocker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          ref: backend
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: browser/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container

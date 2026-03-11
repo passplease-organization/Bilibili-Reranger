@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import fs from "fs";
+import path from "path";
 import {pluginPath} from "./env";
 import {Handler, WorkerDescription, WorkResult} from "./server";
 
@@ -40,7 +41,7 @@ const loadedPlugins: ServerPlugin[] = [];
 export abstract class Worker {
     protected constructor(info: unknown) {}
 
-    public abstract work(handler: Handler): Promise<WorkResult>;
+    public abstract work(handler: Handler): Promise<WorkResult | WorkResult[]>;
 
     public static fromDescription(description: WorkerDescription): Worker {
         if (!registeredWorker[description.type])
@@ -71,6 +72,20 @@ function listThirdPartyPluginNames(): string[] {
     return byConfig
 }
 
+function isLocalPluginPath(name: string): boolean {
+    return name.startsWith("./") || name.startsWith("../") || path.isAbsolute(name);
+}
+
+function resolvePluginModule(name: string): string {
+    if (!isLocalPluginPath(name)) return name;
+    const configDir = path.dirname(path.resolve(pluginPath));
+    const resolvedPath = path.resolve(configDir, name);
+    if (!fs.existsSync(resolvedPath)) {
+        throw new Error(`plugin path '${name}' not found, resolved to '${resolvedPath}'`);
+    }
+    return resolvedPath;
+}
+
 function toServerPlugin(moduleValue: unknown, sourceName: string): ServerPlugin {
     const candidate = (moduleValue as { default?: unknown })?.default ?? moduleValue;
     if (!candidate || typeof candidate !== "object") {
@@ -80,7 +95,8 @@ function toServerPlugin(moduleValue: unknown, sourceName: string): ServerPlugin 
 }
 
 async function loadThirdPartyPlugin(name: string): Promise<ServerPlugin> {
-    const moduleValue = require(name) as unknown;
+    const moduleName = resolvePluginModule(name);
+    const moduleValue = require(moduleName) as unknown;
     const plugin = toServerPlugin(moduleValue, name);
     if (typeof plugin.onServerInit !== "function") {
         throw new Error(`plugin '${name}' is missing onServerInit()`);

@@ -20,13 +20,20 @@ export interface WorkerDescription{
     type: string;
     info: unknown;
 }
+type NetRecord = {
+    url: string;
+    body: string;
+    headers: Record<string, string>;
+};
 export class Handler{
-    public browse: Browser;
+    protected browse: Browser;
     public context: BrowserContext;
     public page: Page;
+    public records: Map<string, NetRecord> = new Map();
 
     constructor(browser: Browser) {
         this.browse = browser;
+        this.record = this.record.bind(this);
     }
 
     public async init(context: WorkContext) : Promise<boolean>{
@@ -44,6 +51,28 @@ export class Handler{
         await this.context.addCookies(cookies);
         return true;
     }
+
+    protected async record(response: import("playwright").Response): Promise<void>{
+        if(response.ok()){
+            this.records.set(response.url(),{
+                url: response.url(),
+                body: await response.text(),
+                headers: response.headers()
+            });
+        }
+    }
+
+    public async newPage(options?: any): Promise<Page> {
+        this.records.clear();
+        this.page = await this.browse.newPage(options);
+        this.page.on("close", () => this.records.clear());
+        this.page.on("response",this.record);
+        return this.page;
+    }
+
+    public stopRecord(): void{
+        this.page.off("response",this.record);
+    }
 }
 
 export interface RequestBody {
@@ -56,9 +85,7 @@ export interface RequestBody {
 export interface BackBody {
     ok: boolean;
     error?: Error;
-    back:[
-        WorkResult | WorkResult[]
-    ] | []
+    back: (WorkResult | WorkResult[])[]
 }
 
 type HandlerMap = Record<string, Record<string, Handler>>;
@@ -113,15 +140,20 @@ fastify.post('/',async (request) => {
                 },
                 back: []
             } as BackBody;
-        const back: BackBody = {back: [], ok: false};
+        const back: BackBody = {back: [], ok: true};
         for(const description of body.workers) {
-            const result = await Worker.fromDescription(description).work(handler)
+            back.back.push(await Worker.fromDescription(description).work(handler));
         }
+        return back;
     }catch(e){
         console.error(`Working Error:${e}`);
         return {
             ok: false,
-            error: e,
+            error: {
+                name: e.name,
+                message: e.message,
+                stack: e.stack,
+            },
             back: []
         } as BackBody;
     }
@@ -147,7 +179,11 @@ fastify.post('/other/closeWorker',(request) => {
         console.error(`CloseWorker Error:${e}`);
         return {
             ok: false,
-            error: e,
+            error: {
+                name: e.name,
+                message: e.message,
+                stack: e.stack,
+            },
             back: []
         } as BackBody;
     }
@@ -160,7 +196,11 @@ fastify.post('/other/login',(request) => {
         console.error(`Login Error:${e}`);
         return {
             ok: false,
-            error: e,
+            error: {
+                name: e.name,
+                message: e.message,
+                stack: e.stack,
+            },
             back: [],
             login: ''
         }as LoginResponse;
@@ -172,7 +212,7 @@ fastify.get('/screen',(request,reply) => {
         reply.header("X-Accel-Redirect",encodeURI(buildNginxURL(url.searchParams.get('token'),url.searchParams.get('session')))).send();
     }catch(e){
         console.error(`访问登录屏幕错误:${e}`);
-        reply.code(500);
+        reply.code(500).send();
     }
 })
 fastify.post('/other/login/backend',(request) => {
@@ -183,7 +223,11 @@ fastify.post('/other/login/backend',(request) => {
         console.error(`backend收集数据错误:\n${e}`)
         return {
             ok: false,
-            error: e,
+            error: {
+                name: e.name,
+                message: e.message,
+                stack: e.stack,
+            },
             back: [],
             context: {
                 cookie: ''
@@ -193,7 +237,8 @@ fastify.post('/other/login/backend',(request) => {
 })
 
 fastify.listen({port: API_PORT, host: '0.0.0.0'})
-    .catch((err) => {
+    .catch(async (err) => {
+        await closeServerPlugins();
         fastify.log.error(err);
         process.exit(1);
     });

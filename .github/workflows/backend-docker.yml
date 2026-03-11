@@ -1,0 +1,37 @@
+name: build backend docker
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - backend
+    paths:
+      - .devcontainer/Dockerfile
+      - .github/workflows/backend-docker.yml
+  fork:
+
+jobs:
+  CreateDocker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          ref: backend
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .devcontainer/
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_backend:test_container

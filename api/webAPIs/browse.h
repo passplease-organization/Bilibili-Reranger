@@ -84,7 +84,7 @@ namespace webAPI {
         enum struct BrowseDataMode {
             DOM,
             HTTP_REQUEST,
-            JS,
+            JS, // TODO 改成OTHER
             NODATA
         };
 
@@ -311,7 +311,7 @@ namespace webAPI {
      * For plugin, BrowseManager allows register js code. Plugins could offer .js files and register them in BrowseManager
      */
     #define MAIN_JS_GROUP "official"
-    class JSAction : public CrawlAction {
+    class JSAction : public CrawlAction {// TODO 移除
     private:
         static std::string _name;
         Json params;

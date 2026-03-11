@@ -164,7 +164,7 @@ Json CrawlAction::easyDescribe(const BrowseDataMode &mode, const std::string &de
     return json;
 }
 
-bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json) {
+bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json) {// TODO 完善
     return json.contains(CRAWL_DATAMODE) && json[CRAWL_DATAMODE].is_string() && json[CRAWL_DATAMODE].get<std::string>() == modeToString(mode)
         && json.contains(CRAWL_TARGET) && json[CRAWL_TARGET].is_string();
 }

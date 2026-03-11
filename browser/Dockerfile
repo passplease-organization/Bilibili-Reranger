@@ -20,14 +20,24 @@ RUN apt-get update \
 
 FROM base AS compiler
 
-COPY . .
-RUN npm install && npm install -g typescript @types/node
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
 RUN npm run build
+RUN npm prune --omit=dev
 
-FROM base
+FROM base AS runtime
+
+ENV NODE_ENV=production
+
+WORKDIR /crawler
+
+COPY --from=compiler /crawler/package.json ./package.json
+COPY --from=compiler /crawler/package-lock.json ./package-lock.json
+COPY --from=compiler /crawler/node_modules ./node_modules
+COPY --from=compiler /crawler/dist ./dist
 
 EXPOSE 3000 6080
-
-COPY --from compiler /crawler/dist ./
 
 CMD ["node", "/crawler/dist/server.js"]
