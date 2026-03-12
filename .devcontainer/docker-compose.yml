@@ -62,4 +62,3 @@ services:
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
       - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
       - ./session/qwen:/root/.qwen
-    command: ["sleep", "infinity"]

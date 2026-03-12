@@ -2,7 +2,6 @@
 
 #include <cpr/api.h>
 #include <cpr/cprtypes.h>
-#include "bilibiliAPIs.h"
 
 #include "Util.h"
 #include "../Crawler.h"
@@ -43,7 +42,7 @@ bool BrowseController::testConnection() const {
     return _testConnection(browseIP);
 }
 
-Json BrowseController::perform(const BrowseWorker &worker) const {// TODO 适配BrowseManager的ok
+Json BrowseController::perform(const BrowseWorker &worker) const {
     if (!_testConnection(browseIP))
         return {};
     Json json;
@@ -54,7 +53,7 @@ Json BrowseController::perform(const BrowseWorker &worker) const {// TODO 适配
     for (auto&& action : worker.actions) {
         workers.push_back(action -> toJson());
     }
-    auto&& response = cpr::Post(// TODO 加密？
+    auto&& response = cpr::Post(
         *browseIP,
         cpr::Header{POST_JSON_HEADER},
         cpr::Body{
@@ -81,7 +80,7 @@ Json BrowseController::perform(const BrowseWorker &worker) const {// TODO 适配
     }
 }
 
-inline bool otherWork(const cpr::Url* const &browseIP,BrowseWorkingContext *const &context,string mode) {
+inline bool otherWork(const cpr::Url* const &browseIP,BrowseWorkingContext *const &context,const string& mode) {
     if (!_testConnection(browseIP))
         return false;
     Json json;
@@ -186,4 +185,3 @@ std::string UrlAction::_name = "UrlAction";
 std::string ClickAction::_name = "ClickAction";
 std::string CrawlAction::_name = "CrawlAction";
 std::string DoWhileAction::_name = "DoWhileAction";
-std::string JSAction::_name = "JSAction";

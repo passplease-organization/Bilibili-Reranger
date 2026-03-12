@@ -84,7 +84,7 @@ namespace webAPI {
         enum struct BrowseDataMode {
             DOM,
             HTTP_REQUEST,
-            JS, // TODO 改成OTHER
+            OTHER,
             NODATA
         };
 
@@ -101,7 +101,7 @@ namespace webAPI {
             switch (mode) {
                 case BrowseDataMode::DOM: return "DOM";
                 case BrowseDataMode::HTTP_REQUEST: return "HTTP_REQUEST";
-                case BrowseDataMode::JS: return "JS";
+                case BrowseDataMode::OTHER: return "JS";
                 default: return "";
             }
         }
@@ -303,28 +303,6 @@ namespace webAPI {
         ~DoWhileAction() override = default;
 
         [[nodiscard]] const std::string &name() const override {
-            return _name;
-        }
-    };
-
-    /**
-     * For plugin, BrowseManager allows register js code. Plugins could offer .js files and register them in BrowseManager
-     */
-    #define MAIN_JS_GROUP "official"
-    class JSAction : public CrawlAction {// TODO 移除
-    private:
-        static std::string _name;
-        Json params;
-    public:
-        template<class p> requires std::constructible_from<p,Json> && std::is_default_constructible_v<p>
-        JSAction(const std::string& pluginName,const std::string& functionName,p params): CrawlAction(BrowseDataMode::JS,fromGroup(pluginName,functionName)),params(params) {}
-        JSAction(const std::string& pluginName,const std::string& functionName): CrawlAction(BrowseDataMode::JS,fromGroup(pluginName,functionName)) {}
-
-        inline static Json fromGroup(const std::string& pluginName,const std::string& functionName) {
-            return pluginName + "." + functionName;
-        }
-
-        [[nodiscard]] const std::string& name() const override {
             return _name;
         }
     };
