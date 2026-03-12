@@ -109,7 +109,7 @@ bool BrowseController::testContext(BrowseWorkingContext *const &context) const {
     return otherWork(browseIP,context,TEST_CONTEXT);
 }
 
-cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url) const {
+cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,const Json& screen) const {
     if (!_testConnection(browseIP))
         return {};
     Json json;
@@ -117,7 +117,8 @@ cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url)
     json[PLATFORM] = crawlInfo -> client -> handler() -> support();
     json[CONTEXT] = BrowseWorkingContext::EMPTY.toJson();
     json[OTHER_MODE] = OPEN_BRIDGE;
-    json["platform_url"] = url.str();
+    json[LOGIN_URL] = url.str();
+    json[LOGIN_SCREEN_SIZE] = screen;
     auto&& response = cpr::Post(
         append(browseIP,"/" OPEN_BRIDGE),
         cpr::Header{POST_JSON_HEADER},
@@ -156,6 +157,8 @@ Json ClickAction::_toJson() const {
     return selector.toJson();
 }
 
+#define CRAWL_DATAMODE "data_mode"
+#define CRAWL_TARGET "target"
 Json CrawlAction::easyDescribe(const BrowseDataMode &mode, const std::string &description) {
     Json json;
     json[CRAWL_DATAMODE] = modeToString(mode);
@@ -163,9 +166,44 @@ Json CrawlAction::easyDescribe(const BrowseDataMode &mode, const std::string &de
     return json;
 }
 
-bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json) {// TODO 完善
-    return json.contains(CRAWL_DATAMODE) && json[CRAWL_DATAMODE].is_string() && json[CRAWL_DATAMODE].get<std::string>() == modeToString(mode)
-        && json.contains(CRAWL_TARGET) && json[CRAWL_TARGET].is_string();
+bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json) {
+    if (!json.is_object()
+        || !json.contains(CRAWL_DATAMODE)
+        || !json[CRAWL_DATAMODE].is_string()
+        || json[CRAWL_DATAMODE].get<std::string>() != modeToString(mode)
+        || !json.contains(CRAWL_TARGET))
+        return true;
+
+    const auto& description = json[CRAWL_TARGET];
+    switch (mode) {
+        case BrowseDataMode::DOM: {
+            if (!description.is_string())
+                return true;
+            try {
+                const auto selector = Json::parse(description.get<std::string>());
+                if (!selector.is_object()
+                    || !selector.contains("mode") || !selector["mode"].is_string()
+                    || !selector.contains("param") || !selector["param"].is_string()
+                    || !selector.contains("index")
+                    || !(selector["index"].is_number_unsigned()
+                        || (selector["index"].is_number_integer() && selector["index"].get<int>() >= 0)))
+                    return true;
+                const auto& selectMode = selector["mode"].get_ref<const std::string&>();
+                return selectMode != "ID"
+                    && selectMode != "CLASS"
+                    && selectMode != "TAG"
+                    && selectMode != "TAGNAME";
+            } catch (...) {
+                return true;
+            }
+        }
+        case BrowseDataMode::HTTP_REQUEST:
+        case BrowseDataMode::OTHER:
+        case BrowseDataMode::NODATA:
+            return !description.is_string();
+        default:
+            return true;
+    }
 }
 
 Json DoWhileAction::_toJson() const {

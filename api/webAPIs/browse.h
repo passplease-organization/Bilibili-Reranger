@@ -101,8 +101,8 @@ namespace webAPI {
             switch (mode) {
                 case BrowseDataMode::DOM: return "DOM";
                 case BrowseDataMode::HTTP_REQUEST: return "HTTP_REQUEST";
-                case BrowseDataMode::OTHER: return "JS";
-                default: return "";
+                case BrowseDataMode::OTHER: return "OTHER";
+                default: return "NODATA";
             }
         }
 
@@ -181,8 +181,10 @@ namespace webAPI {
         [[nodiscard]] bool testContext(Nullable BrowseWorkingContext* const& context) const;
         #define TEST_CONTEXT "testContext"
 
-        [[nodiscard]] cpr::Url openBridge(const std::string& clientID,cpr::Url url) const;
+        [[nodiscard]] cpr::Url openBridge(const std::string& clientID,cpr::Url url,const Json& screen) const;
         #define OPEN_BRIDGE "login"
+        #define LOGIN_URL "platform_url"
+        #define LOGIN_SCREEN_SIZE "screen"
     };
 
     inline const BrowseController& getController() {
@@ -247,7 +249,7 @@ namespace webAPI {
             requires std::convertible_to<WorkingData,Json>
         CrawlAction(const BrowseDataMode mode,WorkingData&& description):
             BrowseAction(),mode(mode),description(Json(std::forward<WorkingData>(description))) {
-            if (validDescription(mode,this -> description)) {
+            if (!validDescription(mode,this -> description)) {
                 warn("Description: ",false);
                 warn(this -> description.dump().c_str(),true);
                 throwError("Invalid description of information gathering instuction !");
@@ -255,8 +257,6 @@ namespace webAPI {
         }
         ~CrawlAction() override = default;
 
-        #define CRAWL_DATAMODE "data_mode"
-        #define CRAWL_TARGET "target"
         static bool validDescription(const BrowseDataMode& mode,const Json& json);
         static Json easyDescribe(const BrowseDataMode& mode,const std::string& description);
 
@@ -296,9 +296,6 @@ namespace webAPI {
             };
             (add(actions), ...);
         }
-
-        template<class... Action>
-        inline explicit DoWhileAction(const bool& failOrSucceeded,Action&& ... actions): DoWhileAction(failOrSucceeded,INT32_MAX,actions...){}
 
         ~DoWhileAction() override = default;
 

@@ -259,7 +259,7 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
 }
 
 cpr::Url bilibiliHandler::login(const string &clientID, bool &failed) {
-    return getController().openBridge(clientID,cpr::Url(BILIBILI_USER_MAIN_PAGE_URL));
+    return getController().openBridge(clientID,cpr::Url(BILIBILI_USER_MAIN_PAGE_URL),INFO_BODY(LOGIN_SCREEN_SIZE));
 }
 
 BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
@@ -300,7 +300,7 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
             return {
                 context,
                 UrlAction{BILIBILI_SEARCH_PAGE(string(task -> keyword),1)},
-                JSAction{MAIN_JS_GROUP,"bilibili_crawlsearch",Json()["count"] = task -> videoCount}
+                JSAction{Json()["count"] = task -> videoCount}
             };
         }
         default: return nullWorker();
@@ -504,7 +504,7 @@ bool bilibiliHandler::prepare() {
         context,
         UrlAction{BILIBILI_USER_MAIN_PAGE_URL},
         ClickAction{ElementSelector::SelectMode::CLASS,"active router-link-exact-active nav-statistics__item jumpable"},
-        DoWhileAction{false,
+        DoWhileAction{false,INT32_MAX,
             CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/relation/followings"},
             ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
         }

@@ -6,6 +6,7 @@
 
 #ifdef TEST
     #include "BilibiliInterface.h"
+    #include "webAPIs/platforms.h"
 #endif
 
 #include "../PortListener.h"
@@ -69,16 +70,12 @@ int login(boost::asio::ip::tcp::socket& socket) {
         return back(sendMessage(socket,webAPI::socialAPI::allPlatform(),false));
     }
     RELEASE_LOG("登录操作");
+    if (!BODY_CONTAIN(LOGIN_SCREEN_SIZE) || !INFO_BODY(LOGIN_SCREEN_SIZE).is_object())
+        return back(sendMessage(socket,"不正确的Screen参数",true));
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
     auto const handler = getHandler(crawlInfo -> client);
-#ifdef TEST
-    // string username,password;
-#else
-    // string username = BODY_CONTAIN(URL_PARAMS_USERNAME) ? INFO_BODY(URL_PARAMS_USERNAME) : "";
-    // string password = BODY_CONTAIN(URL_PARAMS_PASSWORD) ? INFO_BODY(URL_PARAMS_PASSWORD) : "";
-#endif
     bool failed = false;
     Json response;
     response["url"] = handler -> login(crawlInfo -> clientId,failed).str();
