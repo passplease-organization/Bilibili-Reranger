@@ -35,8 +35,6 @@ services:
       DB_PORT: ${POSTGRES_PORT:-5432}
       DB_HOST: ${POSTGRES_HOST:-postgres}
       DB_DELETE: ${POSTGRES_DELETE:-false}
-    depends_on:
-      - postgres
 
   postgres:
     image: postgres:18

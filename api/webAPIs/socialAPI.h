@@ -158,7 +158,7 @@ namespace webAPI {
     };
 
     class Client {
-    friend socialAPI* getHandler(Client const* client);
+    friend socialAPI* const& getHandler(Client const* client);
     friend bool storeClient(NotNull Client* client);
     private:
         std::string ID;

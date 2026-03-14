@@ -180,6 +180,10 @@ void test() {
         _say("Login:");
         json.clear();
         json[BODY_PARAMS_PLATFORM] = BILIBILI;
+        auto&& screen = json["screen"];
+        screen["wight"] = 1000;
+        screen["height"] = 800;
+        screen["depth"] = 16;
         response = Post(
             Url{localhost + LOGIN},
             Body{esa.encrypt(json.dump())},

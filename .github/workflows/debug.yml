@@ -45,7 +45,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
       - name: Use Cache
         uses: actions/cache@v6
@@ -82,7 +82,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
         # Add support for more platforms with QEMU (optional)
         # https://github.com/docker/setup-qemu-action
@@ -125,7 +125,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           sparse-checkout: browser
 
@@ -144,7 +144,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           sparse-checkout: browser
 

@@ -24,7 +24,7 @@
         say(message)
 
 namespace webAPI{
-    socialAPI* getHandler(Client const* client){
+    socialAPI* const& getHandler(Client const* client){
         return client -> _handler;
     }
 }
@@ -72,10 +72,17 @@ int login(boost::asio::ip::tcp::socket& socket) {
     RELEASE_LOG("登录操作");
     if (!BODY_CONTAIN(LOGIN_SCREEN_SIZE) || !INFO_BODY(LOGIN_SCREEN_SIZE).is_object())
         return back(sendMessage(socket,"不正确的Screen参数",true));
+#endif
+    say("temp 1");
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
-    auto const handler = getHandler(crawlInfo -> client);
+    say("temp 2");
+    auto const& handler = getHandler(crawlInfo -> client);
+    say("temp 3");
+#ifdef TEST
+    return back(sendMessage(socket,"测试成功",handler == nullptr));
+#else
     bool failed = false;
     Json response;
     response["url"] = handler -> login(crawlInfo -> clientId,failed).str();
@@ -86,6 +93,7 @@ int login(boost::asio::ip::tcp::socket& socket) {
     }
     response["success"] = !failed;
     return back(sendMessage(socket,response.dump(),failed));
+#endif
 }
 
 int key(boost::asio::ip::tcp::socket& socket){
@@ -190,4 +198,3 @@ handler requireClient(){
         return failed("Illegal Client");
     };
 }
-#endif

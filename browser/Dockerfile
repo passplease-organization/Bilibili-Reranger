@@ -35,9 +35,8 @@ WORKDIR /crawler
 
 COPY --from=compiler /crawler/package.json ./package.json
 COPY --from=compiler /crawler/package-lock.json ./package-lock.json
-COPY --from=compiler /crawler/node_modules ./node_modules
-COPY --from=compiler /crawler/dist ./dist
+COPY --from=compiler /crawler/dist ./
 
 EXPOSE 3000 6080
 
-CMD ["node", "/crawler/dist/server.js"]
+CMD ["sh","-c","npm install && node /crawler/server.js"]

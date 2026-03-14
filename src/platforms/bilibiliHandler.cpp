@@ -300,7 +300,10 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
             return {
                 context,
                 UrlAction{BILIBILI_SEARCH_PAGE(string(task -> keyword),1)},
-                JSAction{Json()["count"] = task -> videoCount}
+                DoWhileAction{false,5,
+                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi/search/all/v2"},
+                    ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
+                }
             };
         }
         default: return nullWorker();

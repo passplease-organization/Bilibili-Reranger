@@ -22,4 +22,4 @@ RUN npm install -g typescript @types/node @google/gemini-cli @openai/codex @qwen
 
 EXPOSE 3000 6080
 
-CMD ["npm","run","dev"]
+CMD ["sh", "-c", "npm install && npm run dev"]
