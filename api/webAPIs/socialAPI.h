@@ -3,6 +3,7 @@
 #include <string>
 #include <cpr/response.h>
 #include <sodium.h>
+#include "../develop/flags.h"
 
 #include "../config.h"
 #include "../interface.h"
@@ -14,7 +15,7 @@ namespace webAPI{
 
 class CrawlerHelper;
 
-#define POST_JSON_HEADER std::pair{"accept","application/json"}
+#define POST_JSON_HEADER std::pair{"Accept","application/json"},std::pair{"Content-Type", "application/json"}
 
 namespace webAPI {
 
@@ -209,7 +210,11 @@ namespace webAPI {
         API bool handlerFromData(const vector<::webAPI::HandlerRow>& data) noexcept;
 
         API [[nodiscard]] bool prepare() const {
+        #if ALL_CONTAINER_ONLINE
             return _handler -> prepare();
+        #else
+            return true;
+        #endif
         }
 
         API [[nodiscard]] bool check() const noexcept;

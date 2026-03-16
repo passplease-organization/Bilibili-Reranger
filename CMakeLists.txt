@@ -15,6 +15,13 @@ add_compile_definitions(
         $<$<CONFIG:Test>:DEVELOP=true>
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_compile_options(
+            $<$<CONFIG:Test>:-g>
+            $<$<CONFIG:Test>:-O0>
+    )
+endif ()
+
 add_executable(${PROJECT_NAME} src/main.cpp
         src/crawler.cpp
         src/portListener.cpp
@@ -36,7 +43,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             BUILD_WITH_INSTALL_RPATH ON
     )
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+set_property(TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<OR:$<CONFIG:Debug>,$<CONFIG:Test>>:Debug>DLL")
 endif ()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Test")

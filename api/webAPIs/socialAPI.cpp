@@ -20,8 +20,9 @@ extern ::webAPI::postgres dataBase;
 
 webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop):
 stop(stop),
-context()
-{}
+context(nullptr) {
+    ensureContext();
+}
 
 webAPI::socialAPI::~socialAPI() {
     if (context != nullptr && !webAPI::getController().closeWorker(context)) {

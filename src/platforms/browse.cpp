@@ -23,6 +23,21 @@ BrowseController BrowseController::controller("");
 
 BrowseController::BrowseController(const std::string& ip) : browseIP(new cpr::Url(ip)){}
 
+BrowseController::BrowseController(BrowseController &&other) noexcept
+: browseIP(other.browseIP) {
+    other.browseIP = nullptr;
+}
+
+BrowseController::BrowseController(const BrowseController &other)
+: browseIP(new cpr::Url(*other.browseIP)){}
+
+BrowseController& BrowseController::operator=(const BrowseController &other){
+    if (&other != this) {
+        this -> browseIP = new cpr::Url(*other.browseIP);
+    }
+    return *this;
+}
+
 BrowseController::~BrowseController() {
     delete browseIP;
 }
@@ -34,7 +49,7 @@ inline cpr::Url append(const cpr::Url* const &url,const string& append) {
 inline bool _testConnection(const cpr::Url* const &url) {
     if (!url)
         return false;
-    auto&& response = cpr::Get(append(url,"/test"), cpr::Timeout{5000});
+    auto&& response = cpr::Get(url -> operator+("/test"), cpr::Timeout{5000});
     return response.error.code == cpr::ErrorCode::OK;
 }
 
@@ -60,8 +75,14 @@ Json BrowseController::perform(const BrowseWorker &worker) const {
             json.dump()
         }
     );
-    if (response.status_code != 200)
+    if (response.status_code != 200) {
+        if (config<bool>(DETAILS)) {
+            warn("连接Browser故障，状态码：",false);
+            warn(to_string(response.status_code).c_str());
+            warn(response.reason.c_str());
+        }
         return {};
+    }
     try{
         if (auto&& back = Json::parse(response.text); SUCCESS_BROWSE_REQUEST(back))
             return back[ANSWER_DATA];
@@ -80,7 +101,7 @@ Json BrowseController::perform(const BrowseWorker &worker) const {
     }
 }
 
-inline bool otherWork(const cpr::Url* const &browseIP,BrowseWorkingContext *const &context,const string& mode) {
+inline bool otherWork(const cpr::Url* const &browseIP,Nullable BrowseWorkingContext *const &context,const string& mode) {
     if (!_testConnection(browseIP))
         return false;
     Json json;

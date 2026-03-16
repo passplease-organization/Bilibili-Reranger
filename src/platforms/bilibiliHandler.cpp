@@ -512,11 +512,21 @@ bool bilibiliHandler::prepare() {
             ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
         }
     });
-    if (!validWorkerData(_crawlData))
+    if (!validWorkerData(_crawlData)) {
+        #ifdef MORE_DETAILS
+            warn("Wrong browser answer:");
+            warn(_crawlData.dump().c_str());
+        #endif
         return false;
+    }
     const auto& crawlData = _crawlData[0];
-    if (!validWhileData(crawlData))
+    if (!validWhileData(crawlData)) {
+        #ifdef MORE_DETAILS
+            warn("Wrong browser answer:");
+            warn(_crawlData.dump().c_str());
+        #endif
         return false;
+    }
     _subscribers.clear();
     forEachWhileData(crawlData,_data) {
         const auto& data = _data[0];

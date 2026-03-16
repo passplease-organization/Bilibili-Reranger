@@ -68,7 +68,7 @@ bool CrawlerHelper::connect(bool deal){
     #endif
 
     clear();
-    #if CONNECT_INTERNET
+    #if ALL_CONTAINER_ONLINE
         if(crawlNext())
             CurlHelper::connect(false);
     #else
@@ -474,7 +474,7 @@ bool checkEnv(){
     }*/
     user_agent = "";
     if (!getenv(BROWSE_MANAGER_URL)) {
-        browseManagerUrl = "http://browse_manager:3000"; // Docker compose 内部子网使用
+        browseManagerUrl = "http://browser:3000"; // Docker compose 内部子网使用
     }else browseManagerUrl = getenv(BROWSE_MANAGER_URL);
     webAPI::BrowseController::controller = webAPI::BrowseController(browseManagerUrl);
     return error;

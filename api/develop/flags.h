@@ -2,7 +2,7 @@
 
 #if DEVELOP
 #define TEST_DLL false
-#define CONNECT_INTERNET true
+#define ALL_CONTAINER_ONLINE true
 #define MORE_DETAILS true
 #define SLEEP_CRAWL false
 #define tempDataPath "tempData"
@@ -19,9 +19,10 @@
 #define SLEEP_CRAWL true
 #define NEED_PORT true
 #define EASY_LOGIN false
+#define MORE_DETAILS false
 #endif
 
-#if CONNECT_INTERNET
+#if ALL_CONTAINER_ONLINE
 #else
     #ifdef WIN32
         #define BILIBILI_DATA ".\\testing\\DataFromBilibili.json"

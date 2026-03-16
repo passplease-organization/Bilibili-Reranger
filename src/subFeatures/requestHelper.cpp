@@ -73,14 +73,11 @@ int login(boost::asio::ip::tcp::socket& socket) {
     if (!BODY_CONTAIN(LOGIN_SCREEN_SIZE) || !INFO_BODY(LOGIN_SCREEN_SIZE).is_object())
         return back(sendMessage(socket,"不正确的Screen参数",true));
 #endif
-    say("temp 1");
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
-    say("temp 2");
     auto const& handler = getHandler(crawlInfo -> client);
-    say("temp 3");
-#ifdef TEST
+#if !ALL_CONTAINER_ONLINE
     return back(sendMessage(socket,"测试成功",handler == nullptr));
 #else
     bool failed = false;

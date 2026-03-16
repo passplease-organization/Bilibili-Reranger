@@ -69,4 +69,4 @@ The API library provides interfaces for Bilibili API calls, plugin interfaces, a
 The project includes development-specific flags (via `DEVELOP` definition) and test-specific configurations (via `TEST_DLL` flag).
 ## Prompt
 请使用中文与我对话
-只在我明确告知你的情况下为我的代码进行修改或尝试解决问题，默认我是在和你讨论项目架构和功能问题，并不是让你修改我的代码
+只在我明确告知你的情况下为我的代码进行修改或尝试解决问题，默认我是在和你讨论项目架构和功能问题，不能主动修改我的代码

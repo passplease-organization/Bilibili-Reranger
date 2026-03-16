@@ -80,7 +80,9 @@ class UrlAction extends Worker {
 
     public async work(handler: Handler): Promise<WorkResult> {
         handler.page = await handler.newPage();
-        await handler.page.goto(this.url);
+        await handler.page.goto(this.url,{
+            waitUntil: 'domcontentloaded'
+        });
         return {};
     }
 

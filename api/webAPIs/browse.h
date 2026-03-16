@@ -169,6 +169,12 @@ namespace webAPI {
     public:
         explicit BrowseController(const std::string& ip);
 
+        BrowseController(BrowseController&& other) noexcept;
+
+        BrowseController(const BrowseController& other);
+
+        BrowseController& operator=(const BrowseController& other);
+
         ~BrowseController();
 
         [[nodiscard]] bool testConnection() const;
@@ -236,19 +242,18 @@ namespace webAPI {
     private:
         static std::string _name;
     protected:
-        BrowseDataMode mode;
         Json description;
 
         [[nodiscard]] Json _toJson() const override {
             return description;
         }
     public:
-        inline CrawlAction(const BrowseDataMode mode,const std::string& description) :
-            CrawlAction(mode,easyDescribe(mode,description)){}
+        inline CrawlAction(const BrowseDataMode mode,const std::string& target) :
+            CrawlAction(mode,easyDescribe(mode,target)){}
         template<class WorkingData>
             requires std::convertible_to<WorkingData,Json>
         CrawlAction(const BrowseDataMode mode,WorkingData&& description):
-            BrowseAction(),mode(mode),description(Json(std::forward<WorkingData>(description))) {
+            BrowseAction(),description(Json(std::forward<WorkingData>(description))) {
             if (!validDescription(mode,this -> description)) {
                 warn("Description: ",false);
                 warn(this -> description.dump().c_str(),true);
