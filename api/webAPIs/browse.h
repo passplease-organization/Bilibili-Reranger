@@ -221,7 +221,9 @@ namespace webAPI {
     protected:
         ElementSelector selector;
 
-        [[nodiscard]] Json _toJson() const override;
+        [[nodiscard]] Json _toJson() const override {
+            return selector.toJson();
+        }
     public:
         explicit ClickAction(ElementSelector selector) : BrowseAction(), selector(std::move(selector)) {}
 
@@ -251,7 +253,9 @@ namespace webAPI {
         inline CrawlAction(const BrowseDataMode mode,const std::string& target) :
             CrawlAction(mode,easyDescribe(mode,target)){}
         template<class WorkingData>
-            requires std::convertible_to<WorkingData,Json>
+            requires std::convertible_to<WorkingData,Json> &&
+                (!std::same_as<std::decay_t<WorkingData>,const char*>) &&
+                (!std::same_as<std::decay_t<WorkingData>,std::string>)
         CrawlAction(const BrowseDataMode mode,WorkingData&& description):
             BrowseAction(),description(Json(std::forward<WorkingData>(description))) {
             if (!validDescription(mode,this -> description)) {

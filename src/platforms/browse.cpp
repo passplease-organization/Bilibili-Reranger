@@ -147,12 +147,19 @@ cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,
             json.dump()
         }
     );
-    if (response.status_code != 200)
+    if (response.status_code != 200) {
+        if (config<bool>(DETAILS))
+            warn("连接Browse登录失败");
         return {};
+    }
     try {
         json = Json::parse(response.text);
         if (SUCCESS_BROWSE_REQUEST(json) && json.contains(OPEN_BRIDGE))
             return json[OPEN_BRIDGE].get<string>();
+        if (config<bool>(DETAILS)) {
+            warn("错误Browser返回Json:",false);
+            warn(json.dump().c_str());
+        }
         return {};
     }catch (...) {
         return {};
@@ -174,10 +181,6 @@ Json UrlAction::_toJson() const {
     return json;
 }
 
-Json ClickAction::_toJson() const {
-    return selector.toJson();
-}
-
 #define CRAWL_DATAMODE "data_mode"
 #define CRAWL_TARGET "target"
 Json CrawlAction::easyDescribe(const BrowseDataMode &mode, const std::string &description) {
@@ -193,13 +196,13 @@ bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json)
         || !json[CRAWL_DATAMODE].is_string()
         || json[CRAWL_DATAMODE].get<std::string>() != modeToString(mode)
         || !json.contains(CRAWL_TARGET))
-        return true;
+        return false;
 
     const auto& description = json[CRAWL_TARGET];
     switch (mode) {
         case BrowseDataMode::DOM: {
             if (!description.is_string())
-                return true;
+                return false;
             try {
                 const auto selector = Json::parse(description.get<std::string>());
                 if (!selector.is_object()
@@ -208,22 +211,22 @@ bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json)
                     || !selector.contains("index")
                     || !(selector["index"].is_number_unsigned()
                         || (selector["index"].is_number_integer() && selector["index"].get<int>() >= 0)))
-                    return true;
+                    return false;
                 const auto& selectMode = selector["mode"].get_ref<const std::string&>();
-                return selectMode != "ID"
-                    && selectMode != "CLASS"
-                    && selectMode != "TAG"
-                    && selectMode != "TAGNAME";
+                return selectMode == "ID"
+                    || selectMode == "CLASS"
+                    || selectMode == "TAG"
+                    || selectMode == "TAGNAME";
             } catch (...) {
-                return true;
+                return false;
             }
         }
         case BrowseDataMode::HTTP_REQUEST:
         case BrowseDataMode::OTHER:
         case BrowseDataMode::NODATA:
-            return !description.is_string();
+            return description.is_string();
         default:
-            return true;
+            return false;
     }
 }
 

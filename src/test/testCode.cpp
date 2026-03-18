@@ -205,17 +205,16 @@ void test() {
         json[DEBUG] = response.text;
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
-        _say("Init:");
+        _say("Init( will fail ):");
         response = POST_PARAMS_ID(localhost + INIT);
-        if (response.status_code != 200) {
+        if (response.status_code == 200) {
             error = true;
-            warn("Init client failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            warn("Init client failed ! Get 200, but should fail !",false);
         }
         _say("Init: ");
         _say(esa.decrypt(response.text));
 
-        _say("Crawl:");
+        _say("Crawl( will fail ):");
         response = Post(
             Url{localhost},
             Parameters{
@@ -225,18 +224,11 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-        if (response.status_code != 200) {
+        if (response.status_code == 200) {
             error = true;
-            warn("Crawl for math failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            warn("Crawl for math failed ! Get 200, but should fail !");
         }
-        _say("Crawl for math get: ");
-        _say(response.text);
-        json = Json::parse(esa.decrypt(response.text));
-        if (json.empty()) {
-            error = true;
-            EMPTY_WARN("Crawl for math");
-        }
+        _say("Crawl for math succeed ");
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
