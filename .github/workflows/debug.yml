@@ -1,4 +1,4 @@
-name: debug.yml
+name: Debug All
 on:
   workflow_dispatch:
   push:

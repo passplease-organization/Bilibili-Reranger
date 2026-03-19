@@ -31,8 +31,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: browser/Dockerfile
+          context: ./browser
+          file: browser/dev.dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container
