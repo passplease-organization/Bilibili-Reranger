@@ -20,7 +20,7 @@ RUN apt-get update \
 
 FROM base AS compiler
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
