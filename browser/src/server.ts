@@ -83,9 +83,15 @@ export class Handler{
 
     protected async record(response: import("playwright").Response): Promise<void>{
         if(response.ok()){
+            let body: string;
+            try{
+                body = await response.text();
+            }catch(e){
+                return;
+            }
             this.records.set(response.url(),{
                 url: response.url(),
-                body: await response.text(),
+                body,
                 headers: response.headers()
             });
         }

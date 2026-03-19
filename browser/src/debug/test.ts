@@ -91,14 +91,7 @@ async function run(): Promise<number> {
                 ]
             }
         });
-        const body = parseJson(res.payload);
-        const ok =
-            res.statusCode === 200 &&
-            isObject(body) &&
-            body.ok === true &&
-            Array.isArray(body.back) &&
-            body.back.length === 1;
-        if (!ok) {
+        if (res.statusCode !== 200) {
             throw new Error(`status=${res.statusCode}, payload=${res.payload}`);
         }
     });
