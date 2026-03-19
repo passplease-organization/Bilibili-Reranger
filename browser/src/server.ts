@@ -1,10 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
 import {Browser, BrowserContext, chromium, Page} from 'playwright';
 import {closeServerPlugins, fastify, initServerPlugins, Worker} from "./PluginAPI";
 import serverInit from "./init";
 import {login} from "./login";
 import LoginRequest = login.LoginRequest;
 import LoginResponse = login.LoginResponse;
-import {API_PORT} from "./env";
+import {
+    API_PORT,
+    BROWSER_DEBUG_ARTIFACTS_DIR,
+    BROWSER_DEBUG_ENABLED,
+    BROWSER_DEBUG_HEADLESS,
+    BROWSER_DEBUG_HTML_LIMIT,
+    BROWSER_DEBUG_KEEP_OPEN
+} from "./env";
 import buildNginxURL = login.buildNginxURL;
 import collectContext = login.collectContext;
 import getSession = login.getSession;
@@ -20,6 +29,17 @@ export interface WorkerDescription{
     type: string;
     info: unknown;
 }
+export interface DebugSnapshot {
+    url?: string;
+    title?: string;
+    screenshot?: string;
+    html?: string;
+    htmlPreview?: string;
+    records?: string[];
+    workerType?: string;
+    workerIndex?: number;
+    tag?: string;
+}
 type NetRecord = {
     url: string;
     body: string;
@@ -27,12 +47,18 @@ type NetRecord = {
 };
 export class Handler{
     protected browse: Browser;
+    private readonly clientID: string;
+    private readonly platform: string;
     public context: BrowserContext;
     public page: Page;
     public records: Map<string, NetRecord> = new Map();
+    private currentWorkerType?: string;
+    private currentWorkerIndex?: number;
 
-    constructor(browser: Browser) {
+    constructor(browser: Browser, clientID: string, platform: string) {
         this.browse = browser;
+        this.clientID = clientID;
+        this.platform = platform;
         this.record = this.record.bind(this);
     }
 
@@ -73,6 +99,55 @@ export class Handler{
     public stopRecord(): void{
         this.page.off("response",this.record);
     }
+
+    public setCurrentWorker(type: string, index: number): void {
+        this.currentWorkerType = type;
+        this.currentWorkerIndex = index;
+    }
+
+    public async collectDebugArtifacts(tag: string): Promise<DebugSnapshot | undefined> {
+        if (!BROWSER_DEBUG_ENABLED || !this.page) {
+            return undefined;
+        }
+
+        fs.mkdirSync(BROWSER_DEBUG_ARTIFACTS_DIR, {recursive: true});
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const workerType = this.currentWorkerType || "UnknownWorker";
+        const workerIndex = this.currentWorkerIndex ?? -1;
+        const workerOrder = workerIndex >= 0 ? String(workerIndex + 1).padStart(2, "0") : "00";
+        const prefix = `${stamp}-${this.safePart(this.platform)}-${this.safePart(workerType)}-${workerOrder}-${this.safePart(tag)}`;
+        const screenshot = path.join(BROWSER_DEBUG_ARTIFACTS_DIR, `${prefix}.png`);
+        const html = path.join(BROWSER_DEBUG_ARTIFACTS_DIR, `${prefix}.html`);
+        const back: DebugSnapshot = {
+            records: Array.from(this.records.keys()).slice(-10),
+            workerType,
+            workerIndex,
+            tag
+        };
+
+        try {
+            back.url = this.page.url();
+        } catch {}
+        try {
+            back.title = await this.page.title();
+        } catch {}
+        try {
+            await this.page.screenshot({path: screenshot, fullPage: true, timeout: 5000});
+            back.screenshot = screenshot;
+        } catch {}
+        try {
+            const content = await this.page.content();
+            fs.writeFileSync(html, content, "utf8");
+            back.html = html;
+            back.htmlPreview = content.slice(0, BROWSER_DEBUG_HTML_LIMIT);
+        } catch {}
+
+        return back;
+    }
+
+    private safePart(value: string): string {
+        return value.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 40) || "unknown";
+    }
 }
 
 export interface RequestBody {
@@ -85,6 +160,7 @@ export interface RequestBody {
 export interface BackBody {
     ok: boolean;
     error?: Error;
+    debug?: DebugSnapshot;
     back: (WorkResult | WorkResult[])[]
 }
 
@@ -104,7 +180,9 @@ async function getHandler(clientID: string,platform: string): Promise<Handler>{
     }
     if(!Boolean(handlers[clientID]))
         handlers[clientID] = {};
-    const handler : Handler = new Handler(await chromium.launch())
+    const handler : Handler = new Handler(await chromium.launch({
+        headless: BROWSER_DEBUG_HEADLESS
+    }), clientID, platform)
     handlers[clientID][platform] = handler;
     return handler;
 }
@@ -118,10 +196,12 @@ initServerPlugins();
 
 fastify.get('/test',() => ({ok: true}));
 fastify.post('/',async (request) => {
+    let body: RequestBody | undefined;
     try{
-        const body = request.body as RequestBody;
+        body = request.body as RequestBody;
         console.log(`启动爬取，平台：${body.platform}`)
-        if(!body.workers)
+        if(!body.workers) {
+            console.warn("无Workers !");
             return {
                 ok: false,
                 error: {
@@ -130,8 +210,10 @@ fastify.post('/',async (request) => {
                 },
                 back: []
             } as BackBody;
+        }
         const handler = await getHandler(body.clientID,body.platform);
-        if(!await handler.init(body.context))
+        if(!await handler.init(body.context)) {
+            console.warn("初始化Context失败！");
             return {
                 ok: false,
                 error: {
@@ -140,13 +222,23 @@ fastify.post('/',async (request) => {
                 },
                 back: []
             } as BackBody;
+        }
         const back: BackBody = {back: [], ok: true};
-        for(const description of body.workers) {
+        for(let index = 0; index < body.workers.length; index++) {
+            const description = body.workers[index];
+            handler.setCurrentWorker(description.type, index);
             back.back.push(await Worker.fromDescription(description).work(handler));
         }
         return back;
     }catch(e){
         console.error(`Working Error:${e}`);
+        let debug: DebugSnapshot | undefined;
+        if (body?.clientID && body?.platform && handlers[body.clientID]?.[body.platform]) {
+            debug = await handlers[body.clientID][body.platform].collectDebugArtifacts("request-failed");
+        }
+        if (!(BROWSER_DEBUG_ENABLED && BROWSER_DEBUG_KEEP_OPEN) && body?.clientID && body?.platform) {
+            closeHandler(body.clientID, body.platform);
+        }
         return {
             ok: false,
             error: {
@@ -154,6 +246,7 @@ fastify.post('/',async (request) => {
                 message: e.message,
                 stack: e.stack,
             },
+            debug,
             back: []
         } as BackBody;
     }
@@ -189,7 +282,7 @@ fastify.post('/other/closeWorker',(request) => {
     }
 });
 fastify.post('/other/testContext',(request) => ({ok:false}));
-fastify.post('/other/login',(request) => {
+fastify.post('/login',(request) => {
     try {
         return login.login(request.body as LoginRequest);
     }catch(e){

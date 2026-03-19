@@ -34,7 +34,7 @@ export namespace BrowseDataMode {
             case 'HTTP_REQUEST': return BrowseDataMode.HTTP_REQUEST;
             case 'NODATA': return BrowseDataMode.NODATA;
             case 'OTHER': return BrowseDataMode.OTHER;
-            default: throw new Error(`Unknown SelectMode of ${name}`);
+            default: throw new Error(`Unknown BrowseDataMode of ${name}`);
         }
     }
 }
@@ -60,7 +60,7 @@ export class ElementSelector {
             case SelectMode.ID:
                 return `#${this.param}`;
             case SelectMode.CLASS:
-                return `.${this.param}`;
+                return `.${this.param.trim().split(/\s+/).join(".")}`;
             case SelectMode.TAG:
             case SelectMode.TAGNAME:
                 return this.param;
@@ -96,8 +96,14 @@ class ClickAction extends Worker {
     }
 
     public async work(handler: Handler): Promise<WorkResult> {
-        await handler.page.locator(this.selector.toCSS()).nth(this.selector.index).click();
-        return {};
+        const css = this.selector.toCSS();
+        try {
+            await handler.page.locator(css).nth(this.selector.index).click();
+            return {};
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            throw new Error(`click failed for selector '${css}' at index ${this.selector.index}: ${reason}`);
+        }
     }
 }
 
@@ -181,6 +187,7 @@ class DoWhileAction extends Worker {
                     failed = true;
                 }
             }
+            backs.push(result);
             count++;
         }while (count < this.maxCount && failed == this.failOrSucceed)
         return backs;
