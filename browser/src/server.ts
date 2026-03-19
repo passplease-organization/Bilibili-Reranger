@@ -14,6 +14,7 @@ import {
     BROWSER_DEBUG_HTML_LIMIT,
     BROWSER_DEBUG_KEEP_OPEN
 } from "./env";
+import {DisplaySession, ensureDisplayForHeadedLaunch} from "./debug/xvfb";
 import buildNginxURL = login.buildNginxURL;
 import collectContext = login.collectContext;
 import getSession = login.getSession;
@@ -47,6 +48,7 @@ type NetRecord = {
 };
 export class Handler{
     protected browse: Browser;
+    private readonly displaySession: DisplaySession;
     private readonly clientID: string;
     private readonly platform: string;
     public context: BrowserContext;
@@ -55,8 +57,9 @@ export class Handler{
     private currentWorkerType?: string;
     private currentWorkerIndex?: number;
 
-    constructor(browser: Browser, clientID: string, platform: string) {
+    constructor(browser: Browser, displaySession: DisplaySession, clientID: string, platform: string) {
         this.browse = browser;
+        this.displaySession = displaySession;
         this.clientID = clientID;
         this.platform = platform;
         this.record = this.record.bind(this);
@@ -145,6 +148,11 @@ export class Handler{
         return back;
     }
 
+    public async close(): Promise<void> {
+        await this.browse.close().catch(() => undefined);
+        await this.displaySession.close().catch(() => undefined);
+    }
+
     private safePart(value: string): string {
         return value.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 40) || "unknown";
     }
@@ -165,8 +173,9 @@ export interface BackBody {
 }
 
 type HandlerMap = Record<string, Record<string, Handler>>;
-function closeHandler(clientID: string,platform: string): void{
+async function closeHandler(clientID: string,platform: string): Promise<void>{
     if(Boolean(handlers[clientID]?.[platform])){
+        await handlers[clientID][platform].close();
         delete handlers[clientID][platform];
         if (Object.keys(handlers[clientID]).length === 0) {
             delete handlers[clientID];
@@ -180,16 +189,25 @@ async function getHandler(clientID: string,platform: string): Promise<Handler>{
     }
     if(!Boolean(handlers[clientID]))
         handlers[clientID] = {};
+    const displaySession = await ensureDisplayForHeadedLaunch(BROWSER_DEBUG_HEADLESS);
     const handler : Handler = new Handler(await chromium.launch({
-        headless: BROWSER_DEBUG_HEADLESS
-    }), clientID, platform)
+        headless: BROWSER_DEBUG_HEADLESS,
+        env: displaySession.env
+    }), displaySession, clientID, platform)
     handlers[clientID][platform] = handler;
     return handler;
 }
 
 const handlers: HandlerMap = {};
 
-fastify.addHook("onClose", closeAll);
+fastify.addHook("onClose", async () => {
+    await Promise.all([
+        closeAll(),
+        ...Object.values(handlers).flatMap((platformHandlers) =>
+            Object.values(platformHandlers).map((handler) => handler.close())
+        )
+    ]);
+});
 
 serverInit()
 initServerPlugins();
@@ -237,7 +255,7 @@ fastify.post('/',async (request) => {
             debug = await handlers[body.clientID][body.platform].collectDebugArtifacts("request-failed");
         }
         if (!(BROWSER_DEBUG_ENABLED && BROWSER_DEBUG_KEEP_OPEN) && body?.clientID && body?.platform) {
-            closeHandler(body.clientID, body.platform);
+            await closeHandler(body.clientID, body.platform);
         }
         return {
             ok: false,
@@ -251,7 +269,7 @@ fastify.post('/',async (request) => {
         } as BackBody;
     }
 });
-fastify.post('/other/closeWorker',(request) => {
+fastify.post('/other/closeWorker', async (request) => {
     try{
         const body = request.body as RequestBody;
         if(body.mode && body.mode != 'closeWorker')
@@ -263,7 +281,7 @@ fastify.post('/other/closeWorker',(request) => {
                 },
                 back:[]
             } as BackBody;
-        closeHandler(body.clientID,body.platform);
+        await closeHandler(body.clientID,body.platform);
         return {
             ok: !Boolean(handlers[body.clientID]?.[body.platform]),
             back: []
@@ -329,11 +347,13 @@ fastify.post('/other/login/backend',(request) => {
     }
 })
 
-fastify.listen({port: API_PORT, host: '0.0.0.0'})
-    .catch(async (err) => {
-        await closeServerPlugins();
-        fastify.log.error(err);
-        process.exit(1);
-    });
+if (process.env.BROWSER_SKIP_LISTEN !== "1") {
+    fastify.listen({port: API_PORT, host: '0.0.0.0'})
+        .catch(async (err) => {
+            await closeServerPlugins();
+            fastify.log.error(err);
+            process.exit(1);
+        });
+}
 
 console.log('主程序已启动');

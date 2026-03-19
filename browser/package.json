@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc && node dist/server.js",
-    "test": "tsc && node dist/test.js"
+    "test": "tsc && node dist/debug/test.js"
   },
   "dependencies": {
     "fastify": "5.7.3",

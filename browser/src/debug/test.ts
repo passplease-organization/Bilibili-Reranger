@@ -1,8 +1,10 @@
-import {fastify} from "./PluginAPI";
-import {BackBody} from "./server";
+import {fastify} from "../PluginAPI";
+import type {BackBody} from "../server";
 
 const CASE_TIMEOUT_MS = 60000;
 const TOTAL_TIMEOUT_MS = 600000;
+
+process.env.BROWSER_SKIP_LISTEN = "1";
 
 function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
@@ -21,7 +23,7 @@ function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number): 
     });
 }
 
-require("./server");
+require("../server");
 
 type Check = {
     name: string;
@@ -44,7 +46,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function pushResult(results: Check[], name: string, passed: boolean, detail?: string): void {
     results.push({name, passed, detail});
     const prefix = passed ? "PASS" : "FAIL";
-    const log =`[${prefix}] 测试名：${name}${detail ? ` -> ${detail}` : ""}`;
+    const log = `[${prefix}] 测试名：${name}${detail ? ` -> ${detail}` : ""}`;
     passed ? console.log(log) : console.warn(log);
 }
 
@@ -219,22 +221,15 @@ async function run(): Promise<number> {
         }
     }
 
+    await fastify.close();
     return failed.length === 0 ? 0 : 1;
 }
 
-(async () => {
-    let code = 1;
-    try {
-        code = await withTimeout(run(), "测试总流程", TOTAL_TIMEOUT_MS);
-    } catch (error) {
-        console.error("测试执行失败:", error);
-        code = 1;
-    } finally {
-        try {
-            await withTimeout(fastify.close(), "fastify.close", CASE_TIMEOUT_MS);
-        } catch (error) {
-            console.error("关闭服务失败:", error);
-        }
-        process.exit(code);
-    }
-})();
+withTimeout(run(), "全部测试", TOTAL_TIMEOUT_MS)
+    .then((code) => {
+        process.exitCode = code;
+    })
+    .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+    });
