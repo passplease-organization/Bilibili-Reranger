@@ -20,6 +20,7 @@ RUN apt-get update \
 
 FROM base AS compiler
 
+ENV NODE_ENV=development
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
