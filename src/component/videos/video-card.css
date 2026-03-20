@@ -1,0 +1,98 @@
+.video-card {
+  --video-card-bg: var(--surface-color);
+  --video-card-meta: var(--dark-font-color);
+  --video-card-cover-bg: var(--surface-muted);
+  display: block;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--video-card-bg);
+  box-shadow: var(--surface-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.video-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--focus-color) 18%, transparent),
+    rgba(0,0,0,0.08) 0 18px 28px -22px,
+    rgba(255,255,255,0.04) 0 1px 0 inset;
+}
+
+.video-cover-wrapper {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--video-card-cover-bg);
+}
+
+.video-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.video-card:hover .video-cover {
+  transform: scale(1.04);
+}
+
+.video-duration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+  background: rgb(0 0 0 / 65%);
+  font-family: var(--mono-font), monospace;
+}
+
+.video-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+  min-height: 116px;
+  padding: 14px 14px 12px;
+}
+
+.video-title {
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--font-color);
+  margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.5em * 2);
+  transition: color 0.2s ease;
+}
+
+.video-card:hover .video-title {
+  color: var(--focus-color);
+}
+
+.video-meta {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--video-card-meta);
+}
+
+.video-meta:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.dark .video-card {
+  --video-card-bg: var(--surface-elevated);
+  --video-card-cover-bg: rgba(255,255,255,0.04);
+}

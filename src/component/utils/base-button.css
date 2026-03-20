@@ -1,0 +1,61 @@
+.btn {
+  --base-button-size: var(
+    --setting-prop-resolved-size,
+    clamp(14px, var(--base-input-size, 16px), 18px)
+  );
+  font-size: var(--base-button-size);
+  padding:
+    clamp(10px, calc(var(--base-button-size) * 0.72), 13px)
+    clamp(16px, calc(var(--base-button-size) * 1.1), 20px);
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  line-height: 1.4;
+  font-weight: 500;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: var(--surface-shadow-soft);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible {
+  box-shadow: var(--surface-shadow-soft), var(--focus-ring);
+}
+
+.btn-primary {
+  background-color: var(--font-color);
+  color: var(--background-color);
+}
+
+.btn-primary:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--font-color) 18%, transparent),
+    rgba(0,0,0,0.12) 0 12px 20px -16px;
+}
+
+.btn-ghost {
+  background-color: var(--surface-color);
+  color: var(--font-color);
+  box-shadow: var(--surface-shadow-soft);
+}
+
+.btn-ghost:hover {
+  background-color: var(--surface-muted);
+}
+
+html.dark .btn {
+  box-shadow: var(--surface-shadow-soft);
+}
+
+html.dark .btn-primary {
+  color: #171717;
+  background: #ffffff;
+}

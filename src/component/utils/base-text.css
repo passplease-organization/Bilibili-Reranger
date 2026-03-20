@@ -1,0 +1,26 @@
+.base-title {
+  --base-title-size: 24px;
+  font-size: var(--base-title-size,larger);
+  margin-top: 4px;
+  margin-bottom: 4px;
+  text-shadow: 1px 2px 1px var(--dark-font-color);
+}
+
+.base-content {
+  --base-content-size: 24px;
+  padding: 0 8px;
+  display: block;
+  font-weight: 600;
+  font-size: var(--base-content-size,large);
+  text-shadow: 1px 2px 2px color-mix(in srgb, var(--dark-font-color) 85%, transparent);
+}
+
+.base-desc {
+  --base-desc-size: 16px;
+  display: block;
+  margin-bottom: 12px;
+  color: var(--dark-font-color);
+  font-size: var(--base-desc-size, large);
+  font-weight: inherit;
+  white-space: pre-wrap;
+}
