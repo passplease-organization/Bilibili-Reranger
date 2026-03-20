@@ -13,6 +13,5 @@ desktop.ini
 !.devcontainer/session/codex/skills
 postgres-data
 node_modules
-package-lock.json
 dist
 browser/logs
