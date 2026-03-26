@@ -14,11 +14,6 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger_backend:test_container
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     environment: Test
     env:
       QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
@@ -34,6 +29,7 @@ jobs:
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
+          args: '--image ghcr.io/${{ github.repository_owner }}/bilibili_reranger_backend:test_container'
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
           use-caches: true
@@ -47,13 +43,6 @@ jobs:
           push-fixes: 'none'
   browser:
     runs-on: ubuntu-latest
-    container:
-      # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
-      image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container
-      # 使用 GITHUB_TOKEN 来拉取私有或内部镜像
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     environment: Test
     env:
       QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BROWSER }}
@@ -69,14 +58,10 @@ jobs:
           sparse-checkout:
             'browser'
 
-      - run: |
-          cd browser
-          npm install
-
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
-          args: '--config browser/qodana.yaml'
+          args: '--config browser/qodana.yaml --image ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container'
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
           use-caches: true
