@@ -24,7 +24,7 @@ RUN vcpkg install cpr
 RUN vcpkg install curl
 RUN vcpkg install openssl
 
-RUN apt-get update && apt-get install -y autoconf automake libtool pkg-config
+RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
 RUN vcpkg install libsodium
 
 # For Qodana
