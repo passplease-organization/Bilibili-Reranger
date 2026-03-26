@@ -34,10 +34,11 @@ jobs:
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
-          args: '--linter qodana-cpp'
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
           use-caches: true
+          cache-dir: .qodana/caches
+          results-dir: .qodana/results
           post-pr-comment: true
           use-annotations: true
           # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
@@ -75,10 +76,12 @@ jobs:
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
-          args: '--linter qodana-js --only-directory browser'
+          args: '--config browser/qodana.yaml'
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
           use-caches: true
+          cache-dir: .qodana/caches
+          results-dir: .qodana/results
           post-pr-comment: true
           use-annotations: true
           # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job

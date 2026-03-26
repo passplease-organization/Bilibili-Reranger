@@ -11,6 +11,9 @@ on:
       - README.md
       - README_en.md
       - LICENSE
+      - .github/workflows/qodana_code_quality.yml
+      - qodana.yaml
+      - browser/qodana.yaml
 
 jobs:
   Test-Code-Backend:
