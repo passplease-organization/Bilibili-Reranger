@@ -70,7 +70,7 @@ BrowserManager文档： [中文](browser/README.md) / [English](browser/README_e
 ```bash
 docker run -p 23223:23223 -e BROWSE_URL=<your_browse_manager_url> -v <path_to_config>:/bilibili-backend/config -v <path_to_plugin>:/bilibili-backend/plugins docker.io/noname602/bilibili_reranger:latest
 ```
-`BROWSE_URL`是必须的，代表程序的浏览器组地址（使用cdocker-composebushu部署默认地址内部地址为`http://browse_manager`），`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
+`BROWSE_URL`是必须的，代表程序的浏览器组地址（使用docker-compose部署默认地址内部地址为`http://browser:3000`），`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
 ## 插件
 代码中有[示例插件](plugins/ExamplePlugin/main.cpp)，提供接口在[API动态链接库](api/interface.h)中，[API动态链接库](api)中的以C程序导出的方法都是可用的，方便做插件。
 ## URL请求

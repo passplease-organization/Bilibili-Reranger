@@ -74,7 +74,6 @@ const plugin: ServerPlugin = {
 export default plugin;
 ```
 
-这段代码的意思很简单：
 - `name` 是插件名字，不写也能运行，但建议写
 - `onServerInit` 会在服务启动时执行一次
 - `context.logger` 是 fastify 的日志对象，可以直接打日志
@@ -102,19 +101,6 @@ export default plugin;
 
 主程序就会自动执行你注册的 worker。
 
-### `handler` 能做什么
-`work(handler)` 里的 `handler` 是主程序传进来的浏览器操作对象，当前最常用的是：
-
-- `handler.newPage()`：创建新页面
-- `handler.page`：当前页面对象，可以直接调用 Playwright API
-- `handler.records`：已经记录下来的网络响应
-- `handler.stopRecord()`：停止记录网络响应
-
-所以开发插件时，你主要需要会这三件事：
-- 写 TypeScript 类
-- 会用 `async/await`
-- 会调用一点 Playwright 的页面方法
-
 ### 当前版本的能力边界
 下面这些是**现在已经支持**的：
 
@@ -122,11 +108,6 @@ export default plugin;
 - 插件关闭时清理资源
 - 注册自定义 worker
 - 注册自定义 HTTP 路由
-
-### 开发时注意事项
-- 当前主程序使用 `require(name)` 加载插件，所以插件编译结果要能被 CommonJS 正常加载
-- `registerWorker` 同名注册会失败，所以插件的 worker 名字不要和内建类型重名
-- `workers[].info` 的类型不会自动校验，建议你在构造函数里自己检查字段
 ## 警告
 本部分除开远程桌面部分（这部分安全也有赖于nginx辅助）没有任何加密措施，数据均明文传输，要么部署时与其余后端部分放在一个compose或者局域网内，要么就请自行做好安全防护！使用者也请明确你的登录地址是安全的！
 
