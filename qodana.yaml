@@ -29,35 +29,19 @@ projectJDK: "21" #(Applied in CI/CD pipeline)
 bootstrap: |+
   export VCPKG_ROOT="/opt/vcpkg"
   export PATH="$VCPKG_ROOT:$PATH"
-  
-  # 3.2 如果 vcpkg 不存在，则克隆并 bootstrap
-  if [ ! -d "$VCPKG_ROOT" ]; then
-    echo "📥 Cloning vcpkg..."
-    git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-    cd "$VCPKG_ROOT"
-    ./bootstrap-vcpkg.sh -disableMetrics > /dev/null 2>&1
-    ./vcpkg integrate install > /dev/null 2>&1
+  if [ ! -d "$VCPKG_ROOT" ]; then \
+    echo "📥 Cloning vcpkg..." && \
+    git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT" && \
+    cd "$VCPKG_ROOT" && \
+    ./bootstrap-vcpkg.sh -disableMetrics > /dev/null 2>&1 && \
+    ./vcpkg integrate install > /dev/null 2>&1; \
   fi
-  
-  # 3.3 启用 vcpkg binary caching（关键加速！）
-  # 使用 Qodana 缓存目录作为 vcpkg 缓存后端
   export VCPKG_BINARY_SOURCES="clear;files,$PWD/.qodana/vcpkg-cache,readwrite"
   mkdir -p "$PWD/.qodana/vcpkg-cache"
-  
-  apt update && apt install -y libboost-all-dev
-  apt install -y bison flex && vcpkg install libpqxx
-  vcpkg install nlohmann-json
-  vcpkg install cpr
-  vcpkg install curl
-  vcpkg install openssl
-  apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
-  vcpkg install libsodium
-  
-  if [ ! -f "build/compile_commands.json" ] && [ -f "CMakeLists.txt" ]; then
-    cmake -S . -B build \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake 2>/dev/null || true
+  apt-get update -qq && apt-get install -y -qq libboost-all-dev bison flex autoconf automake libtool pkg-config autoconf-archive > /dev/null 2>&1
+  "$VCPKG_ROOT/vcpkg" install libpqxx nlohmann-json cpr curl[core] openssl libsodium --x-install-root="$PWD/.qodana/vcpkg_installed" --triplet=x64-linux > /dev/null 2>&1 || true
+  if [ -f "CMakeLists.txt" ] && [ ! -f "build/compile_commands.json" ]; then \
+    cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake > /dev/null 2>&1 || true; \
   fi
 
 exclude:
