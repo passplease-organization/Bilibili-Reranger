@@ -26,24 +26,7 @@ profile:
 projectJDK: "21" #(Applied in CI/CD pipeline)
 
 #Execute shell command before Qodana execution (Applied in CI/CD pipeline)
-bootstrap: |+
-  export VCPKG_ROOT="/opt/vcpkg"
-  export PATH="$VCPKG_ROOT:$PATH"
-  if [ ! -d "$VCPKG_ROOT" ]; then \
-    echo "📥 Cloning vcpkg..." && \
-    git clone --depth=1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT" && \
-    cd "$VCPKG_ROOT" && \
-    ./bootstrap-vcpkg.sh -disableMetrics > /dev/null 2>&1 && \
-    ./vcpkg integrate install > /dev/null 2>&1; \
-  fi
-  export VCPKG_BINARY_SOURCES="clear;files,$PWD/.qodana/vcpkg-cache,readwrite"
-  mkdir -p "$PWD/.qodana/vcpkg-cache"
-  apt-get update -qq && apt-get install -y -qq libboost-all-dev bison flex autoconf automake libtool pkg-config autoconf-archive > /dev/null 2>&1
-  "$VCPKG_ROOT/vcpkg" install libpqxx nlohmann-json cpr curl[core] openssl libsodium --x-install-root="$PWD/.qodana/vcpkg_installed" --triplet=x64-linux > /dev/null 2>&1 || true
-  if [ -f "CMakeLists.txt" ] && [ ! -f "build/compile_commands.json" ]; then \
-    cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake > /dev/null 2>&1 || true; \
-  fi
-
+bootstrap: bash ./qodana-install.sh
 exclude:
   - paths:
       - cmake-build-debug/**
@@ -67,4 +50,4 @@ exclude:
 
 #Qodana supports other languages, for example, Python, JavaScript, TypeScript, Go, C#, PHP
 #For all supported languages see https://www.jetbrains.com/help/qodana/linters.html
-linter: jetbrains/qodana-cpp:2025.3-eap
+image: jetbrains/qodana-cpp:2025.3-eap
