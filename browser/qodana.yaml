@@ -47,4 +47,3 @@ bootstrap: npm install
 #Qodana supports other languages, for example, Python, JavaScript, TypeScript, Go, C#, PHP
 #For all supported languages see https://www.jetbrains.com/help/qodana/linters.html
 linter: jetbrains/qodana-js
-onlyDirectory: browser

@@ -58,6 +58,8 @@ jobs:
           sparse-checkout:
             'browser'
 
+      - run: mv ./browser ./ && rf -r browser
+
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
