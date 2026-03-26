@@ -27,9 +27,6 @@ RUN vcpkg install openssl
 RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
 RUN vcpkg install libsodium
 
-# For Qodana
-RUN curl -fsSL https://jb.gg/qodana-cli/install | bash
-
 RUN apt-get update && apt-get install -y curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
