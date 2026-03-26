@@ -12,9 +12,7 @@ on:
       - README_en.md
       - LICENSE
       - .github/workflows/qodana_code_quality.yml
-      - qodana.yaml
       - browser/qodana.yaml
-      - qodana-install.sh
 
 jobs:
   Test-Code-Backend:

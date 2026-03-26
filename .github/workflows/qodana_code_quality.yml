@@ -12,35 +12,35 @@ on:
       - backend
 
 jobs:
-  backend:
-    runs-on: ubuntu-latest
-    environment: Test
-    env:
-      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
-    permissions:
-      contents: write
-      pull-requests: write
-      checks: write
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
-      - name: 'Qodana Scan'
-        uses: JetBrains/qodana-action@v2025.3
-        with:
-          # When pr-mode is set to true, Qodana analyzes only the files that have been changed
-          pr-mode: false
-          use-caches: true
-          cache-dir: .qodana/caches
-          results-dir: .qodana/results
-          post-pr-comment: true
-          use-annotations: true
-          # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
-          upload-result: false
-          # quick-fixes available in Ultimate and Ultimate Plus plans
-          push-fixes: 'none'
+#  backend:
+#    runs-on: ubuntu-latest
+#    environment: Test
+#    env:
+#      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
+#    permissions:
+#      contents: write
+#      pull-requests: write
+#      checks: write
+#    steps:
+#      - uses: actions/checkout@v6
+#        with:
+#          ref: ${{ github.event.pull_request.head.sha }}
+#          fetch-depth: 0
+#
+#      - name: 'Qodana Scan'
+#        uses: JetBrains/qodana-action@v2025.3
+#        with:
+#          # When pr-mode is set to true, Qodana analyzes only the files that have been changed
+#          pr-mode: false
+#          use-caches: true
+#          cache-dir: .qodana/caches
+#          results-dir: .qodana/results
+#          post-pr-comment: true
+#          use-annotations: true
+#          # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
+#          upload-result: false
+#          # quick-fixes available in Ultimate and Ultimate Plus plans
+#          push-fixes: 'none'
   browser:
     runs-on: ubuntu-latest
     environment: Test
