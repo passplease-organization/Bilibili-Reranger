@@ -1,5 +1,5 @@
 #include "requestHelper.h"
-
+#include <cpr/api.h>
 #include "config.h"
 
 #if NEED_PORT
@@ -148,10 +148,27 @@ int testID(boost::asio::ip::tcp::socket& socket) {
     return back(sendMessage(socket, body, !valid));
 }
 
+#define GET_LOGIN_DATA_URL "/other/login/backend"
 int init(boost::asio::ip::tcp::socket& socket){
     LOG(INIT, "init");
     REQUIRE_CLIENT(socket);
-    const bool& ok = crawlInfo -> client -> prepare();
+    bool gather = false;
+    Json json;
+    if (BODY_CONTAIN("token")) {
+        json["token"] = INFO_BODY("token");
+        gather = true;
+    }
+    bool ok = true;
+    if (gather) {
+        json[CLIENT_ID] = crawlInfo -> clientId;
+        json[PLATFORM] = crawlInfo -> client -> handler() -> support();
+        const auto&& response = cpr::Post(
+            cpr::Url{browseManagerUrl,GET_LOGIN_DATA_URL},
+            cpr::Body{json.dump()}
+        );
+        ok = SUCCESS_BROWSE_REQUEST(Json::parse(response.text));
+    }
+    ok &= crawlInfo -> client -> prepare();
     return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 
@@ -182,7 +199,7 @@ handler checkURL(const std::string& url) {
     else if (url.starts_with(INIT))
         return init;
     else if (url.starts_with(SET))
-        return set;
+        return ::set;
     return nullptr;
 }
 

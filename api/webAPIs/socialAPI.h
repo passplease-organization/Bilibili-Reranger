@@ -211,7 +211,7 @@ namespace webAPI {
 
         API [[nodiscard]] bool prepare() const {
         #if ALL_CONTAINER_ONLINE
-            return _handler -> prepare();
+            return _handler && _handler -> prepare();
         #else
             return true;
         #endif

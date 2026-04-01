@@ -335,7 +335,7 @@ fastify.get('/screen',(request,reply) => {
 fastify.post('/other/login/backend',(request) => {
     try {
         const body = request.body as CollectRequest;
-        return collectContext(getSession(body.clientID,body.platform),body.token)
+        return collectContext(body.token,getSession(body.clientID,body.platform))
     }catch(e){
         console.error(`backend收集数据错误:\n${e}`)
         return {

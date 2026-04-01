@@ -1,7 +1,7 @@
 import {BackBody, RequestBody, WorkContext} from "./server";
 import {Browser, chromium} from "playwright";
 import {ChildProcessWithoutNullStreams, spawn} from "child_process";
-import {LOGIN_IDLE_SECONDS, MAX_LOGIN_PORT} from "./env";
+import {LOGIN_IDLE_SECONDS, MAX_LOGIN_PORT, START_SERVICE_WAITING_TIME} from "./env";
 import * as net from "node:net";
 
 export namespace login{
@@ -70,7 +70,7 @@ export namespace login{
         let Web: web | null = null;
         let browser: Browser | null = null;
         try{
-            Xvfb = startXvfb(body.screen);
+            Xvfb = await startXvfb(body.screen);
             Vnc = await startVnc(Xvfb.display);
             Web = await startWebsockify(async () => await close(session),Vnc);
             browser = await chromium.launch({
@@ -121,7 +121,7 @@ export namespace login{
         throw new Error("错误Token和Session参数！")
     }
 
-    function startXvfb(size: ScreenSize): xvfb{
+    function startXvfb(size: ScreenSize): Promise<xvfb>{
         const allDisplay = Array.from(loginSessions.values()).map(session => session.Xvfb.display)
         let display = 0;
         for (; display <= MAX_LOGIN_PORT; display++){
@@ -132,13 +132,31 @@ export namespace login{
             throw new Error(`无可用登录屏幕端口！已达到上限${MAX_LOGIN_PORT}个！`)
         const xvfb = spawn("Xvfb", [
             `:${display}`,
-            "-screen", "0", `${size.width}x${size.height}x${size.depth}`,
+            "-screen", "0", `${size.width}x${size.height}x${Math.min(size.depth,24)}`,
             "-nolisten", "tcp"
-        ])
-        xvfb.on("error", (err) => {
-            throw new Error(`启动Xvfb失败，原因如下：\n${err.stack}`)
-        })
-        return {xvfb,display}
+        ],{
+            stdio: ["ignore", "pipe", "pipe"]
+        });
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(()=>{
+                clearTimeout(timer);
+                resolve({xvfb,display});
+            },START_SERVICE_WAITING_TIME);
+            xvfb.on("error", (err) => {
+                clearTimeout(timer);
+                reject(new Error(`启动Xvfb失败，原因如下：\n${err.stack}`));
+            });
+            xvfb.on("exit", (code: number | null,signal: NodeJS.Signals | null) => {
+                clearTimeout(timer);
+                reject(`Xvfb退出，退出码：${code}，信号：${signal}`);
+            });
+            xvfb.stdout.on("data", (chunk) => {
+                process.stdout.write(`[xvfb:${display}] ${chunk}`);
+            });
+            xvfb.stderr.on("data", (chunk) => {
+                process.stderr.write(`[xvfb:${display}] ${chunk}`);
+            });
+        });
     }
 
     export async function validPort(): Promise<number>{
@@ -164,42 +182,57 @@ export namespace login{
             "-display", `:${display}`,
             "-rfbport", `${port}`,
             "-localhost",
-            "-ssl","SAVE",
-            "-sslonly",
             "-nopw"
         ]);
-        vnc.on("error", (err) => {
-            throw new Error(`启动VNC失败，原因如下：\n${err.stack}`);
-        })
-        return {
-            vnc,
-            port
-        };
+        return await new Promise((resolve, reject) => {
+            const timer = setTimeout(()=>{
+                clearTimeout(timer);
+                resolve({
+                    vnc,
+                    port
+                });
+                vnc.on("error", (err) => {
+                    clearTimeout(timer);
+                    reject(new Error(`启动VNC失败，原因如下：\n${err.stack}`));
+                });
+            },START_SERVICE_WAITING_TIME);
+        });
     }
 
     async function startWebsockify(closer: () => void,vnc: vnc): Promise<web>{
         const port = await validPort();
         const web = spawn("websockify",[
             "--web", "/usr/share/novnc",
-            "--ssl-target",
             "--idle-timeout", `${LOGIN_IDLE_SECONDS}`,
             `${port}`, `localhost:${vnc.port}`
         ]);
-        web.addListener("exit",(code,signal) => {
-            console.log(`Websockify关闭，状态码：${code}，收到信号：${signal}`);
-            closer();
-        })
-        web.on("error", (err) => {
-            throw new Error(`启动Websockify失败，原因如下：\n${err.stack}`);
-        })
-        web.addListener("error", (err) => {
-            console.log(`Websockify遇到错误：${err}`);
-            closer();
-        })
-        return {
-            websockify: web,
-            port
-        };
+        return await new Promise((resolve, reject) => {
+            const timer = setTimeout(()=>{
+                clearTimeout(timer);
+                resolve({
+                    websockify: web,
+                    port
+                });
+            },START_SERVICE_WAITING_TIME);
+            web.addListener("exit",(code,signal) => {
+                const err = `Websockify关闭，状态码：${code}，收到信号：${signal}`;
+                console.log(err);
+                closer();
+                clearTimeout(timer);
+                reject(err);
+            })
+            web.on("error", (err) => {
+                clearTimeout(timer);
+                reject(new Error(`启动Websockify失败，原因如下：\n${err.stack}`));
+            })
+            web.addListener("error", (err) => {
+                const error = `Websockify遇到错误：${err}`;
+                console.log(error);
+                closer();
+                clearTimeout(timer);
+                reject(error);
+            })
+        });
     }
 
     async function close(session: string): Promise<void>{
@@ -234,7 +267,7 @@ export namespace login{
             if(login.token == token) {
                 for (const context of login.browser.contexts()) {
                     const cookies = Array.from(await context.cookies(login.url));
-                    if(typeof cookies.find(c => c.name == "_uuid") != undefined) {
+                    if(cookies.find(c => c.name == "_uuid") != undefined) {
                         let cookie = "";
                         for (const c of cookies) {
                             cookie += `${c.name}=${c.value}; `;

@@ -15,3 +15,5 @@ export const BROWSER_DEBUG_ARTIFACTS_DIR = path.resolve(
 export const BROWSER_DEBUG_HTML_LIMIT = Number(process.env.BROWSER_DEBUG_HTML_LIMIT) || 20000;
 export const BROWSER_DEBUG_HEADLESS = process.env.BROWSER_DEBUG_HEADLESS !== "0";
 export const BROWSER_DEBUG_KEEP_OPEN = process.env.BROWSER_DEBUG_KEEP_OPEN === "1";
+
+export const START_SERVICE_WAITING_TIME = Number(process.env.WAITING_TIME || 5000);

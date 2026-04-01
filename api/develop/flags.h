@@ -16,6 +16,7 @@
     #endif
 #else
 #define CONNECT_INTERNET true
+#define ALL_CONTAINER_ONLINE true
 #define SLEEP_CRAWL true
 #define NEED_PORT true
 #define EASY_LOGIN false

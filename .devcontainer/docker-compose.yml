@@ -8,13 +8,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - api
       - backend
       - browser
-
-  api:
-    image: noname602/bilibili_reranger_frontend_api
-    domainname: api
 
   backend:
     build:
