@@ -26,9 +26,7 @@ profile:
 projectJDK: "21" #(Applied in CI/CD pipeline)
 
 #Execute shell command before Qodana execution (Applied in CI/CD pipeline)
-bootstrap: |
-  vcpkg integrate install
-  cmake -DCMAKE_TOOLCHAIN_FILE=/dependencies/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Debug -B build
+bootstrap: vcpkg integrate install
 
 #Install IDE plugins before Qodana execution (Applied in CI/CD pipeline)
 #plugins:
@@ -48,3 +46,6 @@ bootstrap: |
   
 #Qodana supports other languages, for example, Python, JavaScript, TypeScript, Go, C#, PHP
 #For all supported languages see https://www.jetbrains.com/help/qodana/linters.html
+
+cpp:
+  cmakePreset: qodana-vcpkg.json
