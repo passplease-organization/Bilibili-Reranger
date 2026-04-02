@@ -12,7 +12,7 @@ on:
       - backend
 
 jobs:
-  backend:
+  build-backend-image:
     runs-on: ubuntu-latest
     environment: Test
     env:
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Log in to the GitHub Container Registry
@@ -44,16 +44,52 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/bilibili_reranger_qodana:qodana_cpp
 
+  backend:
+    runs-on: ubuntu-latest
+    needs: build-backend-image
+    environment: Test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: qodana-debug
+            config: qodana-debug.yaml
+          - preset: qodana-release
+            config: qodana-release.yaml
+          - preset: qodana-test
+            config: qodana-test.yaml
+    env:
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_BACKEND }}
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2025.3
         with:
-          args: '--image ghcr.io/${{ github.repository_owner }}/bilibili_reranger_qodana:qodana_cpp'
+          args: |
+            --image,ghcr.io/${{ github.repository_owner }}/bilibili_reranger_qodana:qodana_cpp,
+            --config,${{ matrix.config }}
           # When pr-mode is set to true, Qodana analyzes only the files that have been changed
           pr-mode: false
           use-caches: true
-          cache-dir: .qodana/caches
-          results-dir: .qodana/results
-          post-pr-comment: true
+          cache-dir: .qodana/caches/${{ matrix.preset }}
+          results-dir: .qodana/results/${{ matrix.preset }}
+          post-pr-comment: false
           use-annotations: true
           # Upload Qodana results (SARIF, other artifacts, logs) as an artifact to the job
           upload-result: false
@@ -71,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: '0'
           sparse-checkout:
             'browser'

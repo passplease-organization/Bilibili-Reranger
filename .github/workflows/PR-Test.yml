@@ -166,10 +166,10 @@ jobs:
 
       - name: Test Backend Code
         run: |
-          cmake -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Test -B build
-          cmake --build build
-          cmake --build build --target COPY_ALL_PDBS
-          cd build/Test
+          cmake --preset test
+          cmake --build --preset test
+          cmake --build --preset test --target COPY_ALL_PDBS
+          cd build/test/Test
           chmod +x BiliBili_Reranger
           ./BiliBili_Reranger
 
@@ -178,7 +178,7 @@ jobs:
         with:
           name: backend-test-output
           include-hidden-files: true
-          path: ./build/Test/output/
+          path: ./build/test/Test/output/
           retention-days: 7
         if: always()
 
@@ -281,10 +281,10 @@ jobs:
 
       - name: Test Backend With Browser Service
         run: |
-          cmake -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Test -B build
-          cmake --build build
-          cmake --build build --target COPY_ALL_PDBS
-          cd build/Test
+          cmake --preset test
+          cmake --build --preset test
+          cmake --build --preset test --target COPY_ALL_PDBS
+          cd build/test/Test
           chmod +x BiliBili_Reranger
           ./BiliBili_Reranger
 
@@ -293,7 +293,7 @@ jobs:
         with:
           name: integration-test-output
           include-hidden-files: true
-          path: ./build/Test/output/
+          path: ./build/test/Test/output/
           retention-days: 7
         if: always()
 

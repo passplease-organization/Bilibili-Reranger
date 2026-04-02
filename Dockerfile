@@ -17,7 +17,7 @@ COPY ./api ./api
 COPY ./plugins ./plugins
 COPY CMakeLists.txt CMakeLists.txt
 
-RUN cmake -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -B build && \
+RUN cmake --preset release && \
               cmake --build build && \
               cmake --build build --target COPY_ALL_PDBS
 
