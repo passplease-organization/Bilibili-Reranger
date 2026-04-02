@@ -33,4 +33,6 @@ RUN vcpkg install openssl
 RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
 RUN vcpkg install libsodium
 
+RUN vcpkg integrate install
+
 WORKDIR /data/project
