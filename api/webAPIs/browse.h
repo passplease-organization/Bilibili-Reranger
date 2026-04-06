@@ -58,17 +58,24 @@ namespace webAPI {
 
     struct BrowseWorkingContext {
         std::string cookie;
+        std::string cookie_domain;
+        std::string cookie_path = "/";
         std::string ua;
 
         static BrowseWorkingContext EMPTY;
 
         bool operator==(const BrowseWorkingContext &other) const {
-            return other.cookie == cookie && other.ua == ua;
+            return other.cookie == cookie &&
+                other.cookie_domain == cookie_domain &&
+                other.cookie_path == cookie_path &&
+                other.ua == ua;
         }
 
-        Json toJson() {
+        [[nodiscard]] Json toJson() const {
             Json json;
-            json["cookie"] = cookie;
+            json["cookie"]["value"] = cookie;
+            json["cookie"]["domain"] = cookie_domain;
+            json["cookie"]["path"] = cookie_path;
             json["user_agent"] = ua;
             return json;
         }
@@ -184,7 +191,8 @@ namespace webAPI {
         [[nodiscard]] bool closeWorker(Nullable BrowseWorkingContext* const& context) const;
         #define CLOSE_WORKER "closeWorker"
 
-        [[nodiscard]] bool testContext(Nullable BrowseWorkingContext* const& context) const;
+        [[nodiscard]] bool testContext(const BrowseWorker &worker) const;
+        #define TEST_URL "url"
         #define TEST_CONTEXT "testContext"
 
         [[nodiscard]] cpr::Url openBridge(const std::string& clientID,cpr::Url url,const Json& screen) const;
@@ -240,6 +248,8 @@ namespace webAPI {
         }
     };
 
+    #define CrawlData "data"
+    #define EmptyCrawlData(data) !data.contains(CrawlData)
     class CrawlAction : public BrowseAction {
     private:
         static std::string _name;
@@ -284,6 +294,10 @@ namespace webAPI {
     private:
         static std::string _name;
     protected:
+        /**
+         * @value true means do until succeed
+         * @value false means do until failed
+         */
         bool failOrSucceeded;
         int maxCount;
         std::vector<std::shared_ptr<BrowseAction>> actions;

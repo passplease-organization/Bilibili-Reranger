@@ -23,7 +23,7 @@
 #define _getListFromData(json,all) (all ? getDataFromJson(json)["list"] : json["list"])
 #define _getSubscriberCount(json) getDataFromJson(json)["total"].get<int>()
 #define _getSubscriberName(json) json.at("uname").get<string>()
-#define _getSubscriberMid(json) json.at("mid").get<string>()
+#define _getSubscriberMid(json) json.at("mid").get<int>()
 #define _hasSubscriberName(json) json.contains("uname")
 #define _hasSubscriberMid(json) json.contains("mid")
 #define forEachVideo(json) for(const auto& videoData : _getListFromData(json,true)["vList"])

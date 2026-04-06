@@ -38,7 +38,7 @@ void createConfig(){
         config.put(MAX_CRAWL_COUNT,10000,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_AI_TOKENS,2000,false,FORCE_GENERATE_CONFIG);
         config.put(PORT,23223,false,FORCE_GENERATE_CONFIG);
-        config.put(TIMEOUT,60000,false,FORCE_GENERATE_CONFIG);
+        config.put(TIMEOUT,300000,false,FORCE_GENERATE_CONFIG);
         #ifdef DEVELOP
             config.put(DETAILS,true,false,FORCE_GENERATE_CONFIG);
         #else

@@ -94,8 +94,17 @@ namespace webAPI {
 
         BrowseWorkingContext* context;
     public:
+        /**
+         * Should call ensureContext() after called
+         * @param stop the stop sign distributed to each thread
+         */
         explicit socialAPI(std::shared_ptr<const std::atomic<bool>>& stop);
 
+        /**
+         * Init handler using data
+         * @param data May some rows are empty, these should be handled
+         * @return succeed or not
+         */
         API [[nodiscard]] virtual bool fromData(const ::webAPI::HandlerRow& data) noexcept;
 
         API virtual ~socialAPI() = 0;
@@ -117,11 +126,17 @@ namespace webAPI {
             return false;
         }
 
-        API [[nodiscard]] virtual bool validBrowse() const;
+        API [[nodiscard]] virtual bool validBrowse() const = 0;
 
         API virtual void writeToDataBase(::webAPI::HandlerRow& data) const;
 
         API virtual void ensureContext();
+
+        /**
+         * You should set context -> domain/path in this method
+         * And at called time, the context will allways be valid
+         */
+        API virtual void setContextDomain() = 0;
 
         /**
          * Get if support to log in this specific platform, and the return value will never be changed in this thread
@@ -155,7 +170,11 @@ namespace webAPI {
             stop = timer;
         }
 
-        API bool checkVideo(const Video& video) const;
+        API [[nodiscard]] bool checkVideo(const Video& video) const;
+
+        API [[nodiscard]] BrowseWorkingContext* const& getContext() const noexcept {
+            return context;
+        }
     };
 
     class Client {
@@ -208,6 +227,8 @@ namespace webAPI {
         }
 
         API bool handlerFromData(const vector<::webAPI::HandlerRow>& data) noexcept;
+
+        API [[nodiscard]] bool setHandlerContext(const BrowseWorkingContext& context) const;
 
         API [[nodiscard]] bool prepare() const {
         #if ALL_CONTAINER_ONLINE

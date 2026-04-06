@@ -101,13 +101,13 @@ Json BrowseController::perform(const BrowseWorker &worker) const {
     }
 }
 
-inline bool otherWork(const cpr::Url* const &browseIP,Nullable BrowseWorkingContext *const &context,const string& mode) {
+inline bool otherWork(const cpr::Url* const &browseIP,Nullable BrowseWorkingContext *const &context,const string& mode,Json json = Json()) {
     if (!_testConnection(browseIP))
         return false;
-    Json json;
     json[CLIENT_ID] = crawlInfo -> clientId;
     json[PLATFORM] = crawlInfo -> client -> handler() -> support();
-    json[CONTEXT] = context -> toJson();
+    if (context)
+        json[CONTEXT] = context -> toJson();
     json[OTHER_MODE] = mode;
     auto&& response = cpr::Post(
         append(browseIP,"/other/" + mode),
@@ -126,8 +126,13 @@ bool BrowseController::closeWorker(BrowseWorkingContext *const &context) const {
     return otherWork(browseIP,context,CLOSE_WORKER);
 }
 
-bool BrowseController::testContext(BrowseWorkingContext *const &context) const {
-    return otherWork(browseIP,context,TEST_CONTEXT);
+bool BrowseController::testContext(const BrowseWorker &worker) const {
+    Json json;
+    auto&& workers = json[ActionsFlag];
+    for (auto&& action : worker.actions) {
+        workers.push_back(action -> toJson());
+    }
+    return otherWork(browseIP,worker.context,TEST_CONTEXT,json);
 }
 
 cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,const Json& screen) const {
@@ -136,7 +141,11 @@ cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,
     Json json;
     json[CLIENT_ID] = clientID;
     json[PLATFORM] = crawlInfo -> client -> handler() -> support();
-    json[CONTEXT] = BrowseWorkingContext::EMPTY.toJson();
+    #ifdef DEVELOP
+        json[CONTEXT] = crawlInfo -> client -> handler() -> getContext() -> toJson();
+    #else
+        json[CONTEXT] = BrowseWorkingContext::EMPTY.toJson();
+    #endif
     json[OTHER_MODE] = OPEN_BRIDGE;
     json[LOGIN_URL] = url.str();
     json[LOGIN_SCREEN_SIZE] = screen;

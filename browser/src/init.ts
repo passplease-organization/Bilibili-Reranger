@@ -123,9 +123,20 @@ class CrawlAction extends Worker {
 
     public async work(handler: Handler): Promise<WorkResult | WorkResult[]> {
         interface back extends WorkResult {
-            data: string;
+            data: string | object;
             clean_data?: string;
         }
+        const returner = (data: string) => {
+            try{
+                return {
+                    data: JSON.parse(data)
+                }
+            }catch(e: any) {
+                return {
+                    data
+                }
+            }
+        };
         switch (this.mode) {
             case BrowseDataMode.DOM: {
                 try{
@@ -134,7 +145,7 @@ class CrawlAction extends Worker {
                     const target = handler.page.locator(selector.toCSS()).nth(selector.index);
                     const text = await target.textContent();
                     return {
-                        data: text ?? await target.innerText(),
+                        data: returner(text ?? await target.innerText()),
                         clean_data: (text ?? "").replace(/s+/g,"  ").trim()
                     } as back
                 }catch(e){
@@ -142,12 +153,15 @@ class CrawlAction extends Worker {
                 }
             }
             case BrowseDataMode.HTTP_REQUEST: {
-                const backs = [...handler.records.values()].filter(response => response.url.includes(this.description));
+                const backs = [...handler.records.entries()]
+                    .filter(([key,]) => !key.handled && key.url.includes(this.description))
+                    .map(([key,record]) => {
+                        key.handled = true;
+                        return record;
+                    });
                 if(backs.length == 1){
-                    return {
-                        data: backs[0].body
-                    }
-                }else return backs.map(record => ({data: record.body} as back))
+                    return returner(backs[0].body);
+                }else return backs.map(record => returner(record.body));
             }
             case BrowseDataMode.NODATA: return {}
             case BrowseDataMode.OTHER: throw new Error('Bad settings of worker, get OTHER but no registered handler')
@@ -178,7 +192,7 @@ class DoWhileAction extends Worker {
         type backFormat = (WorkResult | WorkResult[])[];
         const backs: backFormat[] = [];
         do{
-            const result: backFormat = [];
+            let result: backFormat = [];
             for (const worker of this.workers) {
                 try{
                     result.push(await worker.work(handler));

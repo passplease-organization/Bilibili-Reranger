@@ -160,15 +160,33 @@ int init(boost::asio::ip::tcp::socket& socket){
     }
     bool ok = true;
     if (gather) {
+        say("收集登录信息");
         json[CLIENT_ID] = crawlInfo -> clientId;
         json[PLATFORM] = crawlInfo -> client -> handler() -> support();
         const auto&& response = cpr::Post(
             cpr::Url{browseManagerUrl,GET_LOGIN_DATA_URL},
+            cpr::Header{POST_JSON_HEADER},
             cpr::Body{json.dump()}
         );
-        ok = SUCCESS_BROWSE_REQUEST(Json::parse(response.text));
+        auto&& newContext = Json::parse(response.text);
+        if (SUCCESS_BROWSE_REQUEST(newContext)) {
+            const auto& cookie = newContext[CONTEXT]["cookie"];
+            ok = crawlInfo -> client -> setHandlerContext({
+                cookie["value"].get<string>(),
+                cookie["domain"].get<string>(),
+                cookie.value("path", "/"),
+            }) &&
+                dataBase.upsertHandler(crawlInfo -> client -> handler(),crawlInfo -> clientId);
+            if (ok) {
+                say("收集登录信息成功");
+                goto Prepare;
+            }
+        }
+        warn("收集登录信息失败");
+        ok = false;
     }
-    ok &= crawlInfo -> client -> prepare();
+    Prepare:
+    ok = ok && crawlInfo -> client -> prepare();
     return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 

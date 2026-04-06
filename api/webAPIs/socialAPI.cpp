@@ -20,9 +20,7 @@ extern ::webAPI::postgres dataBase;
 
 webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop):
 stop(stop),
-context(nullptr) {
-    ensureContext();
-}
+context(nullptr) {}
 
 webAPI::socialAPI::~socialAPI() {
     if (context != nullptr && !webAPI::getController().closeWorker(context)) {
@@ -36,6 +34,7 @@ bool webAPI::socialAPI::fromData(const ::webAPI::HandlerRow& data) noexcept{
     if (context == nullptr) {
         context = new BrowseWorkingContext(data.browse);
     }else *context = data.browse;
+    setContextDomain();
     return true;
 }
 
@@ -50,10 +49,6 @@ bool webAPI::socialAPI::supportPlatform(const std::string& platform,creator func
 
 void webAPI::socialAPI::init(){}
 
-bool socialAPI::validBrowse() const {
-    return getController().testContext(context);
-}
-
 void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
     data.platform = support();
     if (validBrowse())
@@ -65,6 +60,7 @@ void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
 void socialAPI::ensureContext() {
     if (context == nullptr)
         context = new BrowseWorkingContext();
+    setContextDomain();
 }
 
 bool webAPI::socialAPI::instance(webAPI::socialAPI** handler,const std::string &platform,std::shared_ptr<const std::atomic<bool>>& stop) {
@@ -410,6 +406,19 @@ bool Client::handlerFromData(const vector<::webAPI::HandlerRow>& datas) noexcept
     }catch(const std::exception&){
         return false;
     }
+}
+
+bool Client::setHandlerContext(const BrowseWorkingContext &context) const {
+    if (_handler) {
+        return _handler -> fromData({
+            ID,
+            _handler -> support(),
+            context,
+            "",
+            ""
+        });
+    }
+    return false;
 }
 
 bool Client::check() const noexcept{

@@ -23,7 +23,31 @@ import CollectResponse = login.CollectResponse;
 import closeAll = login.closeAll;
 
 export interface WorkContext {
-    cookie: string;
+    cookie: {
+        value: string,
+        domain: string,
+        path?: string
+    };
+}
+
+export namespace WorkContext{
+    export function toCookie(context: WorkContext){
+        return context.cookie.value
+            .split(";")
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(pair => {
+                const eq = pair.indexOf("=");
+                const name = eq >= 0 ? pair.slice(0, eq).trim() : pair.trim();
+                const value = eq >= 0 ? pair.slice(eq + 1).trim() : "";
+                return {
+                    name,
+                    value,
+                    domain: context.cookie.domain,
+                    path: context.cookie.path || "/"
+                };
+            });
+    }
 }
 export interface WorkResult{}
 export interface WorkerDescription{
@@ -36,7 +60,7 @@ export interface DebugSnapshot {
     screenshot?: string;
     html?: string;
     htmlPreview?: string;
-    records?: string[];
+    records?: {url: string, handled: boolean}[];
     workerType?: string;
     workerIndex?: number;
     tag?: string;
@@ -53,7 +77,7 @@ export class Handler{
     private readonly platform: string;
     public context: BrowserContext;
     public page: Page;
-    public records: Map<string, NetRecord> = new Map();
+    public records: Map<{ url:string, handled: boolean }, NetRecord> = new Map();
     private currentWorkerType?: string;
     private currentWorkerIndex?: number;
 
@@ -66,18 +90,9 @@ export class Handler{
     }
 
     public async init(context: WorkContext) : Promise<boolean>{
+        this.records.clear();
         this.context = await this.browse.newContext();
-        const cookies = context.cookie
-            .split(";")
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(pair => {
-                const eq = pair.indexOf("=");
-                const name = eq >= 0 ? pair.slice(0, eq).trim() : pair.trim();
-                const value = eq >= 0 ? pair.slice(eq + 1).trim() : "";
-                return { name, value };
-            });
-        await this.context.addCookies(cookies);
+        await this.context.addCookies(WorkContext.toCookie(context));
         return true;
     }
 
@@ -89,7 +104,7 @@ export class Handler{
             }catch(e){
                 return;
             }
-            this.records.set(response.url(),{
+            this.records.set({url: response.url(), handled: false},{
                 url: response.url(),
                 body,
                 headers: response.headers()
@@ -97,9 +112,11 @@ export class Handler{
         }
     }
 
-    public async newPage(options?: any): Promise<Page> {
+    public async newPage(): Promise<Page> {
         this.records.clear();
-        this.page = await this.browse.newPage(options);
+        if(this.page)
+            await this.page.close();
+        this.page = await this.context.newPage();
         this.page.on("close", () => this.records.clear());
         this.page.on("response",this.record);
         return this.page;
@@ -305,7 +322,11 @@ fastify.post('/other/closeWorker', async (request) => {
         } as BackBody;
     }
 });
-fastify.post('/other/testContext',(request) => ({ok:false}));
+fastify.post('/other/testContext',(request,reply) => {
+    reply.redirect('/');
+    const body = request.body as RequestBody;
+    console.log(`检测${body.clientID}的${body.platform}登录凭据`);
+});
 fastify.post('/login',(request) => {
     try {
         return login.login(request.body as LoginRequest);
@@ -347,7 +368,11 @@ fastify.post('/other/login/backend',(request) => {
             },
             back: [],
             context: {
-                cookie: ''
+                cookie: {
+                    value: '',
+                    domain: '',
+                    path: '/'
+                }
             }
         } as CollectResponse
     }

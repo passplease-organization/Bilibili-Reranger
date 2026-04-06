@@ -80,7 +80,7 @@ async function run(): Promise<number> {
             payload: {
                 clientID: "client-a",
                 platform: "BiliBili",
-                context: {cookie: ""},
+                context: {cookie: {value: "", domain: "", path: "/"}},
                 workers: [
                     {
                         type: "UrlAction",
@@ -103,7 +103,7 @@ async function run(): Promise<number> {
             payload: {
                 clientID: "client-a",
                 platform: "BiliBili",
-                context: {cookie: ""}
+                context: {cookie: {value: "", domain: "", path: "/"}}
             }
         });
         const body = parseJson(res.payload) as BackBody;
@@ -124,7 +124,7 @@ async function run(): Promise<number> {
             payload: {
                 clientID: "client-a",
                 platform: "BiliBili",
-                context: {cookie: ""},
+                context: {cookie: {value: "", domain: "", path: "/"}},
                 mode: "closeWorker"
             }
         });
@@ -141,7 +141,7 @@ async function run(): Promise<number> {
             payload: {
                 clientID: "client-a",
                 platform: "BiliBili",
-                context: {cookie: ""},
+                context: {cookie: {value: "", domain: "", path: "/"}},
                 mode: "bad-mode"
             }
         });
@@ -187,7 +187,7 @@ async function run(): Promise<number> {
                 clientID: "client-a",
                 platform: "BiliBili",
                 token: "invalid-token",
-                context: {cookie: ""}
+                context: {cookie: {value: "", domain: "", path: "/"}}
             }
         });
         const body = parseJson(res.payload);

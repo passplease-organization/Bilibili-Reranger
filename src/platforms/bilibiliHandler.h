@@ -58,6 +58,8 @@ namespace webAPI{
 
         ~bilibiliHandler() override = default;
 
+        void setContextDomain() override;
+
         [[deprecated]] string login(const std::string &name, const std::string &password,bool& failed) override;
         [[nodiscard]] cpr::Url login(const string &clientID, bool &failed) override;
 
@@ -80,11 +82,15 @@ namespace webAPI{
                 data = nullptr;
             }
         }
+
+        [[nodiscard]] bool validBrowse() const override;
     };
 
     inline void registerBilibili() {
         webAPI::socialAPI::supportPlatform(BILIBILI,[](std::shared_ptr<const std::atomic<bool>>& stop) -> webAPI::socialAPI* {
-            return new bilibiliHandler(stop);
+            const auto handler = new bilibiliHandler(stop);
+            handler -> ensureContext();
+            return handler;
         });
     }
 }

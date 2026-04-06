@@ -3,6 +3,7 @@ import {Browser, chromium} from "playwright";
 import {ChildProcessWithoutNullStreams, spawn} from "child_process";
 import {LOGIN_IDLE_SECONDS, MAX_LOGIN_PORT, START_SERVICE_WAITING_TIME} from "./env";
 import * as net from "node:net";
+import fs from "node:fs";
 
 export namespace login{
     type ScreenSize = {
@@ -79,7 +80,9 @@ export namespace login{
                     DISPLAY: `:${Xvfb.display}`
                 }
             });
-            await browser.newPage().then(page => page.goto(body.platform_url));
+            const context = await browser.newContext();
+            await context.addCookies(WorkContext.toCookie(body.context));
+            await context.newPage().then(page => page.goto(body.platform_url));
         }catch (e) {
             if(browser)
                 await browser.close();
@@ -121,11 +124,47 @@ export namespace login{
         throw new Error("错误Token和Session参数！")
     }
 
+    function cleanupStaleXLock(display: number): boolean {
+        const lockFile = `/tmp/.X${display}-lock`;
+        const socketFile = `/tmp/.X11-unix/X${display}`;
+
+        if (!fs.existsSync(lockFile)) {
+            return true;
+        }
+
+        try {
+            const content = fs.readFileSync(lockFile, "utf8").trim();
+            const pid = Number.parseInt(content, 10);
+
+            if (!Number.isFinite(pid)) {
+                fs.rmSync(lockFile, { force: true });
+                fs.rmSync(socketFile, { force: true });
+                return true;
+            }
+
+            try {
+                process.kill(pid, 0);
+                return false;
+            } catch (err: any) {
+                if (err?.code === "ESRCH") {
+                    fs.rmSync(lockFile, { force: true });
+                    fs.rmSync(socketFile, { force: true });
+                    return true;
+                }
+                throw err;
+            }
+        } catch {
+            fs.rmSync(lockFile, { force: true });
+            fs.rmSync(socketFile, { force: true });
+            return true;
+        }
+    }
+
     function startXvfb(size: ScreenSize): Promise<xvfb>{
         const allDisplay = Array.from(loginSessions.values()).map(session => session.Xvfb.display)
         let display = 0;
         for (; display <= MAX_LOGIN_PORT; display++){
-            if(!allDisplay.includes(display))
+            if(!allDisplay.includes(display) && cleanupStaleXLock(display))
                 break;
         }
         if(display == MAX_LOGIN_PORT)
@@ -263,6 +302,7 @@ export namespace login{
 
     export async function collectContext(token: string,session: string): Promise<CollectResponse>{
         if(loginSessions.has(session)){
+            console.log(`收集${session}的登录信息`);
             const login: LoginSession = loginSessions.get(session);
             if(login.token == token) {
                 for (const context of login.browser.contexts()) {
@@ -276,11 +316,16 @@ export namespace login{
                             ok: true,
                             back: [],
                             context: {
-                                cookie
+                                cookie: {
+                                    value: cookie,
+                                    domain: '',
+                                    path: '/'
+                                }
                             }
                         }
                     }
                 }
+                console.error(`收集${session}的登录信息失败`);
                 return {
                     ok: false,
                     error: {
@@ -289,7 +334,11 @@ export namespace login{
                     },
                     back: [],
                     context: {
-                        cookie: ''
+                        cookie: {
+                            value: '',
+                            domain: '',
+                            path: '/'
+                        }
                     }
                 }
             }

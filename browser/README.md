@@ -10,20 +10,21 @@
 | /                    | 参见项目README                                        | 参见项目README                               | 一般工作                          |
 | /test                | ok: 正常与否                                          | 参见项目README                               | 测试服务是否正常可用                    |
 | /other/closeWorker   | ok: 正常与否                                          | 参见项目README                               | 关闭对应handler                   |
-| /other/testContext   | ok: 正常与否                                          | 参见项目README                               | 测试handler对应数据                 |
+| /other/testContext   | ok: 正常与否                                          | 参见项目README                               | 测试handler对应COOKIE，现与和`/`完全一致  |
 | /screen              | （设置`X-Accel-Redirect`头）<br/>url: 用于nginx访问具体的登录页面 | （Url参数）<br/>token,session: 均为`/login`返回的 | 专门给nginx用的，会返回对应端口，nginx去访问即可 |
 | /other/login/backend | ok: 正常与否，context: 浏览器访问时需要的账号信息                   | token: `/login`返回的                       | backend获取客户端登录结果（会直接关闭页面）     |
 | /other/login         | ok: 正常与否                                          | 参见项目README                               | 为客户端打开登录链接                    |
 ## 环境变量
-| 变量名            | 作用                 | 默认值                 | 备注     |
-|----------------|--------------------|---------------------|--------|
-| PORT           | 主程序监听的端口           | 3000                |        |
-| PLUGIN_PATH    | 插件配置文件地址           | config/plugins.json | 不建议更改  |
-| MAX_LOGIN_PORT | 登录窗口最大数量           | 10                  |        |
-| MAX_LOGIN_PORT | 登录窗口最大数量           | 10                  |        |
-| LOGIN_SECONDS  | 客户端登录时，后端空置过期时长（秒） | 60                  |        |
-| COOKIE         | 测试代码使用的cookie      |                     | 测试代码使用 |
-| USER_AGENT     | 测试代码使用的ua          |                     | 测试代码使用 |
+| 变量名            | 作用                    | 默认值                 | 备注     |
+|----------------|-----------------------|---------------------|--------|
+| PORT           | 主程序监听的端口              | 3000                |        |
+| PLUGIN_PATH    | 插件配置文件地址              | config/plugins.json | 不建议更改  |
+| MAX_LOGIN_PORT | 登录窗口最大数量              | 10                  |        |
+| MAX_LOGIN_PORT | 登录窗口最大数量              | 10                  |        |
+| LOGIN_SECONDS  | 客户端登录时，后端空置过期时长       | 60秒                 |        |
+| COOKIE         | 测试代码使用的cookie         |                     | 测试代码使用 |
+| USER_AGENT     | 测试代码使用的ua             |                     | 测试代码使用 |
+| WAITING_TIME   | 配置当客户端登录时相关各个服务启动等待时间 | 5000毫秒              |        |              
 ## 插件
 ### 安装
 安装插件只需要在配置文件（`PLUGIN_PATH`对应的 JSON 文件，默认`config/plugins.json`）里写入插件名称就好了，配置文件格式如下：

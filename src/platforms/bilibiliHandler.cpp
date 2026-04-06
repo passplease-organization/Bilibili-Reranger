@@ -40,6 +40,11 @@ curl(webAPI::CurlHelper()) {
     curl.curlSetup();
 }
 
+void bilibiliHandler::setContextDomain() {
+    context -> cookie_domain = ".bilibili.com";
+    context -> cookie_path = "/";
+}
+
 string bilibiliHandler::login(const std::string& name, const std::string& password,bool& failed){
 #if EASY_LOGIN
     context -> cookie = getenv(COOKIE);
@@ -506,11 +511,14 @@ bool bilibiliHandler::prepare() {
     const auto& _crawlData = webAPI::getController().perform({
         context,
         UrlAction{BILIBILI_USER_MAIN_PAGE_URL},
-        ClickAction{ElementSelector::SelectMode::CLASS,"active router-link-exact-active nav-statistics__item jumpable"},
-        DoWhileAction{false,INT32_MAX,
+        ClickAction{ElementSelector::SelectMode::CLASS,"nav-statistics__item jumpable",0},
+        DoWhileAction{false,100,
+            // For some reason the CrawlAction doesn't do well, always be one step behind
             CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/relation/followings"},
             ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
-        }
+        },
+        // Last CrawlAction to catch the last page of subscribers
+        CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/relation/followings"}
     });
     if (!validWorkerData(_crawlData)) {
         #ifdef MORE_DETAILS
@@ -519,7 +527,7 @@ bool bilibiliHandler::prepare() {
         #endif
         return false;
     }
-    const auto& crawlData = _crawlData[0];
+    const auto& crawlData = _crawlData[2];
     if (!validWhileData(crawlData)) {
         #ifdef MORE_DETAILS
             warn("Wrong browser answer:");
@@ -528,16 +536,29 @@ bool bilibiliHandler::prepare() {
         return false;
     }
     _subscribers.clear();
-    forEachWhileData(crawlData,_data) {
-        const auto& data = _data[0];
+    auto dataResolver = [this](const Json& _data) -> void {
+        if (EmptyCrawlData(_data))
+            return;
+        const auto& data = _data[CrawlData];
         if (!containsData(data) || !containsList(data))
-            break;
-        for (const auto& d : _getListFromData(data,false)) {
+            return;
+        for (const auto& d : _getListFromData(data,true)) {
             if (_hasSubscriberMid(d) && _hasSubscriberName(d))
-                _subscribers.put(_getSubscriberName(d).c_str(),_getSubscriberMid(d).c_str());
+                _subscribers.put(_getSubscriberName(d).c_str(),_getSubscriberMid(d));
         }
-    }
+    };
+    forEachWhileData(crawlData,__data)
+        dataResolver(__data[0]);
+    dataResolver(_crawlData[3]);
     return !_subscribers.empty();
+}
+
+bool bilibiliHandler::validBrowse() const {
+    return getController().testContext({
+        context,
+        UrlAction{BILIBILI_USER_MAIN_PAGE_URL},
+        ClickAction{ElementSelector::SelectMode::CLASS,"nav-statistics__item jumpable",0}
+    });
 }
 
 #endif
