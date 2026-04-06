@@ -19,7 +19,8 @@ COPY CMakeLists.txt CMakeLists.txt
 COPY CMakePresets.json CMakePresets.json
 
 RUN cmake --preset release && \
-              cmake --build --preset release
+    cmake --build --preset release && \
+    cmake --build build/release --target COPY_ALL_DLLS
 
 FROM ubuntu:24.04
 
