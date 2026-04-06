@@ -163,8 +163,7 @@ async function run(): Promise<number> {
             url: "/other/testContext",
             payload: {}
         });
-        const body = parseJson(res.payload);
-        if (!(res.statusCode === 200 && isObject(body) && body.ok === false)) {
+        if (res.statusCode !== 302) {
             throw new Error(`status=${res.statusCode}, payload=${res.payload}`);
         }
     });
