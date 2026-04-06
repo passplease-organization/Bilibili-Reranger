@@ -19,14 +19,13 @@ COPY CMakeLists.txt CMakeLists.txt
 COPY CMakePresets.json CMakePresets.json
 
 RUN cmake --preset release && \
-              cmake --build build && \
-              cmake --build build --target COPY_ALL_PDBS
+              cmake --build --preset release
 
 FROM ubuntu:24.04
 
 WORKDIR /bilibili-backend
 
 RUN apt update && apt install -y libboost-url1.83.0 ca-certificates
-COPY --from=compiler /compiler/build/Release ./
+COPY --from=compiler /compiler/build/release/Release ./
 
 CMD ["sh","-c","stdbuf -oL -eL ./BiliBili_Reranger"]
