@@ -16,6 +16,7 @@ COPY ./src ./src
 COPY ./api ./api
 COPY ./plugins ./plugins
 COPY CMakeLists.txt CMakeLists.txt
+COPY CMakePresets.json CMakePresets.json
 
 RUN cmake --preset release && \
               cmake --build build && \
