@@ -31,11 +31,11 @@ namespace webAPI{
 
     #define BILIBILI_USER_MAIN_PAGE_URL "https://space.bilibili.com/"
     #define BILIBILI_USER_MAIN_PAGE(userId) (BILIBILI_USER_MAIN_PAGE_URL + (userId) + "/")
-    #define BILIBILI_SEARCH_PAGE_URL "https://search.bilibili.com/all"
-    #define BILIBILI_SEARCH_PAGE_HELPER(a,b,helper,...)  helper(a,b,__VA_ARGS__)
-    #define BILIBILI_SEARCH_PAGE_HELPER1(keyword,page,...) (BILIBILI_SEARCH_PAGE_URL "?keyword=" + (keyword) + "&page=" + to_string(page))
-    #define BILIBILI_SEARCH_PAGE_HELPER2(keyword,...) (BILIBILI_SEARCH_PAGE_URL "?keyword=" + (keyword))
-    #define BILIBILI_SEARCH_PAGE(...) BILIBILI_SEARCH_PAGE_HELPER(__VA_ARGS__,BILIBILI_SEARCH_PAGE_HELPER1,BILIBILI_SEARCH_PAGE_HELPER2)
+    #define BILIBILI_VIDEO_SEARCH_PAGE_URL "https://search.bilibili.com/video"
+    #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER(a,b,helper,...)  helper(a,b,__VA_ARGS__)
+    #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER1(keyword,page,...) (BILIBILI_VIDEO_SEARCH_PAGE_URL "?keyword=" + (keyword) + "&page=" + to_string(page))
+    #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER2(keyword,...) (BILIBILI_VIDEO_SEARCH_PAGE_URL "?keyword=" + (keyword))
+    #define BILIBILI_VIDEO_SEARCH_PAGE(...) BILIBILI_VIDEO_SEARCH_PAGE_HELPER(__VA_ARGS__,BILIBILI_VIDEO_SEARCH_PAGE_HELPER1,BILIBILI_VIDEO_SEARCH_PAGE_HELPER2)
 
     #define SMS_TYPE "loginTelCheck"
 

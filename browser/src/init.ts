@@ -159,6 +159,12 @@ class CrawlAction extends Worker {
                         key.handled = true;
                         return record;
                     });
+                if(backs.length <= 0) {
+                    console.warn(`爬取${this.description}的url时获取数据为空，无合格请求`);
+                    await handler.collectDebugArtifacts(this.description);
+                    return {};
+                }
+                console.log(`爬取${this.description}获取到${backs.length}条数据`);
                 if(backs.length == 1){
                     return returner(backs[0].body);
                 }else return backs.map(record => returner(record.body));

@@ -50,10 +50,10 @@ PluginStatus load(){
 
 void registerGroups(){
     if (CONFIG -> contains(GROUPS_LABEL)) {
-        vector<dataStore::Data>* array;
+        vector<dataStore::Data> array;
         CONFIG -> get(GROUPS_LABEL,&array);
-        if(!array -> empty()){
-            for(auto& data : *array){
+        if(!array.empty()){
+            for(auto& data : array){
                 auto* group = new crawlTask::Group("",BILIBILI,0);
                 crawlTask::group_from_data(data,group);
                 crawlTask::registerGroup(group);

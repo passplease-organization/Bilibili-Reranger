@@ -91,6 +91,10 @@ namespace webAPI {
         API void reset();
 
         API void format();
+
+        bool operator==(const Video& video) const noexcept {
+            return _title == video._title && _author == video._author;
+        }
     };
 
     API void setVideo(Nullable const Video* video);
@@ -102,6 +106,8 @@ namespace webAPI {
     API void keepVideo(const Video& video,const char* label,const char* platform);
 
     API bool enoughVideo(const char* label = nullptr,const char* platform = nullptr);
+
+    API bool duplicateVideo(const Video& video,const char* label,const char* platform = nullptr);
 }
 
 }

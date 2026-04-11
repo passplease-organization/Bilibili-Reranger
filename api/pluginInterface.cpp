@@ -1,5 +1,6 @@
 #include "pluginInterface.h"
 #include "config.h"
+#include <cstring>
 #ifdef TEST
     #include "webAPIs/platforms.h"
 #endif
@@ -12,6 +13,31 @@ namespace {
     GroupKey makeGroupKey(const char* name,const char* platform) {
         return {name == nullptr ? "" : name, platform == nullptr ? "" : platform};
     }
+
+    char* duplicateCString(const char* value) {
+        const char* source = value == nullptr ? "" : value;
+        const size_t size = strlen(source) + 1;
+        char* buffer = nullptr;
+        if (size <= MAX_BUFFER_SIZE)
+            defaultOutputChar(&buffer);
+        else
+            buffer = new char[size];
+        memcpy(buffer, source, size);
+        return buffer;
+    }
+
+    void releaseCString(const char*& value) {
+        if (value == nullptr)
+            return;
+        auto* buffer = const_cast<char*>(value);
+        freeOutputChar(&buffer);
+        value = nullptr;
+    }
+
+    void replaceCString(const char*& target,const char* value) {
+        releaseCString(target);
+        target = duplicateCString(value);
+    }
 }
 
 thread_local vector<Group*> groups = vector<Group*>();
@@ -19,10 +45,15 @@ thread_local map<GroupKey,Group*> groupIndex = map<GroupKey,Group*>();
 thread_local unsigned int workingOn = 0;
 
 Task::Task(const char *keyword,unsigned int videoCount, WorkingMode mode,int publishedDay) {
-    this -> keyword = keyword;
+    _workCount = 0;
+    this -> keyword = duplicateCString(keyword);
     this -> mode = mode;
     this -> videoCount = (int)videoCount;
     this -> publishedDay = publishedDay >= 0 ? publishedDay : defaultDaytime(mode);
+}
+
+Task::~Task() {
+    releaseCString(keyword);
 }
 
 const char* crawlTask::getName(WorkingMode mode){
@@ -153,14 +184,22 @@ bool Group::registerTask(Task *task) {
 }
 
 Group::Group(const char *name,const char* platform,unsigned int videoCount,bool regi) {
-    this -> name = name;
-    this -> platform = platform;
+    this -> name = duplicateCString(name);
+    this -> platform = duplicateCString(platform);
     this -> videoCount = (int) videoCount;
     if(regi && !registerGroup(this, name)){
         string error = "Register group failed ! Group name: ";
         error += name;
         throwError(error.c_str());
     }
+}
+
+Group::~Group() {
+    releaseCString(name);
+    releaseCString(platform);
+    for (auto* task : tasks)
+        delete task;
+    tasks.clear();
 }
 
 Group *Group::operator+=(crawlTask::Group &other) {
@@ -218,18 +257,20 @@ bool crawlTask::validIndex(unsigned int index){
 }
 
 void crawlTask::task_from_data(dataStore::Data &data, crawlTask::Task* task) {
-    data.get("keyword",&task -> keyword);
-    int* count;
+    string keyword;
+    data.get("keyword",&keyword);
+    replaceCString(task -> keyword, keyword.c_str());
+    int count = 0;
     data.get("videoCount",&count);
-    task -> videoCount = *count;
+    task -> videoCount = count;
     if(data.strings.contains("working_mode")) {
-        const char *mode = nullptr;
+        const char *mode;
         data.get("working_mode", &mode);
         task -> mode = byName(mode);
     }else {
-        int* mode = nullptr;
+        int mode = 0;
         data.get("working_mode",&mode);
-        task -> mode = static_cast<WorkingMode>(*mode);
+        task -> mode = static_cast<WorkingMode>(mode);
     }
 }
 
@@ -240,17 +281,21 @@ void crawlTask::task_to_data(dataStore::Data& data,const Task* task){
 }
 
 void crawlTask::group_from_data(dataStore::Data& data, Group* group){
-    data.get("name",&group -> name);
+    string name;
+    data.get("name",&name);
+    replaceCString(group -> name, name.c_str());
     if (!data.strings.contains("platform")) {
         throwError("Missing platform in group data");
     }
-    data.get("platform",&group -> platform);
-    vector<dataStore::Data>* datas;
+    string platform;
+    data.get("platform",&platform);
+    replaceCString(group -> platform, platform.c_str());
+    vector<dataStore::Data> datas;
     data.get("tasks",&datas);
-    int* count;
+    int count = 0;
     data.get("videoCount",&count);
-    group -> videoCount = *count;
-    for(auto& task : *datas){
+    group -> videoCount = count;
+    for(auto& task : datas){
         Task* t = new Task("",0);
         task_from_data(task,t);
         if(!string(t -> keyword).empty())

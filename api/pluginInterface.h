@@ -33,12 +33,27 @@ namespace crawlTask{
     API Nullable WorkingMode byName(const char* name);
 
     struct API Task{
+    protected:
+        /**
+         * Start by 1, 0 means never work
+         */
+        unsigned int _workCount = -1;
     public:
         const char* keyword;
         WorkingMode mode;
         int videoCount;
         int publishedDay;
         Task(const char* keyword,unsigned int videoCount,WorkingMode mode = WorkingMode::SEARCH,int publishedDay = -1);
+        ~Task();
+
+        API [[nodiscard]] const unsigned int& workCount() const {
+            return _workCount;
+        }
+
+        API const unsigned int& workOnce() {
+            _workCount++;
+            return workCount();
+        }
     };
 
     class Group{
@@ -51,6 +66,7 @@ namespace crawlTask{
         int videoCount;
 
         API explicit Group(const char* name,const char* platform,unsigned int videoCount = 0,bool regi = false);
+        API ~Group();
 
         API Group* operator+= (Group& other);
 

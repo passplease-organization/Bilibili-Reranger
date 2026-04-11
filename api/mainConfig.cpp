@@ -35,7 +35,7 @@ void createConfig(){
         config.put(WAIT_TIME,2,false,FORCE_GENERATE_CONFIG);
     #endif
         config.put(SEARCH_PAGE_SIZE, 50,false, FORCE_GENERATE_CONFIG);
-        config.put(MAX_CRAWL_COUNT,10000,false,FORCE_GENERATE_CONFIG);
+        config.put(MAX_CRAWL_COUNT,25,false,FORCE_GENERATE_CONFIG);
         config.put(MAX_AI_TOKENS,2000,false,FORCE_GENERATE_CONFIG);
         config.put(PORT,23223,false,FORCE_GENERATE_CONFIG);
         config.put(TIMEOUT,300000,false,FORCE_GENERATE_CONFIG);

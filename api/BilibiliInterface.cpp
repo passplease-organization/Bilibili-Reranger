@@ -224,6 +224,12 @@ namespace webAPI{
         return videos[{name,plat}].size() >= crawlTask::nowTask() -> videoCount;
     }
 
+    bool duplicateVideo(const Video& video,const char* label,const char* platform) {
+        return std::ranges::any_of(videos[{label,platform}],[video](const auto& oldVideo) {
+            return oldVideo == video;
+        });
+    }
+
     void saveVideos(){
         if(fileExists(OUTPUT_PATH)){
             deleteConfig(OUTPUT_PATH,true);

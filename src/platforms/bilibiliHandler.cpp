@@ -286,13 +286,21 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
     //     }
     //     default: return "";
     // }
+    if (task == nullptr)
+        return nullWorker();
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE: {
-            const char* id;
-            _subscribers.get(task -> keyword,&id);
+            int id = 0;
+            if (_subscribers.contains(task -> keyword))
+                _subscribers.get(task -> keyword,&id);
+            else {
+                warn("没有这个博主：",false);
+                warn(task -> keyword);
+                return nullWorker();
+            }
             return {
                 context,
-                UrlAction{BILIBILI_USER_MAIN_PAGE(string(id))},
+                UrlAction{BILIBILI_USER_MAIN_PAGE(to_string(id))},
                 ClickAction{ElementSelector::SelectMode::CLASS,"nav-tab__item",2},
                 DoWhileAction{false,5,
                     CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/space/wbi/arc/search"},
@@ -304,9 +312,10 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
         case crawlTask::WorkingMode::SEARCH: {
             return {
                 context,
-                UrlAction{BILIBILI_SEARCH_PAGE(string(task -> keyword),1)},
+                UrlAction{BILIBILI_VIDEO_SEARCH_PAGE(string(task -> keyword),task -> workCount() * 5 + 1)},
+                ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1},
                 DoWhileAction{false,5,
-                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi/search/all/v2"},
+                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
                     ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
                 }
             };
@@ -440,16 +449,39 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             return false;
         }
         case crawlTask::WorkingMode::TAG :
-        case crawlTask::WorkingMode::SEARCH : {
-            const auto& data = json[0];
-            if (!containsData(data) || !containsList(data))
+        case crawlTask::WorkingMode::SEARCH : {// back json template is differentt from the others
+            const auto& data = json[2];
+            if (!validWhileData(data))
                 return false;
-            forEachVideo(data) {
-                checkVideo(Video::fromJson(videoData));
-                if (enoughVideo())
-                    return true;
+            bool empty = true;
+            auto resolver = [this,&empty](const Json& data) -> void {
+                empty = false;
+                #define SEARCH_BILIBILI_VIDEOS "result"
+                if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS))
+                    return;
+                const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS];
+                if (!videos.is_array())
+                    return;
+                for (const auto& video : videos) {
+                    checkVideo(Video::fromJson(video));
+                }
+            };
+            forEachWhileData(data) {
+                auto stringData = data.dump();
+                const auto& _data = _crawlData[0];
+                if (_data.is_object()) {
+                    if (!EmptyCrawlData(_data))
+                        resolver(_data[CrawlData]);
+                }else if (_data.is_array())
+                    for (const auto& __data : _data)
+                        if (!EmptyCrawlData(__data))
+                            resolver(__data[CrawlData]);
             }
-            return false;
+            if (empty) {
+                warn("浏览器爬取的数据都是空的！");
+                warn(data.dump().c_str());
+            }
+            return !empty;
         }
         default: return false;
     }

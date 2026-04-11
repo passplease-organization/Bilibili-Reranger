@@ -42,9 +42,9 @@ inline void storeConfig(const char* label,T* t){
 
 template<typename T>
 inline void getAndStore(dataStore::Data* data, const char* label){
-    T* t;
-    dataStore::getMap<T>(data,label,&t);
-    storeConfig(label,t);
+    T t;
+    data->get(label,&t);
+    storeConfig(label,&t);
 }
 
 template<typename T>

@@ -590,29 +590,39 @@ namespace dataStore{
     }
 
     template<typename T>
-    void getMap(Data* data,const char *label,T** input,const bool copy){
-        auto m = dataStore::getMap<T>(data);
-        if(copy)
-            **input = m -> at(label);
-        else *input = &(m -> at(label));
+    void getMap(const Data* data,const char *label,T* input){
+        if(input == nullptr)
+            return;
+        auto m = dataStore::getMap<T>(const_cast<Data*>(data));
+        *input = m -> at(label);
     }
 
     template<typename T>
-    void getVector(Data* data,const char *label,vector<T>** input,const bool copy){
-        auto v = dataStore::getVector<T>(data);
-        if(copy)
-            **input = v -> at(label);
-        else {
-            *input = &(v -> at(label));
-        }
+    void getVector(const Data* data,const char *label,vector<T>* input){
+        if(input == nullptr)
+            return;
+        auto v = dataStore::getVector<T>(const_cast<Data*>(data));
+        *input = v -> at(label);
     }
 
-    void Data::get(const char *label, dataStore::Data **data,const bool copy) {
-        dataStore::getMap<Data>(this,label,data,copy);
+    void Data::get(const char *label, dataStore::Data *data) const {
+        dataStore::getMap<Data>(this,label,data);
     }
 
-    void Data::get(const char *label, vector<dataStore::Data> **data,const bool copy) {
-        dataStore::getVector<Data>(this,label,data,copy);
+    void Data::get(const char *label, vector<dataStore::Data> *data) const {
+        dataStore::getVector<Data>(this,label,data);
+    }
+
+    void Data::get(const char *label,string *string) const{
+        if(string == nullptr)
+            return;
+        *string = this -> strings.at(label);
+    }
+
+    void Data::get(const char *label,vector<string> *string) const {
+        if(string == nullptr)
+            return;
+        *string = this -> stringArrays.at(label);
     }
 
     void Data::get(const char *label,const char* *string, bool) const{
@@ -630,28 +640,28 @@ namespace dataStore{
         }
     }
 
-    void Data::get(const char *label, int **ints, bool copy) {
-        dataStore::getMap<int>(this,label,ints,copy);
+    void Data::get(const char *label, int *ints) const {
+        dataStore::getMap<int>(this,label,ints);
     }
 
-    void Data::get(const char *label, vector<int> **ints, bool copy) {
-        dataStore::getVector<int>(this,label,ints,copy);
+    void Data::get(const char *label, vector<int> *ints) const {
+        dataStore::getVector<int>(this,label,ints);
     }
 
-    void Data::get(const char *label, float **floats, bool copy) {
-        dataStore::getMap<float>(this,label,floats,copy);
+    void Data::get(const char *label, float *floats) const {
+        dataStore::getMap<float>(this,label,floats);
     }
 
-    void Data::get(const char *label, vector<float> **floats, bool copy) {
-        dataStore::getVector<float>(this,label,floats,copy);
+    void Data::get(const char *label, vector<float> *floats) const {
+        dataStore::getVector<float>(this,label,floats);
     }
 
-    void Data::get(const char *label, bool **bools, bool copy){
-        dataStore::getMap<bool>(this,label,bools,copy);
+    void Data::get(const char *label, bool *bools) const{
+        dataStore::getMap<bool>(this,label,bools);
     }
 
-    void Data::get(const char *label, vector<bool> **bools, bool copy){
-        dataStore::getVector<bool>(this,label,bools,copy);
+    void Data::get(const char *label, vector<bool> *bools) const{
+        dataStore::getVector<bool>(this,label,bools);
     }
 
     bool Data::writeToJson(const char *target_name, const char *target_path,bool recover, bool storage) {
@@ -877,11 +887,7 @@ const string dataStore::Data::FLOAT_ARRAY = "float_array_";
 const string dataStore::Data::BOOL = "bool_";
 const string dataStore::Data::BOOL_ARRAY = "bool_array_";
 
-template void dataStore::getMap<string>(dataStore::Data*,const char *,string** ,bool);
-template void dataStore::getMap<int>(dataStore::Data*,const char *,int** ,bool);
-template void dataStore::getMap<bool>(dataStore::Data*,const char *,bool** ,bool);
-
-template<typename key, typename value>
+    template<typename key, typename value>
 LinkedMap<key, value>::LinkedMap(unsigned int count) : maxCount(count) {
     keys = new key[maxCount];
     values = new value[maxCount];

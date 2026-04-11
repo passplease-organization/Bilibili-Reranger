@@ -120,6 +120,7 @@ namespace webAPI {
         API [[deprecated]] virtual bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const {
             return false;
         }
+
         API virtual bool dealJson(const Json& json, const crawlTask::Task* task) const = 0;
 
         API [[deprecated,nodiscard]] virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const {
@@ -170,7 +171,7 @@ namespace webAPI {
             stop = timer;
         }
 
-        API [[nodiscard]] bool checkVideo(const Video& video) const;
+        API bool checkVideo(const Video& video) const;
 
         API [[nodiscard]] BrowseWorkingContext* const& getContext() const noexcept {
             return context;

@@ -346,7 +346,7 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
 [[deprecated]] string user_agent;
 
 #if NEED_PORT
-bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket){
+bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket){
 #else
 bool crawl(const std::atomic<bool>& cancel){
 #endif
@@ -367,7 +367,11 @@ bool crawl(const std::atomic<bool>& cancel){
     #endif
         const auto& task = crawlTask::nowTask();
         back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
-    }while(!cancel && back && count < max_count);
+        if (task)
+            task -> workOnce();
+        if (webAPI::enoughVideo())
+            back &= crawlTask::nextTask(true) != nullptr;
+    }while(!cancel -> load() && back && count < max_count);
 
     #if NEED_PORT
         back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
@@ -482,9 +486,11 @@ bool checkEnv(){
 
 bool webAPI::socialAPI::checkVideo(const Video & video) const {
     webAPI::setVideo(&video);
+    const auto* group = crawlTask::getGroup();
+    const char* groupName = group == nullptr ? "" : group -> name;
+    if (duplicateVideo(video,groupName,this -> support().c_str()))
+        return true;
     if(roughCheckVideo() && finalCheckVideo()) {
-        const auto* group = crawlTask::getGroup();
-        const char* groupName = group == nullptr ? "" : group -> name;
         webAPI::keepVideo(video,groupName,this -> support().c_str());
         return true;
     }

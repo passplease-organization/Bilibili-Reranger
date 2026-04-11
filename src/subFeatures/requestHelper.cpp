@@ -38,7 +38,7 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     for (const auto group : groups)
         data.put(group -> platform,group -> name,true);
     const Json json = data;
-    const string payload = to_string(json);
+    const string&& payload = json.dump();
     return back(sendMessage(socket,payload,payload.empty()));
 }
 
@@ -184,9 +184,11 @@ int init(boost::asio::ip::tcp::socket& socket){
         }
         warn("收集登录信息失败");
         ok = false;
+        goto Back;
     }
     Prepare:
-    ok = ok && crawlInfo -> client -> prepare();
+        ok &= crawlInfo -> client -> prepare();
+    Back:
     return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 

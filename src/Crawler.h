@@ -25,7 +25,7 @@ extern string pluginGetURL();
 [[deprecated]] extern string user_agent;
 
 #if NEED_PORT
-bool crawl(const std::atomic<bool>& cancel,boost::asio::ip::tcp::socket& socket);
+bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket);
 #else
 bool crawl(const std::atomic<bool>& cancel);
 #endif

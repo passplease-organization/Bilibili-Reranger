@@ -211,23 +211,25 @@ namespace dataStore{
         /**
          * All get function won't recurse to find label, just find in this object.
          * */
-        API Nullable void get(const char* label,dataStore::Data** data,bool copy = false);
-        API Nullable void get(const char* label,vector<dataStore::Data>** data,bool copy = false);
+        API Nullable void get(const char* label,dataStore::Data* data) const;
+        API Nullable void get(const char* label,vector<dataStore::Data>* data) const;
 
         /**
          * @param copy For string, this parameter is invalid, only true is allowed
          * */
+        API Nullable void get(const char* label,string* string) const;
+        API Nullable void get(const char* label,vector<string>* string) const;
         API Nullable void get(const char* label,const char** string,bool copy = true) const;
         API Nullable void get(const char* label,NotNull vector<const char*>** string,bool copy = false) const;
 
-        API Nullable void get(const char* label,int** ints,bool copy = false);
-        API Nullable void get(const char* label,vector<int>** ints,bool copy = false);
+        API Nullable void get(const char* label,int* ints) const;
+        API Nullable void get(const char* label,vector<int>* ints) const;
 
-        API Nullable void get(const char* label,float** floats,bool copy = false);
-        API Nullable void get(const char* label,vector<float>** floats,bool copy = false);
+        API Nullable void get(const char* label,float* floats) const;
+        API Nullable void get(const char* label,vector<float>* floats) const;
 
-        API Nullable void get(const char* label,bool** bools,bool copy = false);
-        API Nullable void get(const char* label,vector<bool>** bools,bool copy = false);
+        API Nullable void get(const char* label,bool* bools) const;
+        API Nullable void get(const char* label,vector<bool>* bools) const;
 
         /**
          * Save to Json, also to file

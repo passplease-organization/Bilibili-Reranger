@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
         say("爬取工作开始");
     REQUIRE_CLIENT(socket);
     try{
-        if(crawl(stop -> load(),socket)) {
+        if(crawl(cancel,socket)) {
 #else
         if (crawl(cancel)) {
 #endif

@@ -64,6 +64,7 @@ export interface DebugSnapshot {
     workerType?: string;
     workerIndex?: number;
     tag?: string;
+    context: BrowserContext;
 }
 type NetRecord = {
     url: string;
@@ -148,12 +149,14 @@ export class Handler{
             records: Array.from(this.records.keys()).slice(-10),
             workerType,
             workerIndex,
-            tag
+            tag,
+            context: this.context
         };
 
         try {
             back.url = this.page.url();
         } catch {}
+        console.warn(`handler报错，当前url:${back.url}，context:${JSON.stringify(await this.context.cookies(back.url))}`);
         try {
             back.title = await this.page.title();
         } catch {}
