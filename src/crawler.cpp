@@ -12,14 +12,11 @@
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
 #include "webAPIs/browse.h"
-#if NEED_PORT
-    #include "PortListener.h"
-    #include <boost/asio.hpp>
-    #include <utility>
-#endif
+#include "PortListener.h"
+#include <boost/asio.hpp>
+#include <utility>
 
 CrawlerHelper::CrawlerHelper(){
-#if NEED_PORT
     if (crawlInfo != nullptr && crawlInfo -> client != nullptr) {
         const auto* handler = crawlInfo -> client -> handler();
         if (handler != nullptr) {
@@ -28,7 +25,6 @@ CrawlerHelper::CrawlerHelper(){
         }
     }
     subscribers = dataStore::Data();
-#endif
 }
 
 CrawlerHelper::CrawlerHelper(dataStore::Data subscribers)
@@ -42,20 +38,16 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
 
 void CrawlerHelper::curlSetup(){
     CurlHelper::curlSetup();
-    #if NEED_PORT
-        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-            warn("Client not initialized, cannot setup curl");
-            return;
-        }
-        const auto* handler = crawlInfo->client->handler();
-        if (handler == nullptr) {
-            warn("Client handler not initialized, call /set or /login first");
-            return;
-        }
-        curlSetup(handler -> getWorker(nullptr).context->cookie, user_agent);
-    #else
-        curlSetup(cookie,user_agent);
-    #endif
+    if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+        warn("Client not initialized, cannot setup curl");
+        return;
+    }
+    const auto* handler = crawlInfo->client->handler();
+    if (handler == nullptr) {
+        warn("Client handler not initialized, call /set or /login first");
+        return;
+    }
+    curlSetup(handler -> getWorker(nullptr).context->cookie, user_agent);
 }
 
 bool CrawlerHelper::connect(bool deal){
@@ -137,111 +129,16 @@ bool CrawlerHelper::dealJson() {
         }
     }
     auto task = crawlTask::nowTask();
-    #if NEED_PORT
-        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-            warn("Client not initialized, cannot deal json");
-            return false;
-        }
-        auto* handler = crawlInfo -> client -> handler();
-        if (handler == nullptr) {
-            warn("Client handler not initialized, call /set or /login first");
-            return false;
-        }
-        return handler -> dealJson(*this, json, task);
-    #else
-        switch (task -> mode) {
-            case crawlTask::WorkingMode::SUBSCRIBE : {
-                if(!startWith(url.c_str(),videoByUser)) {
-
-                #if MORE_DETAILS
-                    say("当前搜索的关注用户名：", false);
-                    say(task->keyword);
-                #endif
-
-                    Json json_subs = getSubscribers();
-                    for (auto &up: _getSubscribers(json_subs, false).items()) {
-
-                    #if MORE_DETAILS
-                        say("当前比对up名：", false);
-                        say(_getSubscriberName(up).c_str(), true, YELLOW);
-                    #endif
-
-                        if (_getSubscriberName(up) == task->keyword) {
-                            clearURL();
-                            string url(videoByUser);
-                            url += "?vmid=";
-                            url += to_string(up.value().at(VMID).get<int>());
-                            url += "&ps=";
-                            url += std::to_string(config<int>(SUBSCRIBE_SEARCH_VIDEO_COUNT));
-                            nextSearch(url);
-
-                        #if MORE_DETAILS
-                            say("关注用户爬取一次", true, BLUE);
-                        #endif
-
-                            nextMustCrawl();
-                            return true;
-                        }
-                    }
-                }else{
-                    const auto* group = crawlTask::getGroup();
-                    const char* groupName = group == nullptr ? "" : group -> name;
-                    const char* groupPlatform = group == nullptr ? "" : group -> platform;
-                    forEachVideo(json,ofPerson){
-                        const auto& video = webAPI::Video::fromJson(videoData);
-                        webAPI::setVideo(&video);
-                        if(roughCheckVideo() && finalCheckVideo())
-                            webAPI::keepVideo(video,groupName,groupPlatform);
-                        webAPI::clearVideo();
-                    }
-                    clearURL();
-                    return crawlTask::nextTask(true) != nullptr;
-                }
-                return false;
-            }
-            case crawlTask::WorkingMode::TAG : {
-                const auto* group = crawlTask::getGroup();
-                const char* groupName = group == nullptr ? "" : group -> name;
-                const char* groupPlatform = group == nullptr ? "" : group -> platform;
-                forEachVideo(json,ofSearch){
-                    const auto& video = webAPI::Video::fromJson(videoData);
-                    if(videoData["tag"].get<string>().find(task -> keyword) == string::npos)
-                        continue;
-                    webAPI::setVideo(&video);
-                    if(roughCheckVideo() && finalCheckVideo())
-                        webAPI::keepVideo(video,groupName,groupPlatform);
-                    webAPI::clearVideo();
-                }
-                if(webAPI::enoughVideo(groupName,groupPlatform)) {
-                    clearURL();
-                    return crawlTask::nextTask(true) != nullptr;
-                }
-                cout << getDataFromJson(json)["next"] << endl;
-                int page = getDataFromJson(json)["next"].get<int>();
-                nextPage(page);
-                return true;
-            }case crawlTask::WorkingMode::SEARCH : {
-                const auto* group = crawlTask::getGroup();
-                const char* groupName = group == nullptr ? "" : group -> name;
-                const char* groupPlatform = group == nullptr ? "" : group -> platform;
-                forEachVideo(json,ofSearch){
-                    const auto& video = webAPI::Video::fromJson(videoData);
-                    webAPI::setVideo(&video);
-                    if(roughCheckVideo() && finalCheckVideo())
-                        webAPI::keepVideo(video,groupName,groupPlatform);
-                    webAPI::clearVideo();
-                }
-                if(webAPI::enoughVideo(groupName,groupPlatform)) {
-                    clearURL();
-                    return crawlTask::nextTask(true) != nullptr;
-                }
-                int page = getDataFromJson(json)["next"].get<int>();
-                nextPage(page);
-                return true;
-            }
-            default: return false;
-        }
-    #endif
+    if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+        warn("Client not initialized, cannot deal json");
+        return false;
+    }
+    auto* handler = crawlInfo -> client -> handler();
+    if (handler == nullptr) {
+        warn("Client handler not initialized, call /set or /login first");
+        return false;
+    }
+    return handler -> dealJson(*this, json, task);
 }
 
 bool CrawlerHelper::nextPage() {
@@ -296,20 +193,16 @@ void CrawlerHelper::nextSearch(const string &url) {
 }
 
 bool CrawlerHelper::refreshSubscribers(const bool force) {
-    #if NEED_PORT
-        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-            warn("Client not initialized, cannot refresh subscribers");
-            return false;
-        }
-        auto* handler = crawlInfo -> client -> handler();
-        if (handler == nullptr) {
-            warn("Client handler not initialized, call /set or /login first");
-            return false;
-        }
-    #else
-        auto* handler = new bilibiliLogin::bilibiliLogin();
-    #endif
-        return handler -> refreshSubscribers(*this, force);
+    if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+        warn("Client not initialized, cannot refresh subscribers");
+        return false;
+    }
+    auto* handler = crawlInfo -> client -> handler();
+    if (handler == nullptr) {
+        warn("Client handler not initialized, call /set or /login first");
+        return false;
+    }
+    return handler -> refreshSubscribers(*this, force);
 }
 
 bool CrawlerHelper::crawlNext() const {
@@ -335,21 +228,13 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     return dataStore::Data();
 }
 
-#if NEED_PORT
-    #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
-    webAPI::DbConfig postgresConfig;
-    webAPI::postgres dataBase(postgresConfig);
-    string browseManagerUrl;
-#else
-    string cookie;
-#endif
+#define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
+webAPI::DbConfig postgresConfig;
+webAPI::postgres dataBase(postgresConfig);
+string browseManagerUrl;
 [[deprecated]] string user_agent;
 
-#if NEED_PORT
 bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket){
-#else
-bool crawl(const std::atomic<bool>& cancel){
-#endif
     const int max_count = config<int>(MAX_CRAWL_COUNT);
     int count = 0;
     const auto& handler = crawlInfo -> client -> handler();
@@ -373,56 +258,30 @@ bool crawl(const std::atomic<bool>& cancel){
             back &= crawlTask::nextTask(true) != nullptr;
     }while(!cancel -> load() && back && count < max_count);
 
-    #if NEED_PORT
-        back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
-        return sendMessage(socket,"",!back,
-        #ifdef MORE_DETAILS
-            true
-        #else
-            false
-        #endif
-        ) && back;
+    back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
+    return sendMessage(socket,"",!back,
+    #ifdef MORE_DETAILS
+        true
     #else
-        webAPI::saveVideos();
-        return helper.finishCrawl();
-#endif
+        false
+    #endif
+    ) && back;
 }
 
 string getURL(const crawlTask::Task* task){
     auto url = pluginGetURL();
     if(!url.empty())
         return url;
-    #if NEED_PORT
-        if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-            warn("Client not initialized, cannot get url");
-            return "";
-        }
-        auto* handler = crawlInfo -> client -> handler();
-        if (handler == nullptr) {
-            warn("Client handler not initialized, call /set or /login first");
-            return "";
-        }
-        return handler -> getWorker(task).context -> cookie;
-    #else
-        switch (task -> mode) {
-            case crawlTask::WorkingMode::SUBSCRIBE: {
-                string back = mySubscribers;
-                back += "?vmid=";
-                back += config<string>(VMID);
-                return back;
-            }
-            case crawlTask::WorkingMode::TAG :
-            case crawlTask::WorkingMode::SEARCH : {
-                string back = searchVideos;
-                back += "&page_size=";
-                back += to_string(config<int>(SEARCH_PAGE_SIZE));
-                back += "&keyword=";
-                back += task -> keyword;
-                return back;
-            }
-            default: return "";
-        }
-    #endif
+    if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
+        warn("Client not initialized, cannot get url");
+        return "";
+    }
+    auto* handler = crawlInfo -> client -> handler();
+    if (handler == nullptr) {
+        warn("Client handler not initialized, call /set or /login first");
+        return "";
+    }
+    return handler -> getWorker(task).context -> cookie;
 }
 
 webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
@@ -449,7 +308,6 @@ webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
 
 bool checkEnv(){
     bool error = false;
-#if NEED_PORT
     if (getenv(POSTGRES_SCHEMA) == nullptr || getenv(POSTGRES_USER) == nullptr || getenv(POSTGRES_PASSWORD) == nullptr || getenv(POSTGRES_HOST) == nullptr || getenv(POSTGRES_PORT) == nullptr) {
         LOG_ENV(POSTGRES_SCHEMA "或" POSTGRES_USER "或" POSTGRES_PASSWORD "或" POSTGRES_HOST "或" POSTGRES_PORT);
     }else {
@@ -461,16 +319,6 @@ bool checkEnv(){
             warn("数据库初始化失败！");
         else say("数据库初始化完成");
     }
-#else
-    if(cookie.empty()){
-        if (getenv(COOKIE) == nullptr){
-            string err = "未找到环境变量: ";
-            err += COOKIE;
-            warn(err.c_str());
-            error |= true;
-        }else cookie = getenv(COOKIE);
-    }
-#endif
     /*if(user_agent.empty()){
         if (getenv(USERAGENT) == nullptr){
             LOG_ENV(USERAGENT);

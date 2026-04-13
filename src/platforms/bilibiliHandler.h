@@ -3,8 +3,6 @@
 #include "develop/flags.h"
 #include "webAPIs/platforms.h"
 
-#if NEED_PORT
-
 #include "BilibiliInterface.h"
 #include "webAPIs/socialAPI.h"
 
@@ -94,5 +92,3 @@ namespace webAPI{
         });
     }
 }
-
-#endif

@@ -2,8 +2,6 @@
 #include <cpr/api.h>
 #include "config.h"
 
-#if NEED_PORT
-
 #ifdef TEST
     #include "BilibiliInterface.h"
     #include "webAPIs/platforms.h"
@@ -72,7 +70,6 @@ int login(boost::asio::ip::tcp::socket& socket) {
     RELEASE_LOG("登录操作");
     if (!BODY_CONTAIN(LOGIN_SCREEN_SIZE) || !INFO_BODY(LOGIN_SCREEN_SIZE).is_object())
         return back(sendMessage(socket,"不正确的Screen参数",true));
-#endif
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
@@ -83,11 +80,6 @@ int login(boost::asio::ip::tcp::socket& socket) {
     bool failed = false;
     Json response;
     response["url"] = handler -> login(crawlInfo -> clientId,failed).str();
-    if (!failed && handler -> validBrowse()) {
-        failed = !dataBase.upsertHandler(handler,crawlInfo -> client -> getID());
-        if (failed)
-            response["error"] = "写库失败";
-    }
     response["success"] = !failed;
     return back(sendMessage(socket,response.dump(),failed));
 #endif

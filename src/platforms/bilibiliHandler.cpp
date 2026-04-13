@@ -4,8 +4,6 @@
 #include "webAPIs/crawler.h"
 #include "../Crawler.h"
 
-#if NEED_PORT
-
 #include <iostream>
 #include <regex>
 #include <boost/url/parse.hpp>
@@ -258,9 +256,9 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
         failed = false;
         return getDataFromJson(json).dump();
     }
+#endif
     failed = true;
     return "错误请求参数";
-#endif
 }
 
 cpr::Url bilibiliHandler::login(const string &clientID, bool &failed) {
@@ -592,5 +590,3 @@ bool bilibiliHandler::validBrowse() const {
         ClickAction{ElementSelector::SelectMode::CLASS,"nav-statistics__item jumpable",0}
     });
 }
-
-#endif

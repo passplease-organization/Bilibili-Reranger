@@ -2,7 +2,6 @@
 
 #include "develop/flags.h"
 
-#if NEED_PORT
 #include "interface.h"
 #include "../Crawler.h"
 #include <boost/asio/ip/tcp.hpp>
@@ -29,4 +28,3 @@ Nullable handler requireClient();
 #define REQUIRE_CLIENT(socket) \
     if(const auto& handler = requireClient(); handler != nullptr) \
         return handler(socket);
-#endif

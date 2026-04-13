@@ -8,13 +8,9 @@
 #include "config.h"
 #include "exit.h"
 #include "platforms/bilibiliHandler.h"
-#if NEED_PORT
-    #include "PortListener.h"
-    #include "subFeatures/requestHelper.h"
-    #include <boost/asio.hpp>
-#else
-    #include <atomic>
-#endif
+#include "PortListener.h"
+#include "subFeatures/requestHelper.h"
+#include <boost/asio.hpp>
 
 inline void setup(){
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -24,7 +20,6 @@ void clean(){
     curl_global_cleanup();
 }
 
-#if NEED_PORT
 int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio::ip::tcp::socket socket){
     setThreadId(info.id);
     crawlInfo = &info;
@@ -32,33 +27,17 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     if (crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr) {
         crawlInfo -> client -> resetTimer(stop);
     }
-#else
-int main(int argc, char** argv) {
-    string target;
-    readConfig();
-    PluginHandler::loadAll();
-    auto cancel = atomic<bool>(false);
-#endif
 
 #ifdef WIN32
     warn("这个程序是为Linux系统设计的，对于Windows系统难保可用性，不建议在Windows上使用！");
 #endif
 
-#if NEED_PORT
-#else
-    if(checkEnv()) {
-        return 1;
-    }
-#endif
-
-#if NEED_PORT
     #ifdef TEST
         GroupFilter(info.target,crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr ? crawlInfo -> client -> handler() -> support() : ALL_PLATFORMS);
     #else
         if (crawlInfo -> client != nullptr && crawlInfo -> client -> handler() != nullptr)
             GroupFilter(info.target,crawlInfo -> client -> handler() -> support());
     #endif
-#endif
     PluginHandler::forEachPlugin([](PluginHandler& plugin) -> PluginStatus {
         return plugin.registerGroups();
     });
@@ -74,7 +53,6 @@ int main(int argc, char** argv) {
 #endif
 
     setup();
-#if NEED_PORT
     if (const auto& handler = checkURL(info.url); handler != nullptr) {
         if (const int& signal = handler(socket); signal != NEED_NORMAL_HANDLE)
             return signal;
@@ -84,9 +62,6 @@ int main(int argc, char** argv) {
     REQUIRE_CLIENT(socket);
     try{
         if(crawl(cancel,socket)) {
-#else
-        if (crawl(cancel)) {
-#endif
             return success();
         }
     }catch(const std::exception& e) {
@@ -95,8 +70,6 @@ int main(int argc, char** argv) {
     }
     return failed();
 }
-#if NEED_PORT
 int main(int argc, char** argv) {
     return startWork();
 }
-#endif

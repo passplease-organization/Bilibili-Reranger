@@ -22,7 +22,6 @@
 namespace http = boost::beast::http;
 namespace ip = boost::asio::ip;
 
-#if NEED_PORT
 thread_local CrawlInfo const* crawlInfo;
 thread_local shared_ptr<const atomic<bool>> stop;
 
@@ -180,4 +179,3 @@ bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool release
     }
     return back;
 }
-#endif
