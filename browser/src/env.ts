@@ -12,7 +12,7 @@ export const BROWSER_DEBUG_ENABLED = process.env.BROWSER_DEBUG === "1";
 export const BROWSER_DEBUG_ARTIFACTS_DIR = path.resolve(
     process.env.BROWSER_DEBUG_ARTIFACTS_DIR || path.join(process.cwd(), "debug-artifacts")
 );
-export const BROWSER_DEBUG_HTML_LIMIT = Number(process.env.BROWSER_DEBUG_HTML_LIMIT) || 20000;
+export const BROWSER_DEBUG_HTML_LIMIT = Number(process.env.BROWSER_DEBUG_HTML_LIMIT) || 200;
 export const BROWSER_DEBUG_HEADLESS = process.env.BROWSER_DEBUG_HEADLESS !== "0";
 export const BROWSER_DEBUG_KEEP_OPEN = process.env.BROWSER_DEBUG_KEEP_OPEN === "1";
 

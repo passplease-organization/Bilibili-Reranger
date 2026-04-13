@@ -15,13 +15,17 @@ namespace {
         std::vector<unsigned char> bin(key.size());
         size_t bin_len = 0;
         if (sodium_base642bin(bin.data(), bin.size(), key.c_str(), key.size(),
-                              nullptr, &bin_len, nullptr, sodium_base64_VARIANT_ORIGINAL) != 0) {
+                              "\r\n\t ", &bin_len, nullptr, sodium_base64_VARIANT_ORIGINAL) != 0) {
             return "";
         }
         if (bin_len != crypto_secretbox_KEYBYTES) {
             return "";
         }
         return std::string(reinterpret_cast<const char*>(bin.data()), bin_len);
+    }
+
+    std::string normalizeStoredEsaKey(const std::string& key) {
+        return decodeKey(key);
     }
 }
 
@@ -491,6 +495,7 @@ namespace webAPI {
 
     bool postgres::clientsInit(std::vector<ClientRow>& clients, std::vector<HandlerRow>& handlers) const {
         if (!isConnected()) {
+            warn("Postgres clientsInit aborted: database is not connected");
             return false;
         }
         try {
@@ -501,7 +506,7 @@ namespace webAPI {
             );
         #else
             const auto client_result = txn.exec(
-                "SELECT client_id, encode(esa_key_enc, 'base64') AS esa_key_enc, status, created_at, last_seen FROM clients"
+                "SELECT client_id, regexp_replace(encode(esa_key_enc, 'base64'), E'[\\n\\r]+', '', 'g') AS esa_key_enc, status, created_at, last_seen FROM clients"
             );
         #endif
         #ifdef DEVELOP
@@ -511,7 +516,7 @@ namespace webAPI {
             );
         #else
             const auto handler_result = txn.exec(
-                "SELECT client_id, platform, encode(cookie, 'base64') AS cookie, browse_ua, data::text AS data, updated_at "
+                "SELECT client_id, platform, regexp_replace(encode(cookie, 'base64'), E'[\\n\\r]+', '', 'g') AS cookie, browse_ua, data::text AS data, updated_at "
                 "FROM client_socials"
             );
         #endif
@@ -523,11 +528,18 @@ namespace webAPI {
                 ClientRow entry;
                 entry.client_id = row["client_id"].as<std::string>();
                 const auto enc_key = row["esa_key_enc"].as<std::string>();
-                const auto dec_key = decryptDb(enc_key);
-                if (dec_key.empty() && !enc_key.empty()) {
+                const auto decrypted_key = decryptDb(enc_key);
+                if (decrypted_key.empty() && !enc_key.empty()) {
+                    warn((std::string("Postgres clientsInit failed to decrypt client key, client_id=") + entry.client_id +
+                        ", enc_key_length=" + std::to_string(enc_key.size())).c_str());
                     return false;
                 }
-                entry.esa_key_enc = dec_key;
+                entry.esa_key_enc = normalizeStoredEsaKey(decrypted_key);
+                if (entry.esa_key_enc.empty() && !decrypted_key.empty()) {
+                    warn((std::string("Postgres clientsInit failed to normalize client key, client_id=") + entry.client_id +
+                        ", decrypted_key_length=" + std::to_string(decrypted_key.size())).c_str());
+                    return false;
+                }
                 entry.status = row["status"].as<int>();
                 entry.created_at = row["created_at"].as<std::string>();
                 entry.last_seen = row["last_seen"].as<std::string>();
@@ -546,6 +558,8 @@ namespace webAPI {
             #else
                 const auto dec_cookie = decryptDb(enc_cookie);
                 if (dec_cookie.empty() && !enc_cookie.empty()) {
+                    warn((std::string("Postgres clientsInit failed to decrypt handler cookie, client_id=") + entry.client_id +
+                        ", platform=" + entry.platform + ", enc_cookie_length=" + std::to_string(enc_cookie.size())).c_str());
                     return false;
                 }
                 entry.browse.cookie = dec_cookie;
@@ -556,7 +570,8 @@ namespace webAPI {
                 handlers.push_back(std::move(entry));
             }
             return true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            warn((std::string("Postgres clientsInit exception: ") + e.what()).c_str());
             return false;
         }
     }
@@ -570,10 +585,12 @@ namespace webAPI {
         }
         const auto key = config<std::string>(POSTGRES_ENCRYPT_KEY);
         if (key.empty()) {
+            warn("Postgres crypto key is empty");
             return false;
         }
         const auto raw = decodeKey(key);
         if (raw.empty()) {
+            warn("Postgres crypto key is invalid");
             return false;
         }
         crypto_ = std::make_unique<webAPI::SimpleESA>(raw, true);

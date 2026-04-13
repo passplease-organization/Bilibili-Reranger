@@ -281,7 +281,7 @@ std::string SimpleESA::decrypt(const std::string &content) const {
     size_t binLen = 0;
 
     if (sodium_base642bin(cipherBin.data(), b64len, content.c_str(), b64len,
-                          NULL, &binLen, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
+                          "\r\n\t ", &binLen, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
         throw std::runtime_error("Invalid Base64 string");
                           }
 
@@ -384,6 +384,7 @@ void Client::getHandler(const std::string& platform, std::shared_ptr<const std::
     }
     socialAPI::instance(&_handler,platform,stop);
     if (_handler != nullptr) {
+        say("生成handler成功，开始初始化handler");
         _handler -> init();
         if (dataBase.upsertHandler(_handler,ID))
             handlers.push_back(_handler);
@@ -581,11 +582,7 @@ void Client::initAndDataBase(){
         return;
     back &= std::ranges::all_of(clients,[](const auto& data) -> bool{
         try {
-            #ifdef DEVELOP
-                return storeClient(new Client(data,true));
-            #else
-                return storeClient(new Client(data));
-            #endif
+            return storeClient(new Client(data,true));
         }catch (const exception& e) {
             warn("初始化客户端handler报错");
             warn("客户端ID: ",false);
@@ -635,13 +632,17 @@ void Client::init() {
 
 Client* webAPI::client(const std::string& ID){
     LOCK
-    if (clients == nullptr || !clients -> contains(ID))
+    if (clients == nullptr)
+        return nullptr;
+    if (!clients -> contains(ID))
         return nullptr;
     return (*clients)[ID];
 }
 
 bool webAPI::storeClient(Client* client){
-    if (client == nullptr || client -> check())
+    if (client == nullptr)
+        return false;
+    if (client -> check())
         return false;
     LOCK
     if (clients == nullptr || clients -> contains(client -> getID())) {
