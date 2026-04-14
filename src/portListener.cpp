@@ -40,19 +40,19 @@ id(id) {
         this -> body = Json();
     }
     if (config<bool>(DETAILS)) {
-        say(client == nullptr ? "空客户端ID" : "有效客户端ID");
+        cppUtil::say(client == nullptr ? "空客户端ID" : "有效客户端ID");
         if (this -> body.empty()){
             if (body.empty())
-                say("空body参数");
+                cppUtil::say("空body参数");
             else if (client != nullptr){
-                say("前端传输body参数秘钥错误，实际密钥：",false);
-                say(client -> ESAKey(config<string>(ADMIN_CLIENT_KEY)).c_str());
-                say("而前端传输的body是：",false);
-                say(body.c_str());
+                cppUtil::say({false, nullptr}, "前端传输body参数秘钥错误，实际密钥：");
+                cppUtil::say(client -> ESAKey(config<string>(ADMIN_CLIENT_KEY)));
+                cppUtil::say({false, nullptr}, "而前端传输的body是：");
+                cppUtil::say(body);
             }
         }else {
-            say("本次登录body参数：");
-            say(this -> body.dump().c_str());
+            cppUtil::say("本次登录body参数：");
+            cppUtil::say(this -> body);
         }
     }
 }
@@ -68,7 +68,7 @@ int startWork() {
     webAPI::registerBilibili();
     webAPI::Client::initAndDataBase();
     PluginHandler::loadAll();
-    say("Listening thread start");
+    cppUtil::say("Listening thread start");
     try {
         boost::asio::io_context io;
         ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));
@@ -88,8 +88,8 @@ int startWork() {
                 http::read(socket, buffer, request);
             }catch (boost::system::system_error& e) {
                 if (e.code() != boost::asio::error::eof) {
-                    warn("HTTP read error: ", false);
-                    warn(e.what());
+                    cppUtil::warn({false, nullptr}, "HTTP read error: ");
+                    cppUtil::warn(e.what());
                 }
                 socket.close();
                 continue;
@@ -110,12 +110,12 @@ int startWork() {
                         category = param.value;
                 }
             if (details) {
-                say("Create thread for client from ",false);
+                cppUtil::say({false, nullptr}, "Create thread for client from ");
                 cout << socket.remote_endpoint() << endl;
-                say("Client Id: ",false);
-                say(clientId.empty() ? "Unknown" : clientId.c_str());
-                say("Request URL: ",false);
-                say(url.c_str());
+                cppUtil::say({false, nullptr}, "Client Id: ");
+                cppUtil::say(clientId.empty() ? "Unknown" : clientId);
+                cppUtil::say({false, nullptr}, "Request URL: ");
+                cppUtil::say(url);
             }
 
             CrawlInfo info(clientId,request.body(),p.params(),url,category,id);
@@ -123,12 +123,12 @@ int startWork() {
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
                 setThreadId(id);
-                say("Thread has created.",false);
-                say("Id: ",false,BLUE);
-                say(to_string(id).c_str(),true,BLUE);
+                cppUtil::say({false, nullptr}, "Thread has created.");
+                cppUtil::say({false, BLUE}, "Id: ");
+                cppUtil::say({true, BLUE}, id);
                 const auto& status = worker.wait_for(std::chrono::milliseconds(timeout));
                 if (status == std::future_status::timeout) {
-                    warn("Thread timeout");
+                    cppUtil::warn("Thread timeout");
                     cancel -> store(true);
                 }
                 cout << endl;
@@ -138,8 +138,8 @@ int startWork() {
             newThread.detach();
         }
     }catch (std::exception& e) {
-        warn("Listening to port encountered an error:");
-        throwError(e.what());
+        cppUtil::warn("Listening to port encountered an error:");
+        cppUtil::throwError(e.what());
         return 1;
     }
     return 0;
@@ -158,23 +158,23 @@ bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool release
     response.set(http::field::connection, "close");
     response.body() = crawlInfo -> client == nullptr ? data : crawlInfo -> client -> encrypt(data);
     if (releaseOutput && config<bool>(DETAILS)) {
-        say("本次工作结果（未加密）：");
-        say(data.c_str());
+        cppUtil::say("本次工作结果（未加密）：");
+        cppUtil::say(data);
     }
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);
     bool back = true;
     if (error) {
-        warn("Error to send response, error code: ",false);
-        warn(error.message().c_str());
+        cppUtil::warn({false, nullptr}, "Error to send response, error code: ");
+        cppUtil::warn(error.message());
         back = false;
     }
     socket.shutdown(ip::tcp::socket::shutdown_both,error);
     socket.close();
     if (error) {
-        warn("Cannot close socket");
-        warn(error.message().c_str());
+        cppUtil::warn("Cannot close socket");
+        cppUtil::warn(error.message());
         back = false;
     }
     return back;

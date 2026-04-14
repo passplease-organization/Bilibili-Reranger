@@ -61,9 +61,9 @@ namespace webAPI{
             format();
         #ifdef DEVELOP
         }catch (exception e){
-            warn("Invalid json format ! Now json content :");
-            warn(to_string(json).c_str());
-            warn(e.what());
+            cppUtil::warn("Invalid json format ! Now json content :");
+            cppUtil::warn(json);
+            cppUtil::warn(e.what());
             reset();
         }
         #endif
@@ -89,7 +89,7 @@ namespace webAPI{
         }
         string error("Invalid Json Format !!! Json :\n");
         error += to_string(json);
-        throwError(error.c_str());
+        cppUtil::throwError(error);
         return "";
     }
 
@@ -102,7 +102,7 @@ namespace webAPI{
         }
         string error("Invalid Json Format !!! Json :\n");
         error += to_string(json);
-        throwError(error.c_str());
+        cppUtil::throwError(error);
         return "";
     }
 
@@ -245,6 +245,6 @@ namespace webAPI{
         if(storeJson(OUTPUT_NAME,OUTPUT_PATH,json)) {
             saveToFile(OUTPUT_NAME,OUTPUT_PATH);
             storeJson(OUTPUT_NAME,OUTPUT_PATH, nullptr, true);
-        }else throwError("Save Output file failed !");
+        }else cppUtil::throwError("Save Output file failed !");
     }
 }

@@ -42,10 +42,10 @@ namespace webAPI {
             connection_ = std::make_unique<pqxx::connection>(buildConnectionString());
             connected_ = connection_->is_open();
         } catch (const std::exception& e) {
-            warn("Connect to database encounters an error: ");
-            warn(e.what());
-            warn("Connection string: ");
-            warn(buildConnectionString().c_str());
+            cppUtil::warn("Connect to database encounters an error: ");
+            cppUtil::warn(e.what());
+            cppUtil::warn("Connection string: ");
+            cppUtil::warn(buildConnectionString());
             connected_ = false;
         }
         return connected_;
@@ -386,13 +386,13 @@ namespace webAPI {
             );
         #endif
         #if MORE_DETAILS
-            say("写入数据库");
+            cppUtil::say("写入数据库");
         #endif
             txn.commit();
             return true;
         } catch (const std::exception& e) {
-            warn("写入数据库失败，报错：",false);
-            warn(e.what());
+            cppUtil::warn({false, nullptr}, "写入数据库失败，报错：");
+            cppUtil::warn(e.what());
             return false;
         }
     }
@@ -495,7 +495,7 @@ namespace webAPI {
 
     bool postgres::clientsInit(std::vector<ClientRow>& clients, std::vector<HandlerRow>& handlers) const {
         if (!isConnected()) {
-            warn("Postgres clientsInit aborted: database is not connected");
+            cppUtil::warn("Postgres clientsInit aborted: database is not connected");
             return false;
         }
         try {
@@ -530,13 +530,13 @@ namespace webAPI {
                 const auto enc_key = row["esa_key_enc"].as<std::string>();
                 const auto decrypted_key = decryptDb(enc_key);
                 if (decrypted_key.empty() && !enc_key.empty()) {
-                    warn((std::string("Postgres clientsInit failed to decrypt client key, client_id=") + entry.client_id +
+                    cppUtil::warn((std::string("Postgres clientsInit failed to decrypt client key, client_id=") + entry.client_id +
                         ", enc_key_length=" + std::to_string(enc_key.size())).c_str());
                     return false;
                 }
                 entry.esa_key_enc = normalizeStoredEsaKey(decrypted_key);
                 if (entry.esa_key_enc.empty() && !decrypted_key.empty()) {
-                    warn((std::string("Postgres clientsInit failed to normalize client key, client_id=") + entry.client_id +
+                    cppUtil::warn((std::string("Postgres clientsInit failed to normalize client key, client_id=") + entry.client_id +
                         ", decrypted_key_length=" + std::to_string(decrypted_key.size())).c_str());
                     return false;
                 }
@@ -558,7 +558,7 @@ namespace webAPI {
             #else
                 const auto dec_cookie = decryptDb(enc_cookie);
                 if (dec_cookie.empty() && !enc_cookie.empty()) {
-                    warn((std::string("Postgres clientsInit failed to decrypt handler cookie, client_id=") + entry.client_id +
+                    cppUtil::warn((std::string("Postgres clientsInit failed to decrypt handler cookie, client_id=") + entry.client_id +
                         ", platform=" + entry.platform + ", enc_cookie_length=" + std::to_string(enc_cookie.size())).c_str());
                     return false;
                 }
@@ -571,7 +571,7 @@ namespace webAPI {
             }
             return true;
         } catch (const std::exception& e) {
-            warn((std::string("Postgres clientsInit exception: ") + e.what()).c_str());
+            cppUtil::warn("Postgres clientsInit exception: ", e.what());
             return false;
         }
     }
@@ -585,12 +585,12 @@ namespace webAPI {
         }
         const auto key = config<std::string>(POSTGRES_ENCRYPT_KEY);
         if (key.empty()) {
-            warn("Postgres crypto key is empty");
+            cppUtil::warn("Postgres crypto key is empty");
             return false;
         }
         const auto raw = decodeKey(key);
         if (raw.empty()) {
-            warn("Postgres crypto key is invalid");
+            cppUtil::warn("Postgres crypto key is invalid");
             return false;
         }
         crypto_ = std::make_unique<webAPI::SimpleESA>(raw, true);

@@ -29,7 +29,7 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     }
 
 #ifdef WIN32
-    warn("这个程序是为Linux系统设计的，对于Windows系统难保可用性，不建议在Windows上使用！");
+    cppUtil::warn("这个程序是为Linux系统设计的，对于Windows系统难保可用性，不建议在Windows上使用！");
 #endif
 
     #ifdef TEST
@@ -44,10 +44,10 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
 
 #if TEST_DLL
     auto task = crawlTask::nowTask();
-    say("第一个注册的任务：",false);
-    say(task -> keyword,true,GREEN);
-    say("其工作状态：",false);
-    say(crawlTask::getName(task -> mode),true,GREEN);
+    cppUtil::say({false, nullptr}, "第一个注册的任务：");
+    cppUtil::say({true, GREEN}, task -> keyword);
+    cppUtil::say({false, nullptr}, "其工作状态：");
+    cppUtil::say({true, GREEN}, crawlTask::getName(task -> mode));
     cout << "当前处于测试插件状态，主程序已退出" << endl;
     return 0;
 #endif
@@ -58,15 +58,15 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
             return signal;
     }
     if (config<bool>(DETAILS))
-        say("爬取工作开始");
+        cppUtil::say("爬取工作开始");
     REQUIRE_CLIENT(socket);
     try{
         if(crawl(cancel,socket)) {
             return success();
         }
     }catch(const std::exception& e) {
-        warn("crawl encounter exception: ",false);
-        warn(e.what());
+        cppUtil::warn({false, nullptr}, "crawl encounter exception: ");
+        cppUtil::warn(e.what());
     }
     return failed();
 }

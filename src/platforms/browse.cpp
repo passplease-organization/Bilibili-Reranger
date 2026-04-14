@@ -77,9 +77,9 @@ Json BrowseController::perform(const BrowseWorker &worker) const {
     );
     if (response.status_code != 200) {
         if (config<bool>(DETAILS)) {
-            warn("连接Browser故障，状态码：",false);
-            warn(to_string(response.status_code).c_str());
-            warn(response.reason.c_str());
+            cppUtil::warn({false, nullptr}, "连接Browser故障，状态码：");
+            cppUtil::warn(response.status_code);
+            cppUtil::warn(response.reason);
         }
         return {};
     }
@@ -89,10 +89,10 @@ Json BrowseController::perform(const BrowseWorker &worker) const {
         else {
             if (back.contains(ANSWER_ERROR)) {
                 auto&& error = back[ANSWER_ERROR];
-                warn("浏览器工作报错：\n名称：",false);
-                warn(error["name"].get<string>().c_str());
-                warn("信息：",false);
-                warn(error["message"].get<string>().c_str());
+                cppUtil::warn({false, nullptr}, "浏览器工作报错：\n名称：");
+                cppUtil::warn(error["name"].get<string>());
+                cppUtil::warn({false, nullptr}, "信息：");
+                cppUtil::warn(error["message"].get<string>());
             }
             return {};
         }
@@ -158,7 +158,7 @@ cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,
     );
     if (response.status_code != 200) {
         if (config<bool>(DETAILS))
-            warn("连接Browse登录失败");
+            cppUtil::warn("连接Browse登录失败");
         return {};
     }
     try {
@@ -166,8 +166,8 @@ cpr::Url BrowseController::openBridge(const std::string& clientID, cpr::Url url,
         if (SUCCESS_BROWSE_REQUEST(json) && json.contains(OPEN_BRIDGE))
             return json[OPEN_BRIDGE].get<string>();
         if (config<bool>(DETAILS)) {
-            warn("错误Browser返回Json:",false);
-            warn(json.dump().c_str());
+            cppUtil::warn({false, nullptr}, "错误Browser返回Json:");
+            cppUtil::warn(json.dump());
         }
         return {};
     }catch (...) {

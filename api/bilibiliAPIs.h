@@ -8,14 +8,14 @@
 
 #define containsData(json) json.contains("data")
 #define COOKIE_WARN \
-    warn("COOKIE可能不合法，请重新登录！"); \
+    cppUtil::warn("COOKIE可能不合法，请重新登录！"); \
     helper.clearData(); \
     helper.clearNextURL();
 #define checkAndReturn(json) \
     if (!containsData(json)) { \
         COOKIE_WARN \
-        warn("收到Json: ",false); \
-        warn((json).dump().c_str()); \
+        cppUtil::warn({false, nullptr}, "收到Json: "); \
+        cppUtil::warn((json).dump()); \
         return false; \
     }
 #define getDataFromJson(json) json["data"]

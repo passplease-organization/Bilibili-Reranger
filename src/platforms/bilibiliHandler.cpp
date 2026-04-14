@@ -99,8 +99,8 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
                     if (validBrowse()) {
                         failed = false;
                         if (config<bool>(DETAILS)) {
-                            say("Cookie如下");
-                            say(cookie.c_str());
+                            cppUtil::say("Cookie如下");
+                            cppUtil::say(cookie);
                         }
                         return "登录成功！";
                     }
@@ -146,12 +146,12 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
                 }
             }
             if (config<bool>(DETAILS)) {
-                warn("服务器回复信息：");
-                warn(response.text.c_str());
+                cppUtil::warn("服务器回复信息：");
+                cppUtil::warn(response.text);
             }
         #ifdef DEVELOP
-            say("登录报错，URL如下，可手动尝试验证：",true,BLUE);
-            say(url.c_str(),true,BLUE);
+            cppUtil::say({true, BLUE}, "登录报错，URL如下，可手动尝试验证：");
+            cppUtil::say({true, BLUE}, url);
         #endif
             return "发送验证码错误";
         }
@@ -224,18 +224,18 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
                     }
                 }
                 if (config<bool>(DETAILS)) {
-                    warn("服务器回复信息：");
-                    warn(response.text.c_str());
+                    cppUtil::warn("服务器回复信息：");
+                    cppUtil::warn(response.text);
                 }
             #ifdef DEVELOP
-                say("登录报错，URL如下，可手动尝试验证：",true,BLUE);
-                say(url.c_str(),true,BLUE);
+                cppUtil::say({true, BLUE}, "登录报错，URL如下，可手动尝试验证：");
+                cppUtil::say({true, BLUE}, url);
             #endif
                 return "请求验证码准备工作错误";
             }
             if (config<bool>(DETAILS)) {
-                warn("回复body：");
-                warn(response.text.c_str());
+                cppUtil::warn("回复body：");
+                cppUtil::warn(response.text);
             }
             return "登录失败！";
         }
@@ -248,8 +248,8 @@ string bilibiliHandler::login(const std::string& name, const std::string& passwo
         if (!containsData(json)) {
             failed = true;
             if (config<bool>(DETAILS)) {
-                say("获取验证码错误，得到：",false);
-                say(json.dump().c_str());
+                cppUtil::say({false, nullptr}, "获取验证码错误，得到：");
+                cppUtil::say(json.dump());
             }
             return "错误返回Json";
         }
@@ -292,8 +292,8 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
             if (_subscribers.contains(task -> keyword))
                 _subscribers.get(task -> keyword,&id);
             else {
-                warn("没有这个博主：",false);
-                warn(task -> keyword);
+                cppUtil::warn({false, nullptr}, "没有这个博主：");
+                cppUtil::warn(task -> keyword);
                 return nullWorker();
             }
             return {
@@ -331,16 +331,16 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
             if(!startWith(helper.nextURL().c_str(),deprecated_videoByUser)) {
 
             #if MORE_DETAILS
-                say("当前搜索的关注用户名：", false);
-                say(task->keyword);
+                cppUtil::say({false, nullptr}, "当前搜索的关注用户名：");
+                cppUtil::say(task->keyword);
             #endif
 
                 Json json_subs = helper.getSubscribers();
                 for (auto &up: _getSubscribers(json_subs, false).items()) {
 
                 #if MORE_DETAILS
-                    say("当前比对up名：", false);
-                    say(_getSubscriberName(up).c_str(), true, YELLOW);
+                    cppUtil::say({false, nullptr}, "当前比对up名：");
+                    cppUtil::say({true, YELLOW}, _getSubscriberName(up));
                 #endif
 
                     if (_getSubscriberName(up) == task->keyword) {
@@ -353,7 +353,7 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
                         helper.nextSearch(url);
 
                     #if MORE_DETAILS
-                        say("关注用户爬取一次", true, BLUE);
+                        cppUtil::say({true, BLUE}, "关注用户爬取一次");
                     #endif
 
                         helper.markMustCrawl();
@@ -476,8 +476,8 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                             resolver(__data[CrawlData]);
             }
             if (empty) {
-                warn("浏览器爬取的数据都是空的！");
-                warn(data.dump().c_str());
+                cppUtil::warn("浏览器爬取的数据都是空的！");
+                cppUtil::warn(data.dump());
             }
             return !empty;
         }
@@ -487,7 +487,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
 
 bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force) const {
     #if MORE_DETAILS
-        say("开始准备关注博主名单");
+        cppUtil::say("开始准备关注博主名单");
     #endif
 
     if(helper.getSubscribers().empty() || force) {
@@ -501,8 +501,8 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
             try {
                 json = Json::parse(helper.rawData());
             } catch (const std::exception& e) {
-                warn("Parse subscribers response failed: ", false);
-                warn(e.what());
+                cppUtil::warn({false, nullptr}, "Parse subscribers response failed: ");
+                cppUtil::warn(e.what());
                 helper.clearData();
                 helper.clearNextURL();
                 return false;
@@ -516,9 +516,9 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
             unsigned int nowPage = CrawlerHelper::parsePages(helper.nextURL());
 
         #if MORE_DETAILS
-            say("关注博主刷新完成第",false);
-            say(to_string(nowPage).c_str(),false);
-            say("页");
+            cppUtil::say({false, nullptr}, "关注博主刷新完成第");
+            cppUtil::say({false, nullptr}, nowPage);
+            cppUtil::say("页");
         #endif
 
             if(nowPage >= pages)
@@ -532,7 +532,7 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
     }
 
     #if MORE_DETAILS
-        say("关注博主名单已准备完成");
+        cppUtil::say("关注博主名单已准备完成");
     #endif
     return !helper.getSubscribers().empty() && helper.getSubscribers().valid();
 }
@@ -552,16 +552,16 @@ bool bilibiliHandler::prepare() {
     });
     if (!validWorkerData(_crawlData)) {
         #ifdef MORE_DETAILS
-            warn("Wrong browser answer:");
-            warn(_crawlData.dump().c_str());
+            cppUtil::warn("Wrong browser answer:");
+            cppUtil::warn(_crawlData.dump());
         #endif
         return false;
     }
     const auto& crawlData = _crawlData[2];
     if (!validWhileData(crawlData)) {
         #ifdef MORE_DETAILS
-            warn("Wrong browser answer:");
-            warn(_crawlData.dump().c_str());
+            cppUtil::warn("Wrong browser answer:");
+            cppUtil::warn(_crawlData.dump());
         #endif
         return false;
     }

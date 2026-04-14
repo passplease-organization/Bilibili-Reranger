@@ -14,6 +14,7 @@ const string ConfigPath = "config";
 auto storedJson = map<string,Json>();
 
 thread_local long long id = NONE_THREAD_ID;
+thread_local bool logLineStart = true;
 
 void setThreadId(const long long& _id) {
     if (id == NONE_THREAD_ID)
@@ -79,25 +80,18 @@ bool fileExists(const char* name, bool absolute){
 }
 
 void throwError(const char* error) noexcept(false){
-    if (id != NONE_THREAD_ID)
-        cout << RED << "Thread ID: " << id << endl;
-    cout << error << RESET << endl;
-    throw runtime_error(error);
+    cppUtil::detail::emitThrowError(error);
 }
 
 void say(const char* message,bool endl,const char* color){
-    if(color != nullptr)
-        cout << string(color);
-    cout << message << RESET;
-    if(endl)
-        cout << '\n';
+    cppUtil::detail::emitSay(message, endl, color);
 }
 
-inline void warn(const char* warn,bool endl){
+void warn(const char* warn,bool endl){
     say(warn,endl,YELLOW);
 }
 
-inline bool convertToInt(const char* str, int& num){
+bool convertToInt(const char* str, int& num){
     istringstream stream(str);
     stream >> num;
     return stream.fail();
@@ -154,8 +148,8 @@ bool createConfig(char* output, const char* filePath,const size_t maxLength,cons
             snprintf(output,maxLength,"%s",path.c_str());
             return true;
         }else {
-            warn("创建文件失败！请检查具体原因！");
-            throwError("Failed at creating file !");
+            cppUtil::warn("创建文件失败！请检查具体原因！");
+            cppUtil::throwError("Failed at creating file !");
         }
         return false;
     }catch (...){
@@ -187,7 +181,7 @@ bool getConfig(char* output, const char* filePath,const size_t maxLength, const 
             return true;
         }
         freeOutputChar(&out);
-        throwError("Failed at creating file !");
+        cppUtil::throwError("Failed at creating file !");
         return false;
     }catch (...){
         return false;
@@ -466,7 +460,7 @@ namespace dataStore{
             return &(data -> floats);
         else if constexpr (is_same_v<T,bool>)
             return &(data -> bools);
-        throwError("Wrong Type !");
+        cppUtil::throwError("Wrong Type !");
     }
 
     template<typename T>
@@ -481,7 +475,7 @@ namespace dataStore{
             return &(data -> floatArrays);
         else if constexpr (is_same_v<T,bool>)
             return &(data -> boolArrays);
-        throwError("Wrong Type !");
+        cppUtil::throwError("Wrong Type !");
     }
 
     template<typename T>
@@ -536,14 +530,14 @@ namespace dataStore{
             return;
         for(const auto& d : input -> data){
             if(&d.second == this){
-                throwError("Any json file cannot contain itself !");
+                cppUtil::throwError("Any json file cannot contain itself !");
                 return;
             }
         }
         for(const auto& dArray : input -> dataArrays){
             for(const auto& d : dArray.second){
                 if(&d == this){
-                    throwError("Any json file cannot contain itself !");
+                    cppUtil::throwError("Any json file cannot contain itself !");
                     return;
                 }
             }
@@ -673,7 +667,7 @@ namespace dataStore{
         if (!recover && json == nullptr) {
             string error = "File not exists ! Cannot write Json ! File path: ";
             error.append(path);
-            throwError(error.c_str());
+            cppUtil::throwError(error);
             return false;
         }else {
             dataStore::to_json(json,*this);
@@ -703,7 +697,7 @@ namespace dataStore{
                 if(_throw) {
                     string error("Path not exists ! Current path: ");
                     error.append(path);
-                    throwError(error.c_str());
+                    cppUtil::throwError(error);
                 }
                 d.broken();
                 return d;
@@ -771,7 +765,7 @@ namespace dataStore{
                             data.broken();
                             string error("Unchecked Json file, not right format. now label: ");
                             error += label;
-                            throwError(error.c_str());
+                            cppUtil::throwError(error);
                             return;
                         }
                     }
@@ -809,7 +803,7 @@ namespace dataStore{
                             data.broken();
                             string error("Unchecked Json file, not right format. now label: ");
                             error += label;
-                            throwError(error.c_str());
+                            cppUtil::throwError(error);
                             return;
                         }
                     }
@@ -817,12 +811,12 @@ namespace dataStore{
             }
         }catch(const std::exception& e) {
             data.broken();
-            say("Invalid Json File !",false,RED);
+            cppUtil::say({false, RED}, "Invalid Json File !");
             if(!data.path.empty())
-                say(("File Path: " + data.path).c_str(),false, RED);
-            say("Exception Info: ",false,BLUE);
-            say(e.what(),true,BLUE);
-            throwError(e.what());
+                cppUtil::say({false, RED}, "File Path: ", data.path);
+            cppUtil::say({false, BLUE}, "Exception Info: ");
+            cppUtil::say({true, BLUE}, e.what());
+            cppUtil::throwError(e.what());
         }
     }
 

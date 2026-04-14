@@ -39,12 +39,12 @@ void CrawlerHelper::curlSetup(const string &cookie,const string& useragent){
 void CrawlerHelper::curlSetup(){
     CurlHelper::curlSetup();
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-        warn("Client not initialized, cannot setup curl");
+        cppUtil::warn("Client not initialized, cannot setup curl");
         return;
     }
     const auto* handler = crawlInfo->client->handler();
     if (handler == nullptr) {
-        warn("Client handler not initialized, call /set or /login first");
+        cppUtil::warn("Client handler not initialized, call /set or /login first");
         return;
     }
     curlSetup(handler -> getWorker(nullptr).context->cookie, user_agent);
@@ -55,8 +55,8 @@ bool CrawlerHelper::connect(bool deal){
         return false;
 
     #if MORE_DETAILS
-        say("下一次的URL:", false);
-        say(url.c_str(), true, GREEN);
+        cppUtil::say({false, nullptr}, "下一次的URL:");
+        cppUtil::say({true, GREEN}, url);
     #endif
 
     clear();
@@ -81,22 +81,22 @@ bool CrawlerHelper::connect(bool deal){
             return !deal;
         }catch (exception& e){
     #if DEVELOP
-            warn("Dealing Json encounters problem !");
-            say("Json content: ",false,RED);
-            say(to_string(json).c_str(),true,RED);
-            say("Now url: ",false,RED);
-            say(url.c_str(),true,RED);
-            throwError(e.what());
+            cppUtil::warn("Dealing Json encounters problem !");
+            cppUtil::say({false, RED}, "Json content: ");
+            cppUtil::say({true, RED}, json);
+            cppUtil::say({false, RED}, "Now url: ");
+            cppUtil::say({true, RED}, url);
+            cppUtil::throwError(e.what());
     #endif
-            say("Please Check COOKIE ! May COOKIE wrong ! Now Client ID :",false);
-            say(crawlInfo -> clientId.c_str());
+            cppUtil::say({false, nullptr}, "Please Check COOKIE ! May COOKIE wrong ! Now Client ID :");
+            cppUtil::say(crawlInfo -> clientId);
             return false;
         }
 }
 
 bool CrawlerHelper::dealJson() {
     #if MORE_DETAILS
-        say("爬取中");
+        cppUtil::say("爬取中");
     #endif
 
     if(!tempData.empty()) {
@@ -109,33 +109,33 @@ bool CrawlerHelper::dealJson() {
             auto data = json.get<dataStore::Data>();
             data.setPath(tempDataPath);
             data.setName(tempDataName);
-            say("保存此次爬取临时数据");
+            cppUtil::say("保存此次爬取临时数据");
             data.writeToJson();
     #endif
         }catch (const exception&){
     #ifdef DEVELOP
-            warn("爬取数据格式错误！");
-            warn("数据如下：");
-            warn(tempData.c_str());
+            cppUtil::warn("爬取数据格式错误！");
+            cppUtil::warn("数据如下：");
+            cppUtil::warn(tempData);
     #endif
             const auto* handler = crawlInfo != nullptr && crawlInfo -> client != nullptr
                 ? crawlInfo -> client -> handler()
                 : nullptr;
             if (handler != nullptr && !handler -> validBrowse()) {
-                warn("请检查COOKIE是否正常，客户端ID: ",false);
-                warn(crawlInfo -> clientId.c_str());
+                cppUtil::warn({false, nullptr}, "请检查COOKIE是否正常，客户端ID: ");
+                cppUtil::warn(crawlInfo -> clientId);
             }
             return false;
         }
     }
     auto task = crawlTask::nowTask();
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-        warn("Client not initialized, cannot deal json");
+        cppUtil::warn("Client not initialized, cannot deal json");
         return false;
     }
     auto* handler = crawlInfo -> client -> handler();
     if (handler == nullptr) {
-        warn("Client handler not initialized, call /set or /login first");
+        cppUtil::warn("Client handler not initialized, call /set or /login first");
         return false;
     }
     return handler -> dealJson(*this, json, task);
@@ -194,12 +194,12 @@ void CrawlerHelper::nextSearch(const string &url) {
 
 bool CrawlerHelper::refreshSubscribers(const bool force) {
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-        warn("Client not initialized, cannot refresh subscribers");
+        cppUtil::warn("Client not initialized, cannot refresh subscribers");
         return false;
     }
     auto* handler = crawlInfo -> client -> handler();
     if (handler == nullptr) {
-        warn("Client handler not initialized, call /set or /login first");
+        cppUtil::warn("Client handler not initialized, call /set or /login first");
         return false;
     }
     return handler -> refreshSubscribers(*this, force);
@@ -243,7 +243,7 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
         count++;
 
     #if SLEEP_CRAWL
-        say("爬取等待...");
+        cppUtil::say("爬取等待...");
         #ifdef WIN32
             Sleep(config<int>(WAIT_TIME));
         #elifdef __linux__
@@ -273,12 +273,12 @@ string getURL(const crawlTask::Task* task){
     if(!url.empty())
         return url;
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-        warn("Client not initialized, cannot get url");
+        cppUtil::warn("Client not initialized, cannot get url");
         return "";
     }
     auto* handler = crawlInfo -> client -> handler();
     if (handler == nullptr) {
-        warn("Client handler not initialized, call /set or /login first");
+        cppUtil::warn("Client handler not initialized, call /set or /login first");
         return "";
     }
     return handler -> getWorker(task).context -> cookie;
@@ -289,12 +289,12 @@ webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
     if (worker.valid())
         return worker;
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
-        warn("Client not initialized, cannot get url");
+        cppUtil::warn("Client not initialized, cannot get url");
         return webAPI::nullWorker();
     }
     auto* handler = crawlInfo -> client -> handler();
     if (handler == nullptr) {
-        warn("Client handler not initialized, call /set or /login first");
+        cppUtil::warn("Client handler not initialized, call /set or /login first");
         return webAPI::nullWorker();
     }
     return handler -> getWorker(task);
@@ -303,7 +303,7 @@ webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
 #define LOG_ENV(NAME) \
     string err = "未找到环境变量: "; \
     err += (NAME); \
-    warn(err.c_str()); \
+    cppUtil::warn(err); \
     error |= true;
 
 bool checkEnv(){
@@ -313,11 +313,11 @@ bool checkEnv(){
     }else {
         postgresConfig = webAPI::DbConfig(getenv(POSTGRES_HOST),stoi(getenv(POSTGRES_PORT)),getenv(POSTGRES_SCHEMA),getenv(POSTGRES_USER),getenv(POSTGRES_PASSWORD));
         dataBase = webAPI::postgres(postgresConfig);
-        say("数据库初始化");
+        cppUtil::say("数据库初始化");
         error |= !dataBase.init();
         if (error)
-            warn("数据库初始化失败！");
-        else say("数据库初始化完成");
+            cppUtil::warn("数据库初始化失败！");
+        else cppUtil::say("数据库初始化完成");
     }
     /*if(user_agent.empty()){
         if (getenv(USERAGENT) == nullptr){

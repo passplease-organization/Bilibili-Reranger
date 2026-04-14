@@ -1,6 +1,10 @@
 #pragma once
 
+#include <iostream>
 #include <map>
+#include <sstream>
+#include <string_view>
+#include <utility>
 #include <nlohmann/json.hpp>
 #include "APIStatus.h"
 
@@ -8,6 +12,12 @@
 
 using namespace std;
 using Json = nlohmann::json;
+
+#define RESET "\033[0m" // 重置颜色
+#define RED "\033[31m" // 红色
+#define GREEN "\033[32m" // 绿色
+#define YELLOW "\033[33m" // 黄色
+#define BLUE "\033[34m" // 蓝色
 
 template <class Label,class T>
 bool contains(const Label& label,map<const Label,T> map){
@@ -27,13 +37,90 @@ API string removeEnd(const string& target,const string& substring);
 
 API string randomString(size_t length);
 
-extern "C"{
+extern thread_local long long id;
+extern thread_local bool logLineStart;
 
-#define RESET "\033[0m" // 重置颜色
-#define RED "\033[31m" // 红色
-#define GREEN "\033[32m" // 绿色
-#define YELLOW "\033[33m" // 黄色
-#define BLUE "\033[34m" // 蓝色
+#ifdef __cplusplus
+namespace cppUtil {
+    struct OutputConfig {
+        bool endl = true;
+        const char* color = nullptr;
+    };
+
+    namespace detail {
+        inline void emitThreadPrefixIfNeeded() {
+            if (logLineStart && id != NONE_THREAD_ID)
+                cout << "[Thread ID: " << id << "] ";
+        }
+
+        inline void appendToStream(ostringstream& stream, const char* value) {
+            stream << (value == nullptr ? "(null)" : value);
+        }
+
+        template <class T>
+        inline void appendToStream(ostringstream& stream, T&& value) {
+            stream << std::forward<T>(value);
+        }
+
+        template <class... Args>
+        inline string buildMessage(Args&&... args) {
+            ostringstream stream;
+            (appendToStream(stream, std::forward<Args>(args)), ...);
+            return stream.str();
+        }
+
+        inline void emitSay(const char* message, const bool endl, const char* color) {
+            emitThreadPrefixIfNeeded();
+            if (color != nullptr)
+                cout << color;
+            cout << (message == nullptr ? "(null)" : message) << RESET;
+            logLineStart = endl;
+            if (endl)
+                cout << '\n';
+        }
+
+        [[noreturn]] inline void emitThrowError(const char* error) {
+            if (!logLineStart)
+                cout << '\n';
+            logLineStart = true;
+            emitThreadPrefixIfNeeded();
+            cout << RED << (error == nullptr ? "(null)" : error) << RESET << '\n';
+            logLineStart = true;
+            throw runtime_error(error == nullptr ? "(null)" : error);
+        }
+    }
+
+    template <class... Args>
+    inline void say(const OutputConfig& config, Args&&... args) {
+        const auto message = detail::buildMessage(std::forward<Args>(args)...);
+        detail::emitSay(message.c_str(), config.endl, config.color);
+    }
+
+    template <class... Args>
+    inline void say(Args&&... args) {
+        cppUtil::say({}, std::forward<Args>(args)...);
+    }
+
+    template <class... Args>
+    inline void warn(const OutputConfig& config, Args&&... args) {
+        const auto message = detail::buildMessage(std::forward<Args>(args)...);
+        detail::emitSay(message.c_str(), config.endl, config.color == nullptr ? YELLOW : config.color);
+    }
+
+    template <class... Args>
+    inline void warn(Args&&... args) {
+        cppUtil::warn({}, std::forward<Args>(args)...);
+    }
+
+    template <class... Args>
+    [[noreturn]] inline void throwError(Args&&... args) {
+        const auto message = detail::buildMessage(std::forward<Args>(args)...);
+        detail::emitThrowError(message.c_str());
+    }
+}
+#endif
+
+extern "C"{
 
 API bool endWith(const char* target,const char* substring);
 

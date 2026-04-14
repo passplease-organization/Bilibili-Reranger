@@ -83,7 +83,7 @@ void readConfig() {
             try{
                 _readConfig();
             }catch (exception e) {
-                throwError("主程序配置文件错误，请删除文件重新生成！");
+                cppUtil::throwError("主程序配置文件错误，请删除文件重新生成！");
             }
         }
     }

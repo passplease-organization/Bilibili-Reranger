@@ -68,7 +68,7 @@ const char* crawlTask::getName(WorkingMode mode){
             return "视频标签匹配模式";
         }
         default: {
-            throwError("Unknown WorkingMode Type !");
+            cppUtil::throwError("Unknown WorkingMode Type !");
             return "Error";
         }
     }
@@ -89,7 +89,7 @@ WorkingMode crawlTask::byName(const char *name) {
         return WorkingMode::SUBSCRIBE;
     if(mode == "视频标签匹配模式")
         return WorkingMode::TAG;
-    warn("未匹配的模式名称");
+    cppUtil::warn("未匹配的模式名称");
     return WorkingMode::SEARCH;
 }
 
@@ -115,7 +115,7 @@ bool crawlTask::registerTask(const char* groupName,const char* platform,Task* ta
         registerGroup(group);
     }
     if(group == nullptr) {
-        throwError("Register task failed due to get group failed");
+        cppUtil::throwError("Register task failed due to get group failed");
         return false;
     }
     return group -> registerTask(task);
@@ -190,7 +190,7 @@ Group::Group(const char *name,const char* platform,unsigned int videoCount,bool 
     if(regi && !registerGroup(this, name)){
         string error = "Register group failed ! Group name: ";
         error += name;
-        throwError(error.c_str());
+        cppUtil::throwError(error);
     }
 }
 
@@ -285,7 +285,7 @@ void crawlTask::group_from_data(dataStore::Data& data, Group* group){
     data.get("name",&name);
     replaceCString(group -> name, name.c_str());
     if (!data.strings.contains("platform")) {
-        throwError("Missing platform in group data");
+        cppUtil::throwError("Missing platform in group data");
     }
     string platform;
     data.get("platform",&platform);
@@ -302,7 +302,7 @@ void crawlTask::group_from_data(dataStore::Data& data, Group* group){
             group -> tasks.emplace_back(t);
         else {
             delete t;
-            throwError("Wrong data format for tasks");
+            cppUtil::throwError("Wrong data format for tasks");
         }
     }
 }

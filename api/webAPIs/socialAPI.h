@@ -314,8 +314,8 @@ namespace webAPI {
                     json = Json::parse(tempData);
                 }catch(...) {
                     if (config<bool>(DETAILS)) {
-                        say("Json格式错误！当前：");
-                        say(tempData.c_str());
+                        cppUtil::say("Json格式错误！当前：");
+                        cppUtil::say(tempData);
                     }
                     json = Json();
                 }

@@ -26,10 +26,10 @@ const char* post(AI& ai,const string& body){
             cpr::Body{body}
     );
     if(response.status_code != 200){
-        warn("Request AI failed, status code: ",false);
-        warn(to_string(response.status_code).c_str());
-        warn("Error message: ");
-        warn(response.text.c_str());
+        cppUtil::warn({false, nullptr}, "Request AI failed, status code: ");
+        cppUtil::warn(response.status_code);
+        cppUtil::warn("Error message: ");
+        cppUtil::warn(response.text);
         return "";
     }
     try {
@@ -38,13 +38,13 @@ const char* post(AI& ai,const string& body){
         if (response_json.contains("choices") && !response_json["choices"].empty()) {
             return to_string(response_json["choices"][0]["message"]["content"]).c_str();
         }
-        warn("Invalid JSON response format.");
-        warn("Full response: ",false);
-        warn(response.text.c_str());
+        cppUtil::warn("Invalid JSON response format.");
+        cppUtil::warn({false, nullptr}, "Full response: ");
+        cppUtil::warn(response.text);
         return "";
     } catch (const Json::parse_error& e) {
-        warn("Failed to parse JSON response: ");
-        warn(e.what());
+        cppUtil::warn("Failed to parse JSON response: ");
+        cppUtil::warn(e.what());
         return "";
     }
 }

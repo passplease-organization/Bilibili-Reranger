@@ -15,11 +15,11 @@
 #include "webAPIs/socialAPI.h"
 
 #define LOG(URL,NAME) \
-    say("Accept URL: " URL);\
-    say(NAME " working for that ...");
+    cppUtil::say("Accept URL: " URL);\
+    cppUtil::say(NAME " working for that ...");
 #define RELEASE_LOG(message) \
     if (config<bool>(DETAILS)) \
-        say(message)
+        cppUtil::say(message)
 
 namespace webAPI{
     socialAPI* const& getHandler(Client const* client){
@@ -101,8 +101,8 @@ int key(boost::asio::ip::tcp::socket& socket){
         json[URL_PARAMS_CLIENT_ID] = c -> getID();
         json[BODY_PARAMS_ENCRYPT_KEY] = esaKey;
         #if TEST
-            say("ESA key: ",false);
-            say(c -> ESAKey("test").c_str());
+            cppUtil::say({false, nullptr}, "ESA key: ");
+            cppUtil::say(c -> ESAKey("test"));
         #endif
         return back(sendMessage(socket,json.dump()));
     }
@@ -152,7 +152,7 @@ int init(boost::asio::ip::tcp::socket& socket){
     }
     bool ok = true;
     if (gather) {
-        say("收集登录信息");
+        cppUtil::say("收集登录信息");
         json[CLIENT_ID] = crawlInfo -> clientId;
         json[PLATFORM] = crawlInfo -> client -> handler() -> support();
         const auto&& response = cpr::Post(
@@ -170,11 +170,11 @@ int init(boost::asio::ip::tcp::socket& socket){
             }) &&
                 dataBase.upsertHandler(crawlInfo -> client -> handler(),crawlInfo -> clientId);
             if (ok) {
-                say("收集登录信息成功");
+                cppUtil::say("收集登录信息成功");
                 goto Prepare;
             }
         }
-        warn("收集登录信息失败");
+        cppUtil::warn("收集登录信息失败");
         ok = false;
         goto Back;
     }

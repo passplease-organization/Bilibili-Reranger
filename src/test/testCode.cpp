@@ -13,10 +13,10 @@ using namespace cpr;
 atomic<bool> testFinished = false;
 
 inline void _say(string msg,bool endl = true) {
-    say(msg.c_str(),endl,GREEN);
+    cppUtil::say({endl, GREEN}, msg);
 }
 
-#define EMPTY_WARN(task) warn("Empty Response for " task " !");
+#define EMPTY_WARN(task) cppUtil::warn("Empty Response for " task " !");
 
 void startTestThread() {
     thread testThread(test);
@@ -46,7 +46,7 @@ void startTestThread() {
     if (storeJson(category,output,json)) { \
         saveToFile(category,output); \
         storeJson(category,output,nullptr,true); \
-    }else warn(CANNOT_SAVE output);
+    }else cppUtil::warn(CANNOT_SAVE output);
 #define CANNOT_SAVE "Can not save to file !!! Now saving: "
 #define GET_ALL_CATEGORIES_OUTPUT OUTPUT_DIRECTORY GET_ALL_CATEGORIES ".json"
 #define KEY_OUTPUT OUTPUT_DIRECTORY KEY ".json"
@@ -71,8 +71,8 @@ void test() {
         Response response = POST_PARAMS(localhost + GET_ALL_CATEGORIES);
         if (response.status_code != 200) {
             error = true;
-            warn("Get all categories failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Get all categories failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("All categories get: ");
         _say(response.text);
@@ -86,8 +86,8 @@ void test() {
         response = POST_PARAMS(localhost + KEY);
         if (response.status_code != 200) {
             error = true;
-            warn("Get key failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Get key failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Get key: ");
         _say(response.text);
@@ -111,8 +111,8 @@ void test() {
         );
         if (response.status_code != 200) {
             error = true;
-            warn("Exchange key failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Exchange key failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Get id: ");
         _say(esa.decrypt(response.text));
@@ -128,8 +128,8 @@ void test() {
         response = POST_PARAMS_ID(localhost + TEST_ID);
         if (response.status_code != 200) {
             error = true;
-            warn("Test id failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Test id failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Test right id: ");
         if (response.text.empty()) {
@@ -144,7 +144,7 @@ void test() {
         response = POST_PARAMS(localhost + TEST_ID);
         if (response.status_code == 200) {
             error = true;
-            warn("Test id failed ! Get 200 !",false);
+            cppUtil::warn({false, nullptr}, "Test id failed ! Get 200 !");
         }
         json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
@@ -153,7 +153,7 @@ void test() {
         json.clear();
         json[BODY_PARAMS_ENCRYPT_KEY] = esa.getKey("");
         _say("Now esa key: ",false);
-        _say(esa.getKey("").c_str());
+        _say(esa.getKey(""));
         json[BODY_PARAMS_ADMIN] = "test";
         response = Post(
             Url{localhost + KEY},
@@ -164,8 +164,8 @@ void test() {
         );
         if (response.status_code != 200) {
             error = true;
-            warn("Admin login failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Admin login failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Admin login: ");
         _say(esa.decrypt(response.text));
@@ -192,8 +192,8 @@ void test() {
         );
         if (response.status_code != 200) {
             error = true;
-            warn("Login failed ! Error: ",false);
-            warn(response.error.message.c_str());
+            cppUtil::warn({false, nullptr}, "Login failed ! Error: ");
+            cppUtil::warn(response.error.message);
         }
         _say("Login: ");
         _say(esa.decrypt(response.text));
@@ -208,7 +208,7 @@ void test() {
         response = POST_PARAMS_ID(localhost + INIT);
         if (response.status_code == 200) {
             error = true;
-            warn("Init client failed ! Get 200, but should fail !",false);
+            cppUtil::warn({false, nullptr}, "Init client failed ! Get 200, but should fail !");
         }
         _say("Init: ");
         _say(esa.decrypt(response.text));
@@ -225,18 +225,18 @@ void test() {
         );
         if (response.status_code == 200) {
             error = true;
-            warn("Crawl for math failed ! Get 200, but should fail !");
+            cppUtil::warn("Crawl for math failed ! Get 200, but should fail !");
         }
         _say("Crawl for math succeed ");
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;
-        warn("Crashed !");
+        cppUtil::warn("Crashed !");
         POST_PARAMS_ID(localhost);
         throw e;
     }
     if (error)
-        throwError("Test encountered an error !");
+        cppUtil::throwError("Test encountered an error !");
     else _say("Test Success !!! Now returning ...");
     testFinished = true;
     POST_PARAMS_ID(localhost);// To let main thread get out from listening port

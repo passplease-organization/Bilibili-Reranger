@@ -24,7 +24,7 @@ context(nullptr) {}
 
 webAPI::socialAPI::~socialAPI() {
     if (context != nullptr && !webAPI::getController().closeWorker(context)) {
-        warn("delete browse failed !");
+        cppUtil::warn("delete browse failed !");
     }
 };
 
@@ -90,7 +90,7 @@ const SimpleRSA& webAPI::getRSA() {
 }
 SimpleRSA::SimpleRSA() {
     if (sodium_init() < 0) {
-        throwError("Libsodium initialization failed");
+        cppUtil::throwError("Libsodium initialization failed");
     }
     // 2. 生成密钥对 (应用启动时生成一次即可)
     crypto_box_keypair(publickey, secretkey);
@@ -120,7 +120,7 @@ std::string SimpleRSA::decrypt(const std::string &content) const {
     if (sodium_base642bin(cipher_bin.data(), cipher_len,
                           content.c_str(), cipher_len,
                           NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        throwError("Base64 decoding failed");
+        cppUtil::throwError("Base64 decoding failed");
                           }
 
     // 2. 密封盒解密 (Sealed Box Open)
@@ -151,10 +151,10 @@ std::string SimpleRSA::encrypt(const std::string &RSAKey, const std::string &con
     EVP_PKEY* pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
     BIO_free(bio);
     if (pkey == nullptr) {
-        warn("无效的RSA公钥格式");
+        cppUtil::warn("无效的RSA公钥格式");
     #ifdef DEVELOP
-        warn("传入公钥：",false);
-        warn(RSAKey.c_str());
+        cppUtil::warn({false, nullptr}, "传入公钥：");
+        cppUtil::warn(RSAKey);
     #endif
         return "";
     }
@@ -208,10 +208,10 @@ std::string SimpleRSA::encryptSodium(const std::string &SodiumKey, const std::st
     if (sodium_base642bin(pk_bin.data(), crypto_box_PUBLICKEYBYTES,
                           SodiumKey.c_str(), SodiumKey.length(),
                           NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        warn("无效的公钥格式");
+        cppUtil::warn("无效的公钥格式");
     #ifdef DEVELOP
-        warn("传入公钥：",false);
-        warn(SodiumKey.c_str());
+        cppUtil::warn({false, nullptr}, "传入公钥：");
+        cppUtil::warn(SodiumKey);
     #endif
         return "";
                           }
@@ -239,7 +239,7 @@ SimpleESA::SimpleESA(const string& key, bool rawKey) {
     if (!rawKey) {
         const string& k = getRSA().decrypt(key);
         if (k.length() != crypto_secretbox_KEYBYTES) {
-            throwError("Session Key length invalid! Must be 32 bytes.");
+            cppUtil::throwError("Session Key length invalid! Must be 32 bytes.");
         }
         std::memcpy(this -> key, k.data(), crypto_secretbox_KEYBYTES);
         return;
@@ -254,7 +254,7 @@ SimpleESA::SimpleESA(const string& key, bool rawKey) {
                           key.c_str(), key.size(),
                           NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0 ||
         bin_len != crypto_secretbox_KEYBYTES) {
-        throwError("Session Key length invalid! Must be 32 bytes.");
+        cppUtil::throwError("Session Key length invalid! Must be 32 bytes.");
     }
     std::memcpy(this -> key, bin.data(), crypto_secretbox_KEYBYTES);
 }
@@ -384,7 +384,7 @@ void Client::getHandler(const std::string& platform, std::shared_ptr<const std::
     }
     socialAPI::instance(&_handler,platform,stop);
     if (_handler != nullptr) {
-        say("生成handler成功，开始初始化handler");
+        cppUtil::say("生成handler成功，开始初始化handler");
         _handler -> init();
         if (dataBase.upsertHandler(_handler,ID))
             handlers.push_back(_handler);
@@ -561,7 +561,7 @@ bool initialized = false;
 
 void reInit(){
     #ifdef DEVELOP
-        warn("初始化失败，重初始化");
+        cppUtil::warn("初始化失败，重初始化");
     #endif
     client_mutex.lock();
     if (initialized && clients != nullptr)
@@ -572,7 +572,7 @@ void reInit(){
 }
 
 void Client::initAndDataBase(){
-    say("初始化客户端数据");
+    cppUtil::say("初始化客户端数据");
     vector<::webAPI::ClientRow> clients;
     vector<::webAPI::HandlerRow> handlers;
     bool back = dataBase.clientsInit(clients, handlers);
@@ -584,14 +584,14 @@ void Client::initAndDataBase(){
         try {
             return storeClient(new Client(data,true));
         }catch (const exception& e) {
-            warn("初始化客户端handler报错");
-            warn("客户端ID: ",false);
-            warn(data.client_id.c_str());
+            cppUtil::warn("初始化客户端handler报错");
+            cppUtil::warn({false, nullptr}, "客户端ID: ");
+            cppUtil::warn(data.client_id);
             if (config<bool>(DETAILS)) {
-                warn("ESA秘钥: ",false);
-                warn(data.esa_key_enc.c_str());
+                cppUtil::warn({false, nullptr}, "ESA秘钥: ");
+                cppUtil::warn(data.esa_key_enc);
             }
-            warn("已跳过这个客户端初始化");
+            cppUtil::warn("已跳过这个客户端初始化");
             return true;
         }
     });
@@ -608,12 +608,12 @@ void Client::initAndDataBase(){
         try {
             return client != nullptr && client -> handlerFromData(handler.second);
         }catch (const exception& e) {
-            warn("handler初始化失败");
-            warn("客户端ID是: ",false);
-            warn(handler.first.c_str());
+            cppUtil::warn("handler初始化失败");
+            cppUtil::warn({false, nullptr}, "客户端ID是: ");
+            cppUtil::warn(handler.first);
             client -> handlers.clear();
             client -> _handler = nullptr;
-            warn("已跳过此客户端handler数据初始化");
+            cppUtil::warn("已跳过此客户端handler数据初始化");
             return true;
         }
     });
@@ -655,13 +655,13 @@ bool webAPI::storeClient(Client* client){
 std::string webAPI::createAndStoreClient(const std::string &key) {
     if (const auto client = new Client(key); storeClient(client)) {
         #if TEST
-            say("Test Client ID: ",false,GREEN);
-            say(client -> getID().c_str(),true,GREEN);
+            cppUtil::say({false, GREEN}, "Test Client ID: ");
+            cppUtil::say({true, GREEN}, client -> getID());
         #endif
         return client -> getID();
     }else delete client;
     #if TEST
-        say("Register Client Encounter Problem !");
+        cppUtil::say("Register Client Encounter Problem !");
     #endif
     return "";
 }
@@ -696,7 +696,7 @@ size_t CurlHelper::saveData(char *data, size_t size, size_t member, void *userda
 
 void CurlHelper::curlSetup() {
     if(curl == nullptr){
-        throwError("创建CURL失败");
+        cppUtil::throwError("创建CURL失败");
         return;
     }
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlHelper::saveData);
@@ -712,10 +712,10 @@ bool CurlHelper::connect(bool deal) {
     CURLcode code = curl_easy_perform(curl);
     if (CURLE_OK != code) {
         clear();
-        warn("连接链接失败，信息如下：", false);
-        warn(curl_easy_strerror(code));
-        warn("错误码：", false);
-        warn(to_string(code).c_str());
+        cppUtil::warn({false, nullptr}, "连接链接失败，信息如下：");
+        cppUtil::warn(curl_easy_strerror(code));
+        cppUtil::warn({false, nullptr}, "错误码：");
+        cppUtil::warn(code);
         return false;
     }
     return !deal || dealJson();
@@ -728,10 +728,10 @@ bool AutoCurlHelper::dealJson() {
             json = Json::parse(tempData);
     #ifdef DEVELOP
         }catch (std::exception& e) {
-            warn("爬取数据格式错误！");
-            warn("数据如下：");
-            warn(tempData.c_str());
-            throwError(e.what());
+            cppUtil::warn("爬取数据格式错误！");
+            cppUtil::warn("数据如下：");
+            cppUtil::warn(tempData);
+            cppUtil::throwError(e.what());
         }
     #endif
     return deal(json);
