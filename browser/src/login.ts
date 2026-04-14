@@ -82,7 +82,7 @@ export namespace login{
             });
             const context = await browser.newContext();
             await context.addCookies(WorkContext.toCookie(body.context));
-            await context.newPage().then(page => page.goto(body.platform_url));
+            await context.newPage().then(page => page.goto(body.platform_url,{waitUntil: "domcontentloaded"}));
         }catch (e) {
             if(browser)
                 await browser.close();

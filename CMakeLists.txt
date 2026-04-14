@@ -15,6 +15,15 @@ add_compile_definitions(
         $<$<CONFIG:Test>:DEVELOP=true>
 )
 
+if(DEFINED ENV{ALL_CONTAINER_ONLINE})
+    add_compile_definitions(
+            $<$<CONFIG:Debug>:$ENV{ALL_CONTAINER_ONLINE}>
+            $<$<CONFIG:Test>:$ENV{ALL_CONTAINER_ONLINE}>
+    )
+else ()
+    add_compile_definitions(ALL_CONTAINER_ONLINE=true)
+endif ()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_compile_options(
             $<$<CONFIG:Test>:-g>

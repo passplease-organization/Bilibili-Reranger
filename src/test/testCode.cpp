@@ -57,9 +57,66 @@ void startTestThread() {
 #define TEST_WRONG_ID_OUTPUT OUTPUT_DIRECTORY TEST_ID "_wrong" ".json"
 #define ADMIN_LOGIN_OUTPUT OUTPUT_DIRECTORY "/" ADMIN_CLIENT_KEY ".json"
 #define LOGIN_OUTPUT OUTPUT_DIRECTORY LOGIN ".json"
+#define LOGIN_STATUS_OUTPUT OUTPUT_DIRECTORY "/" LOGIN_NO_SLASH "_status.json"
+#define INIT_OUTPUT OUTPUT_DIRECTORY INIT ".json"
+#define SET_OUTPUT OUTPUT_DIRECTORY SET ".json"
 #define MATH "math"
 #define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
 #define DEBUG "test"
+
+namespace {
+    void markFailed(bool& error, const string& message) {
+        error = true;
+        cppUtil::warn(message);
+    }
+
+    string decryptIfNeeded(const string& text, webAPI::SimpleESA* esa = nullptr) {
+        if (esa == nullptr)
+            return text;
+        return esa -> decrypt(text);
+    }
+
+    Json parseJsonChecked(const string& text, bool& error, const string& step) {
+        try {
+            return Json::parse(text);
+        } catch (const std::exception& e) {
+            markFailed(error, step + " returned invalid json");
+            cppUtil::warn(e.what());
+            cppUtil::warn(text);
+            return Json();
+        }
+    }
+
+    void expectStatusCode(const Response& response, const int expected, bool& error, const string& step) {
+        if (response.status_code == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" failed, status code: ");
+        cppUtil::warn(response.status_code);
+        if (!response.error.message.empty()) {
+            cppUtil::warn({false, nullptr}, "Error message: ");
+            cppUtil::warn(response.error.message);
+        }
+        if (!response.reason.empty()) {
+            cppUtil::warn({false, nullptr}, "Reason: ");
+            cppUtil::warn(response.reason);
+        }
+        if (!response.text.empty()) {
+            cppUtil::warn({false, nullptr}, "Response text: ");
+            cppUtil::warn(response.text);
+        }
+    }
+
+    void expectTextEquals(const string& actual, const string& expected, bool& error, const string& step) {
+        if (actual == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" unexpected text: ");
+        cppUtil::warn(actual);
+    }
+}
 
 void test() {
     string localhost = "http://localhost:";
@@ -127,26 +184,27 @@ void test() {
 
         _say("Test Right ID");
         response = POST_PARAMS_ID(localhost + TEST_ID);
-        if (response.status_code != 200) {
-            error = true;
-            cppUtil::warn({false, nullptr}, "Test id failed ! Error: ");
-            cppUtil::warn(response.error.message);
-        }
+        expectStatusCode(response,200,error,"Test right id");
         _say("Test right id: ");
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Test right id");
-        }else _say(response.text);
-        json.clear();
-        json[DEBUG] = response.text;
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Test right id");
+            } else {
+                _say(decrypted);
+                expectTextEquals(decrypted,"ID still valid !",error,"Test right id");
+            }
+            json.clear();
+            json[DEBUG] = decrypted;
+        }
         OUTPUT(TEST_ID_OUTPUT,TEST_ID_NO_SLASH);
 
         _say("\nTest Wrong ID: ");
         response = POST_PARAMS(localhost + TEST_ID);
-        if (response.status_code == 200) {
-            error = true;
-            cppUtil::warn({false, nullptr}, "Test id failed ! Get 200 !");
-        }
+        if (response.status_code == 200)
+            markFailed(error,"Test wrong id should not return 200");
+        json.clear();
         json[DEBUG] = response.text;
         OUTPUT(TEST_WRONG_ID_OUTPUT,TEST_ID_NO_SLASH "_wrong");
 
@@ -169,19 +227,68 @@ void test() {
             cppUtil::warn(response.error.message);
         }
         _say("Admin login: ");
-        _say(esa.decrypt(response.text));
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Admin login");
+        {
+            const string decrypted = esa.decrypt(response.text);
+            _say(decrypted);
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Admin login");
+            }
+            json = Json::parse(decrypted);
         }
-        json = Json::parse(esa.decrypt(response.text));
         OUTPUT(ADMIN_LOGIN_OUTPUT,ADMIN_CLIENT_KEY);
+
+        _say("Set platform:");
+        response = Post(
+            Url{localhost + SET},
+            Parameters{
+                {URL_PARAMS_CLIENT_ID,id},
+                {BODY_PARAMS_PLATFORM,BILIBILI}
+            },
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        expectStatusCode(response,200,error,"Set platform");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Set: ");
+            _say(decrypted);
+            expectTextEquals(decrypted,"设置成功",error,"Set platform");
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(SET_OUTPUT,SET_NO_SLASH);
+        }
+
+#if ALL_CONTAINER_ONLINE
+        _say("Login status:");
+        response = Post(
+            Url{localhost + LOGIN},
+            Parameters{
+                {URL_PARAMS_CLIENT_ID,id},
+                {URL_PARAMS_TEST,"true"}
+            },
+            ConnectTimeout{CONNECTION_TIMEOUT},
+            Timeout{config<int>(TIMEOUT)}
+        );
+        if (response.status_code != 200 && response.status_code != 500)
+            expectStatusCode(response,200,error,"Login status");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Login status: ");
+            _say(decrypted);
+            if (decrypted != "有效COOKIE" && decrypted != "无效COOKIE")
+                markFailed(error,"Login status returned unexpected text");
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(LOGIN_STATUS_OUTPUT,LOGIN_NO_SLASH "_status");
+        }
+#endif
 
         _say("Login:");
         json.clear();
         json[BODY_PARAMS_PLATFORM] = BILIBILI;
         auto&& screen = json["screen"];
-        screen["wight"] = 1000;
+        screen["width"] = 1000;
         screen["height"] = 800;
         screen["depth"] = 16;
         response = Post(
@@ -191,28 +298,57 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-        if (response.status_code != 200) {
-            error = true;
-            cppUtil::warn({false, nullptr}, "Login failed ! Error: ");
-            cppUtil::warn(response.error.message);
+#if ALL_CONTAINER_ONLINE
+        expectStatusCode(response,200,error,"Login");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Login: ");
+            _say(decrypted);
+            if (decrypted.empty()) {
+                error = true;
+                EMPTY_WARN("Login");
+            }
+            json = parseJsonChecked(decrypted,error,"Login");
+            if (!json.contains("success") || !json["success"].is_boolean())
+                markFailed(error,"Login missing boolean success");
+            if (!json.contains("url") || !json["url"].is_string())
+                markFailed(error,"Login missing string url");
+            if (json.value("success", false) && json.value("url", string()).empty())
+                markFailed(error,"Login success is true but url is empty");
+            json[DEBUG] = decrypted;
         }
-        _say("Login: ");
-        _say(esa.decrypt(response.text));
-        if (response.text.empty()) {
-            error = true;
-            EMPTY_WARN("Login");
+#else
+        expectStatusCode(response,200,error,"Login");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Login: ");
+            _say(decrypted);
+            expectTextEquals(decrypted,"测试成功",error,"Offline login");
+            json.clear();
+            json[DEBUG] = decrypted;
         }
-        json[DEBUG] = response.text;
+#endif
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
-        _say("Init( will fail ):");
+        _say("Init:");
         response = POST_PARAMS_ID(localhost + INIT);
-        if (response.status_code == 200) {
-            error = true;
-            cppUtil::warn({false, nullptr}, "Init client failed ! Get 200, but should fail !");
+        {
+            const string decrypted = decryptIfNeeded(response.text,&esa);
+            _say("Init: ");
+            _say(decrypted);
+#if ALL_CONTAINER_ONLINE
+            if (response.status_code != 200 && response.status_code != 500)
+                markFailed(error,"Init returned unexpected status code");
+            if (decrypted != "准备过程完成" && decrypted != "准备过程失败")
+                markFailed(error,"Init returned unexpected text");
+#else
+            expectStatusCode(response,200,error,"Init");
+            expectTextEquals(decrypted,"准备过程完成",error,"Offline init");
+#endif
+            json.clear();
+            json[DEBUG] = decrypted;
+            OUTPUT(INIT_OUTPUT,INIT_NO_SLASH);
         }
-        _say("Init: ");
-        _say(esa.decrypt(response.text));
 
         _say("Crawl( will fail ):");
         response = Post(

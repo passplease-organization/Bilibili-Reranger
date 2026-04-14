@@ -1,8 +1,11 @@
 #pragma once
 
+#ifndef ALL_CONTAINER_ONLINE
+    #define ALL_CONTAINER_ONLINE true
+#endif
+
 #if DEVELOP
 #define TEST_DLL false
-#define ALL_CONTAINER_ONLINE true
 #define MORE_DETAILS true
 #define SLEEP_CRAWL false
 #define tempDataPath "tempData"
