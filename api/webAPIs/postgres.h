@@ -11,6 +11,7 @@
 
 namespace webAPI {
     class socialAPI;
+    class SimpleESA;
 
     struct DbConfig {
         std::string host;
