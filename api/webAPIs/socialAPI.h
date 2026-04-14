@@ -1,12 +1,18 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
 #include <string>
-#include <cpr/response.h>
+#include <curl/curl.h>
 #include <sodium.h>
 #include "../develop/flags.h"
 
 #include "../config.h"
 #include "../interface.h"
+
+namespace cpr {
+    class Url;
+}
 
 namespace webAPI{
     struct HandlerRow;

@@ -1,10 +1,17 @@
 #pragma once
 
 #include "develop/flags.h"
+#include "Util.h"
 
+#include <atomic>
+#include <memory>
+#include <string>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/url/params_view.hpp>
-#include "webAPIs/socialAPI.h"
+
+namespace webAPI {
+    class Client;
+}
 
 struct CrawlInfo {
     const boost::urls::params_view params;
@@ -17,9 +24,7 @@ struct CrawlInfo {
 
     CrawlInfo(std::string clientId,const std::string& body,boost::urls::params_view params,std::string url,std::string target, long long id);
 
-    [[nodiscard]] bool checkClient() const noexcept{
-        return client != nullptr && client -> check();
-    }
+    [[nodiscard]] bool checkClient() const noexcept;
 
     #define BODY_CONTAIN(key) crawlInfo -> body.contains(key)
     #define INFO_BODY(key) crawlInfo -> body[key]

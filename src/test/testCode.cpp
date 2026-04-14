@@ -6,6 +6,7 @@
 #include <thread>
 #include "../subFeatures/requestHelper.h"
 #include "BilibiliInterface.h"
+#include "webAPIs/socialAPI.h"
 #include "webAPIs/platforms.h"
 
 using namespace cpr;

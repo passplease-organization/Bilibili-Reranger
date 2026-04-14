@@ -3,6 +3,7 @@
 #include <pqxx/pqxx>
 #include <sodium.h>
 
+#include "socialAPI.h"
 #include "../config.h"
 #include "../Util.h"
 #include "../develop/flags.h"

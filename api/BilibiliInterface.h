@@ -1,8 +1,11 @@
 #pragma once
 
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "Util.h"
-#include "pluginInterface.h"
-#include "webAPIs/socialAPI.h"
 
 #pragma once
 

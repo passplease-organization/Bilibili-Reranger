@@ -1,6 +1,12 @@
+#pragma once
+
+#include <string>
+
 #include "../APIStatus.h"
-#include "string"
-#include "../BilibiliInterface.h"
+
+namespace webAPI {
+    class Video;
+}
 
 extern "C"{
     /**

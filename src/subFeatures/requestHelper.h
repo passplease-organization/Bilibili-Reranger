@@ -3,7 +3,6 @@
 #include "develop/flags.h"
 
 #include "interface.h"
-#include "../Crawler.h"
 #include <boost/asio/ip/tcp.hpp>
 
 typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);

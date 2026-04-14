@@ -323,8 +323,8 @@ bool checkEnv(){
         if (getenv(USERAGENT) == nullptr){
             LOG_ENV(USERAGENT);
         }else user_agent = getenv(USERAGENT);
-    }*/
-    user_agent = "";
+    }
+    user_agent = "";*/
     if (!getenv(BROWSE_MANAGER_URL)) {
         browseManagerUrl = "http://browser:3000"; // Docker compose 内部子网使用
     }else browseManagerUrl = getenv(BROWSE_MANAGER_URL);

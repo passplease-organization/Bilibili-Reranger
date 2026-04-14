@@ -5,12 +5,12 @@
 #include <vector>
 #include <pqxx/pqxx>
 
-#include "socialAPI.h"
 #include "browse.h"
 
 // All done by Codex
 
 namespace webAPI {
+    class socialAPI;
 
     struct DbConfig {
         std::string host;

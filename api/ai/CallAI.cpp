@@ -1,6 +1,7 @@
 #include "CallAI.h"
 #include <nlohmann/json.hpp>
 #include "cpr/cpr.h"
+#include "../BilibiliInterface.h"
 #include "../config.h"
 
 using namespace std;

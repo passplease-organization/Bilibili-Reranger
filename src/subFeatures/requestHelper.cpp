@@ -12,6 +12,7 @@
 #include "interface.h"
 #include "../Crawler.h"
 #include "../PluginHandler.h"
+#include "webAPIs/browse.h"
 #include "webAPIs/socialAPI.h"
 
 #define LOG(URL,NAME) \

@@ -57,6 +57,10 @@ id(id) {
     }
 }
 
+bool CrawlInfo::checkClient() const noexcept {
+    return client != nullptr && client -> check();
+}
+
 int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket socket);
 auto WorkFunction = &work;
 
