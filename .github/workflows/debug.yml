@@ -61,7 +61,7 @@ jobs:
           path: ./build
           key: backend_${{ github.workflow_ref }}_${{ matrix.ALL_CONTAINER_ONLINE }}
 
-      - name: Test Code Online
+      - name: Test Code
         run: |
           cmake --preset test
           cmake --build --preset test
@@ -70,7 +70,7 @@ jobs:
           chmod +x BiliBili_Reranger
           ./BiliBili_Reranger
         env:
-          - ALL_CONTAINER_ONLINE: ${{ matrix.ALL_CONTAINER_ONLINE }}
+          ALL_CONTAINER_ONLINE: ${{ matrix.ALL_CONTAINER_ONLINE }}
 
       - uses: actions/upload-artifact@v6
         with:
