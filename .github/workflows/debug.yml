@@ -15,8 +15,28 @@ on:
       - browser/qodana.yaml
 
 jobs:
+  Test-Code-Browser:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: browser
+
+      - name: Install Dependencies
+        run: cd browser && npm install
+
+      - name: Run Test
+        run: cd browser && npm run test
+
   Test-Code-Backend:
     runs-on: ubuntu-latest
+    needs: Test-Docker-Browser
     environment: Test
     strategy:
       fail-fast: false
@@ -51,6 +71,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      browser:
+        image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger:browser_for_dev
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -123,27 +148,6 @@ jobs:
           sleep 10
           docker stop run-test
         continue-on-error: true
-
-  Test-Code-Browser:
-    runs-on: ubuntu-latest
-    container:
-      # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
-      image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:test_container
-      # 使用 GITHUB_TOKEN 来拉取私有或内部镜像
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          sparse-checkout: browser
-
-      - name: Install Dependencies
-        run: cd browser && npm install
-
-      - name: Run Test
-        run: cd browser && npm run test
 
   Test-Docker-Browser:
     runs-on: ubuntu-22.04

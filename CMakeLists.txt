@@ -17,8 +17,7 @@ add_compile_definitions(
 
 if(DEFINED ENV{ALL_CONTAINER_ONLINE})
     add_compile_definitions(
-            $<$<CONFIG:Debug>:$ENV{ALL_CONTAINER_ONLINE}>
-            $<$<CONFIG:Test>:$ENV{ALL_CONTAINER_ONLINE}>
+            $<$<CONFIG:Test>:ALL_CONTAINER_ONLINE=$ENV{ALL_CONTAINER_ONLINE}>
     )
 else ()
     add_compile_definitions(ALL_CONTAINER_ONLINE=true)
