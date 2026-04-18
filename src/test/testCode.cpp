@@ -360,11 +360,12 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-        if (response.status_code == 200) {
-            error = true;
-            cppUtil::warn("Crawl for math failed ! Get 200, but should fail !");
-        }
-        _say("Crawl for math succeed ");
+        _say("Crawl response: ");
+        _say(response.text);
+        if (response.status_code == 0)
+            markFailed(error,"Crawl request failed with no HTTP response");
+        if (response.text.empty())
+            markFailed(error,"Crawl returned empty response");
         OUTPUT(MATH_OUTPUT,MATH);
     }catch (std::exception &e) {
         testFinished = true;

@@ -64,14 +64,14 @@ bool CrawlerHelper::connect(bool deal){
         if(crawlNext())
             CurlHelper::connect(false);
     #else
-        if(fileExists(BILIBILI_DATA)) {
-            ifstream data(BILIBILI_DATA);
-            if(data.is_open()){
-                stringstream stream;
-                stream << data.rdbuf();
-                tempData = stream.str();
-            }
-        }
+        // if(fileExists(BILIBILI_DATA)) {
+        //     ifstream data(BILIBILI_DATA);
+        //     if(data.is_open()){
+        //         stringstream stream;
+        //         stream << data.rdbuf();
+        //         tempData = stream.str();
+        //     }
+        // }
     #endif
         try {
             if (deal && dealJson()) {

@@ -44,9 +44,6 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
 int login(boost::asio::ip::tcp::socket& socket) {
     LOG(LOGIN, "login");
     REQUIRE_CLIENT(socket);
-#ifdef TEST
-    string platform(BILIBILI),test("");
-#else
     string test;
     for (auto const& param : crawlInfo -> params) {
         if (param.key == URL_PARAMS_TEST) {
@@ -54,7 +51,6 @@ int login(boost::asio::ip::tcp::socket& socket) {
             break;
         }
     }
-#endif
     if (test == "true") {
         RELEASE_LOG("测试后台登录状态");
         if (crawlInfo -> client -> handler() != nullptr) {
