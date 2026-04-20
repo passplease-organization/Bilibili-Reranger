@@ -1,10 +1,10 @@
-#include "BilibiliInterface.h"
+#include "../utils/BilibiliInterface.h"
 
 #include <iostream>
 #include <regex>
 #include <cpr/api.h>
 
-#include "pluginInterface.h"
+#include "../pluginInterface.h"
 
 string toReadableTime(long long publishTime){// TODO 时间解析有问题
     auto pubTime = static_cast<std::time_t>(publishTime);

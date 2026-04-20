@@ -1,6 +1,6 @@
 #include "bilibiliHandler.h"
 #include "bilibiliAPIs.h"
-#include "config.h"
+#include "../../api/utils/config.h"
 #include "webAPIs/crawler.h"
 #include "../Crawler.h"
 

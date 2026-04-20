@@ -11,18 +11,18 @@ endif ()
 set(API ${PROJECT_NAME} PARENT_SCOPE)
 
 add_library(${PROJECT_NAME} SHARED
-        Util.h
+        utils/Util.h
         pluginInterface.h
         APIStatus.h
         pluginInterface.cpp
-        config.h
+        utils/config.h
         bilibiliAPIs.h
-        BilibiliInterface.h
+        utils/BilibiliInterface.h
         ai/CallAI.h
         ai/CallAI.cpp
-        utils.cpp
-        BilibiliInterface.cpp
-        mainConfig.cpp
+        utils/utils.cpp
+        utils/BilibiliInterface.cpp
+        utils/mainConfig.cpp
         webAPIs/socialAPI.h
         webAPIs/socialAPI.cpp
         webAPIs/crawler.h
@@ -30,6 +30,8 @@ add_library(${PROJECT_NAME} SHARED
         webAPIs/postgres.cpp
         webAPIs/postgres.h
         webAPIs/browse.h
+        utils/configUtil.h
+        utils/configUtil.cpp
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -50,6 +52,8 @@ find_package(cpr CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpr::cpr)
 find_package(libpqxx CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE libpqxx::pqxx)
+find_package(toml11 CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE toml11::toml11)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY ENABLE_EXPORTS ON)# Allow export
 

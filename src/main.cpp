@@ -5,7 +5,7 @@
 #include "PluginHandler.h"
 #include "pluginInterface.h"
 #include "develop/flags.h"
-#include "config.h"
+#include "../api/utils/config.h"
 #include "exit.h"
 #include "platforms/bilibiliHandler.h"
 #include "PortListener.h"

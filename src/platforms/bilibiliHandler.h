@@ -3,7 +3,7 @@
 #include "develop/flags.h"
 #include "webAPIs/platforms.h"
 
-#include "BilibiliInterface.h"
+#include "../../api/utils/BilibiliInterface.h"
 #include "webAPIs/socialAPI.h"
 
 class CrawlerHelper;

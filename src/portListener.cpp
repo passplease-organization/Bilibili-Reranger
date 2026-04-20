@@ -1,8 +1,8 @@
 #include "PortListener.h"
 #include "PluginHandler.h"
-#include "BilibiliInterface.h"
+#include "utils/BilibiliInterface.h"
 #include "Crawler.h"
-#include "config.h"
+#include "utils/config.h"
 #include <iostream>
 #include "develop/flags.h"
 #include <boost/beast/http.hpp>

@@ -7,7 +7,7 @@
 #include <sodium.h>
 #include "../develop/flags.h"
 
-#include "../config.h"
+#include "../utils/config.h"
 #include "../interface.h"
 
 namespace cpr {

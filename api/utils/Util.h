@@ -3,10 +3,9 @@
 #include <iostream>
 #include <map>
 #include <sstream>
-#include <string_view>
 #include <utility>
 #include <nlohmann/json.hpp>
-#include "APIStatus.h"
+#include "../APIStatus.h"
 
 #define MAX_BUFFER_SIZE 100
 
@@ -139,34 +138,24 @@ API void say(const char* message,bool endl = true,const char* color = nullptr);
 
 API void warn(const char* warning,bool endl = true);
 
-API bool convertToInt(const char* str, int& num);
-
 API void defaultOutputChar(char** output);
 
 API void freeOutputChar(char** output);
 
-API void deleteConfig(const char* filePath,bool absolute = false, const char* fileType = ".json");
-
 /**
- * Create a config file (default .Json)
- * */
-API bool createConfig(Nullable char* output, const char* filePath,const size_t maxLength = MAX_BUFFER_SIZE, const char* fileType = ".json");
-
-/**
- * Get config file path, other function's parameter: path will call automatically
- * */
-API bool getConfig(char* output, const char* filePath,const size_t maxLength = MAX_BUFFER_SIZE, const char* fileType = ".json");
-
-API void toConfigPath(char* back, const char* filePath,const size_t maxLength = MAX_BUFFER_SIZE, const char* fileType = ".json");
-
+ * @param name just a flag to separate different file in RAM
+ * @param path actual file path
+ * @param recover recover existing value
+ * @return success or not
+ */
 API bool saveToFile(const char* name,const char* path,bool recover = false);
 
 /**
- * @deprecated
  * @param name The name of your file mark
  * @param path The path to your file
  * @param release Defined add to map or delete from map, false means adding
  * @return Success(true) or Fail(false)
+ * Just store in RAM, if needs written to file, please call `saveToFile`
  * */
 API bool storeJson(const char* name,const char* path,const Json& json = nullptr,bool release = false);
 

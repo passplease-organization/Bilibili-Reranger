@@ -4,8 +4,8 @@
 #include <sodium.h>
 
 #include "socialAPI.h"
-#include "../config.h"
-#include "../Util.h"
+#include "../utils/config.h"
+#include "../utils/Util.h"
 #include "../develop/flags.h"
 
 namespace {

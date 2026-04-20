@@ -1,9 +1,9 @@
 #include "requestHelper.h"
 #include <cpr/api.h>
-#include "config.h"
+#include "../../api/utils/config.h"
 
 #ifdef TEST
-    #include "BilibiliInterface.h"
+    #include "utils/BilibiliInterface.h"
     #include "webAPIs/platforms.h"
 #endif
 

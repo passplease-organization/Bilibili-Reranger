@@ -23,6 +23,7 @@ RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install curl
 RUN vcpkg install openssl
+RUN vcpkg install toml11
 
 RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
 RUN vcpkg install libsodium

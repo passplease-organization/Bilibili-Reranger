@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Util.h"
+#include "utils/Util.h"
+#include "utils/configUtil.h"
 #include "pluginInterface.h"
 #include "webAPIs/platforms.h"
 
@@ -12,6 +13,7 @@ crawlTask::Group biological("biological",BILIBILI,0);
 
 #define EXAMPLE_PATH "ExampleConfig"
 #define EXAMPLE_NAME "example_for_example_plugin"
+#define CONFIG_FILE_TYPE ".json"
 #define GROUPS_LABEL "groups"
 
 #ifdef DEVELOP
@@ -51,9 +53,9 @@ void exampleConfig(){
     defaultOutputChar(&path);
     toConfigPath(path,EXAMPLE_PATH);
     #if FORCE_CONFIG
-        deleteConfig(EXAMPLE_PATH);
+        deleteConfig(path);
     #endif
-    if(!fileExists(path) && createConfig(path,EXAMPLE_PATH)) {
+    if(createConfig(path)) {
         initGroups();
         auto example = dataStore::Data::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);
         dataStore::Data a{};

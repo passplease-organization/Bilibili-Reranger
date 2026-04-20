@@ -1,11 +1,11 @@
 #include "testCode.h"
 
-#include "Util.h"
-#include "config.h"
+#include "utils/Util.h"
+#include "../../api/utils/config.h"
 #include <cpr/cpr.h>
 #include <thread>
 #include "../subFeatures/requestHelper.h"
-#include "BilibiliInterface.h"
+#include "utils/BilibiliInterface.h"
 #include "webAPIs/socialAPI.h"
 #include "webAPIs/platforms.h"
 

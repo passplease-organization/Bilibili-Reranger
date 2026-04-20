@@ -4,6 +4,7 @@
 #include <vector>
 #include <random>
 
+#include "configUtil.h"
 #include "Util.h"
 
 using namespace std;
@@ -91,12 +92,6 @@ void warn(const char* warn,bool endl){
     say(warn,endl,YELLOW);
 }
 
-bool convertToInt(const char* str, int& num){
-    istringstream stream(str);
-    stream >> num;
-    return stream.fail();
-}
-
 Json getJson(const char* name, const char* path){
     if(fileExists(path)){
         Json json;
@@ -118,84 +113,6 @@ void defaultOutputChar(char** output){
 
 void freeOutputChar(char** output){
     delete[] *output;
-}
-
-void deleteConfig(const char* filePath,bool absolute, const char* fileType){
-    char* back;
-    defaultOutputChar(&back);
-    if(absolute){
-        snprintf(back,MAX_BUFFER_SIZE,"%s",filePath);
-    }else toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
-    string path(back);
-    freeOutputChar(&back);
-    remove(path.c_str());
-}
-
-bool createConfig(char* output, const char* filePath,const size_t maxLength,const char* fileType){
-    try{
-        if(!fileExists(ConfigPath.c_str())){
-            filesystem::create_directory(ConfigPath);
-        }
-        char* back;
-        defaultOutputChar(&back);
-        toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
-        string path(back);
-        freeOutputChar(&back);
-        ofstream file(path.c_str());
-        if(file.is_open()){
-            file << "{}";
-            file.close();
-            snprintf(output,maxLength,"%s",path.c_str());
-            return true;
-        }else {
-            cppUtil::warn("创建文件失败！请检查具体原因！");
-            cppUtil::throwError("Failed at creating file !");
-        }
-        return false;
-    }catch (...){
-        return false;
-    }
-}
-
-bool getConfig(char* output, const char* filePath,const size_t maxLength, const char* fileType){
-    try{
-        string path;
-        if(startWith(filePath,ConfigPath.c_str())){
-            path = filePath;
-        }else {
-            char* back = nullptr;
-            defaultOutputChar(&back);
-            toConfigPath(back,filePath,MAX_BUFFER_SIZE, fileType);
-            path = string(back);
-            freeOutputChar(&back);
-        }
-        if(fileExists(path.c_str())) {
-            snprintf(output,maxLength,"%s",path.c_str());
-            return true;
-        }
-        char* out;
-        defaultOutputChar(&out);
-        if(createConfig(out,filePath,MAX_BUFFER_SIZE,fileType) && fileExists(path.c_str())) {
-            snprintf(output,maxLength,"%s",out);
-            freeOutputChar(&out);
-            return true;
-        }
-        freeOutputChar(&out);
-        cppUtil::throwError("Failed at creating file !");
-        return false;
-    }catch (...){
-        return false;
-    }
-}
-
-void toConfigPath(char* back, const char* filePath,const size_t maxLength, const char* fileType){
-    string path{};
-    #ifdef WIN32
-        path = path.append(ConfigPath).append("\\").append(filePath).append(fileType);
-    #elifdef __linux__
-        path = path.append(ConfigPath).append("/").append(filePath).append(fileType);
-    #endif
-    snprintf(back,maxLength,"%s",path.c_str());
 }
 
 bool saveToFile(const char* name,const char* path,bool recover){
@@ -693,7 +610,7 @@ namespace dataStore{
         }else {
             defaultOutputChar(&filePath);
             d = Data{};
-            if(!getConfig(filePath,path)) {
+            if(toConfigPath(filePath,)) {
                 if(_throw) {
                     string error("Path not exists ! Current path: ");
                     error.append(path);

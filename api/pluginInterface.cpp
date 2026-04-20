@@ -1,5 +1,5 @@
 #include "pluginInterface.h"
-#include "config.h"
+#include "utils/config.h"
 #include <cstring>
 #ifdef TEST
     #include "webAPIs/platforms.h"

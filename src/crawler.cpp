@@ -2,9 +2,9 @@
 #include <iostream>
 #include <sstream>
 #include "Crawler.h"
-#include "config.h"
+#include "../api/utils/config.h"
 #include "bilibiliAPIs.h"
-#include "BilibiliInterface.h"
+#include "utils/BilibiliInterface.h"
 #include "webAPIs/crawler.h"
 
 #include "PluginHandler.h"

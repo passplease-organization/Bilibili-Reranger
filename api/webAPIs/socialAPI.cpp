@@ -9,8 +9,8 @@
 
 // #include "crawler.h"
 #include "postgres.h"
-#include "../config.h"
-#include "../Util.h"
+#include "../utils/config.h"
+#include "../utils/Util.h"
 #include "../develop/flags.h"
 #include "browse.h"
 
