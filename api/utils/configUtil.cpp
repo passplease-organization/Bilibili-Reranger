@@ -66,3 +66,11 @@ void cppUtil::setConfig(Config &config, const string &flag, const ValueType &val
     if (!description.empty())
         v.comments().push_back(description);
 }
+
+#define setConfig_declare(type) template void cppUtil::setConfig<type>(Config&, const string&, const type&, const string&, const bool&)
+
+setConfig_declare(int);
+setConfig_declare(bool);
+setConfig_declare(string);
+setConfig_declare(float);
+setConfig_declare(double);

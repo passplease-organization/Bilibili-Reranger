@@ -24,7 +24,7 @@ extern "C" {
  * @param maxLength output data max length
  * @param fileType file type, starts as . for example, .toml .json
  */
-API inline void toConfigPath(char* output, const char* filePath, size_t maxLength = MAX_BUFFER_SIZE, const char *fileType = DEFAULT_CONFIG_FILE_TYPE) noexcept;
+API void toConfigPath(char* output, const char* filePath, size_t maxLength = MAX_BUFFER_SIZE, const char *fileType = DEFAULT_CONFIG_FILE_TYPE) noexcept;
 
 /**
  * @param filePath output of toConfigPath

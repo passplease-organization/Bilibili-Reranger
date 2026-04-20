@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <toml.hpp>
 #include "../APIStatus.h"
 #include "configUtil.h"
 
@@ -13,6 +14,7 @@
 #define VERSION 1.0
 #define VERSION_STR STR(VERSION)
 
+#define SUBSCRIBE_PUBLISH_TIME "subscriber_publish_time"
 #define WAIT_TIME "pause_time_between_crawls"
 #define MAX_CRAWL_COUNT "max_crawl_count_per_work"
 #define MAX_AI_TOKENS "max_tokens"
@@ -31,10 +33,10 @@ extern API Config defaultConfigs;
 API void readConfig();
 
 template<typename T>
-inline T& config(const char* label) noexcept(false){
+inline T config(const char* label) noexcept(false){
     static_assert(cppUtil::SupportedValue<T> || cppUtil::ConvirtableValue<T>,"Unsupported config type");
     if constexpr (cppUtil::SupportedValue<T>)
-        return defaultConfigs[label];
+        return toml::find<T>(defaultConfigs,label);
     else {
         T t;
         return from_toml(defaultConfigs,t);

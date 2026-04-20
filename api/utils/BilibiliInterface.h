@@ -47,8 +47,6 @@ namespace webAPI {
         unsigned int _views;
         unsigned int _popups;
 
-        explicit Video(const dataStore::Data &data);
-
         explicit Video(const Json& json);
     public:
         API static Video fromData(const dataStore::Data &data);

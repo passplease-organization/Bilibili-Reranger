@@ -290,7 +290,7 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
         case crawlTask::WorkingMode::SUBSCRIBE: {
             int id = 0;
             if (_subscribers.contains(task -> keyword))
-                _subscribers.get(task -> keyword,&id);
+                id = _subscribers[task -> keyword].get<int>();
             else {
                 cppUtil::warn({false, nullptr}, "没有这个博主：");
                 cppUtil::warn(task -> keyword);
@@ -509,7 +509,7 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
             }
 
             checkAndReturn(json);
-            auto newSubscribers = getDataFromJson(json).get<dataStore::Data>();
+            auto newSubscribers = getDataFromJson(json);
             helper.addSubscriber(newSubscribers);
             int count = _getSubscriberCount(json);
             int pages = count / 50 + 1;
@@ -534,7 +534,7 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
     #if MORE_DETAILS
         cppUtil::say("关注博主名单已准备完成");
     #endif
-    return !helper.getSubscribers().empty() && helper.getSubscribers().valid();
+    return !helper.getSubscribers().empty();
 }
 
 bool bilibiliHandler::prepare() {
@@ -574,7 +574,7 @@ bool bilibiliHandler::prepare() {
             return;
         for (const auto& d : _getListFromData(data,true)) {
             if (_hasSubscriberMid(d) && _hasSubscriberName(d))
-                _subscribers.put(_getSubscriberName(d).c_str(),_getSubscriberMid(d));
+                _subscribers[_getSubscriberName(d)] = _getSubscriberMid(d);
         }
     };
     forEachWhileData(crawlData,__data)

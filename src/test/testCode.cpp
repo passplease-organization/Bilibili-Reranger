@@ -42,7 +42,7 @@ void startTestThread() {
     )
 #define OUTPUT(output,category) \
     if (fileExists(output)) { \
-        deleteConfig(output,true); \
+        deleteConfig(output); \
     } \
     if (storeJson(category,output,json)) { \
         saveToFile(category,output); \

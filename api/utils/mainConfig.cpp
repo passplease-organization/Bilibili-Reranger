@@ -10,7 +10,7 @@
 /**
  * Read only, shouldn't be modified
  */
-auto defaultConfigs = Config();
+Config defaultConfigs = Config();
 
 extern string randomString(size_t length);
 
@@ -26,9 +26,10 @@ void readConfig() {
         auto config = cppUtil::getConfig(path);
 
     #if FORCE_GENERATE_CONFIG
-        config = toml::value();
+        config = toml::table();
     #endif
 
+        _setConfig(SUBSCRIBE_PUBLISH_TIME,3,"关注博主视频计入爬取列表时间，单位：天");
     #ifdef WIN32
         _setConfig(WAIT_TIME,5000,"相邻两次爬取的间隔时间，单位毫秒");
     #elifdef __linux__
@@ -45,7 +46,7 @@ void readConfig() {
     #endif
         _setConfig(MAX_CLIENT,32,"后台支持的最大客户端数量");
         _setConfig(ADMIN_CLIENT_KEY,randomString(16),"管理员密码");
-        _setConfig(POSTGRES_SSL_MODE,"prefer","数据库连接方式");
+        _setConfig(POSTGRES_SSL_MODE,string("prefer"),"数据库连接方式");
     #ifndef DEVELOP
         _setConfig(POSTGRES_ENCRYPT_KEY,webAPI::SimpleESA::randomKey(),"数据写入数据库使用加密秘钥");
     #endif

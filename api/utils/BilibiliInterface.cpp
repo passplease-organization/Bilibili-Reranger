@@ -36,12 +36,6 @@ string toReadableTime(long long publishTime){// TODO 时间解析有问题
 namespace webAPI{
     thread_local const Video* _nowVideo;
 
-    Video::Video(const dataStore::Data &data) {
-        Json j;
-        j = data;
-        new (this) Video(j);
-    }
-
     Video::Video(const Json &json) {
         this -> json = json;
         #ifdef DEVELOP
@@ -78,7 +72,7 @@ namespace webAPI{
     }
 
     dataStore::Data Video::toData(const webAPI::Video &video) {
-        return video.json.get<dataStore::Data>();
+        return video.json;
     }
 
     string Video::getVideoURLFromJson(const Json &json) {
@@ -231,9 +225,6 @@ namespace webAPI{
     }
 
     void saveVideos(){
-        if(fileExists(OUTPUT_PATH)){
-            deleteConfig(OUTPUT_PATH,true);
-        }
         Json json;
         for(const auto& group : getVideos())
             for(int i = 0;i < group.second.size();i++) {

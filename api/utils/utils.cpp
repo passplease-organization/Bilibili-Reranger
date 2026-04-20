@@ -145,658 +145,73 @@ bool storeJson(const char* name,const char* path,const Json& json,bool release){
 
 namespace dataStore{
 
-    Data::Data(bool valid) {
-        this -> _valid = valid;
-        saved = true;
-    }
-
-    Data::Data(const dataStore::Data &other) {
-        if (other.valid()) {
-            *this = other;
-            this -> _valid = true;
-        }
-    }
-
-    Data::Data(const dataStore::Data* other){
-        if (other == nullptr) {
-            this -> _valid = false;
-        }else if (other -> valid()) {
-            *this = other;
-            this -> _valid = true;
-        }
-    }
-
-    Data::Data(dataStore::Data&& old) noexcept{
-        if (old.valid()) {
-            *this = old;
-            old.clear();
-            this -> _valid = true;
-        }
-    }
-
-    Data::~Data(){
-        if(needSave())
-            writeToJson();
-        clear();
-        broken();
-    }
-
-    void Data::clear(){
-        data.clear();
-        dataArrays.clear();
-        strings.clear();
-        stringArrays.clear();
-        ints.clear();
-        intArrays.clear();
-        floats.clear();
-        floatArrays.clear();
-        bools.clear();
-        boolArrays.clear();
-        _valid = true;
-        saved = false;
-    }
-
-    bool Data::empty() const {
-        return data.empty() && dataArrays.empty() && strings.empty() && stringArrays.empty() && ints.empty() && intArrays.empty() && floats.empty() && floatArrays.empty() && bools.empty() && boolArrays.empty();
-    }
-
-
-    bool Data::valid() const noexcept {
-        return _valid;
-    }
-
-    void Data::broken() {
-        this -> _valid = false;
-    }
-
-    void Data::setName(const char *_name, bool force) {
-        if(this -> name.empty() || force) {
-            this->name = string(_name);
-            saved = false;
-        }
-    }
-
-    void Data::setPath(const char *_path, bool force) {
-        if(this -> path.empty() || force) {
-            char* o;
-            defaultOutputChar(&o);
-            getConfig(o, _path);
-            this -> path = o;
-            saved = false;
-        }
-    }
-
-    Data &Data::operator=(const dataStore::Data *other) {
-        if(valid() && other != nullptr && other -> valid()) {
-            this->data = other->data;
-            this->dataArrays = other->dataArrays;
-            this->strings = other->strings;
-            this->stringArrays = other->stringArrays;
-            this->ints = other->ints;
-            this->intArrays = other->intArrays;
-            this->floats = other->floats;
-            this->floatArrays = other->floatArrays;
-            this->bools = other->bools;
-            this->boolArrays = other->boolArrays;
-            this->saved = false;
-            this->_neverSave = other->_neverSave;
-        }
-        return *this;
-    }
-
-    Data &Data::operator=(const dataStore::Data &other) {
-        if(other.valid() && &other != this) {
-            this->data = other.data;
-            this->dataArrays = other.dataArrays;
-            this->strings = other.strings;
-            this->stringArrays = other.stringArrays;
-            this->ints = other.ints;
-            this->intArrays = other.intArrays;
-            this->floats = other.floats;
-            this->floatArrays = other.floatArrays;
-            this->bools = other.bools;
-            this->boolArrays = other.boolArrays;
-            this->saved = false;
-            this->_neverSave = other._neverSave;
-        }
-        return *this;
-    }
-
-    bool Data::operator==(const dataStore::Data& other) const {
-        if(this == &other)
-            return true;
-        if(
-                valid() && other.valid()
-                && strings == other.strings
-                && stringArrays == other.stringArrays
-                && ints == other.ints
-                && intArrays == other.intArrays
-                && floats == other.floats
-                && floatArrays == other.floatArrays
-                && bools == other.bools
-                && boolArrays == other.boolArrays
-                ){
-            for(const pair<const string, Data>& d : other.data){
-                if(d.second == data.at(d.first))
-                    continue;
-                return false;
-            }
-            for(const pair<const string,vector<Data>>& _d : other.dataArrays){
-                if(this -> dataArrays.contains(_d.first)){
-                    const auto d = this -> dataArrays.at(_d.first);
-                    if(d.size() == _d.second.size()){
-                        for(int i = 0;i < d.size();i++){
-                            if(d.at(i) == _d.second.at(i)){
-                                continue;
-                            }
-                            return false;
-                        }
-                        continue;
-                    }
-                }
-                return false;
-            }
-            return true;
-        }else return false;
-    }
-
-    bool Data::operator!=(const dataStore::Data& other) const{
-        return !(*this == other);
-    }
-
-    Data *Data::operator+=(const dataStore::Data *other) {
-        if(valid() && other != nullptr && other -> valid()) {
-            data.insert(other->data.begin(), other->data.end());
-            for(const auto& temp : other -> dataArrays){
-                dataStore::put<Data>(this,temp.first.c_str(),&(temp.second));
-            }
-            strings.insert(other->strings.begin(), other->strings.end());
-            for(const auto& temp : other -> stringArrays){
-                dataStore::put<string>(this,temp.first.c_str(),&(temp.second));
-            }
-            ints.insert(other->ints.begin(), other->ints.end());
-            for(const auto& temp : other -> intArrays){
-                dataStore::put<int>(this,temp.first.c_str(),&(temp.second));
-            }
-            floats.insert(other->floats.begin(), other->floats.end());
-            for(const auto& temp : other -> floatArrays){
-                dataStore::put<float>(this,temp.first.c_str(),&(temp.second));
-            }
-            bools.insert(other->bools.begin(), other->bools.end());
-            for(const auto& temp : other -> boolArrays){
-                dataStore::put<bool>(this,temp.first.c_str(),&(temp.second));
-            }
-            saved = false;
-        }
-        return this;
-    }
-
-    Data* Data::operator+=(const Data& other){
-        return *this += &other;
-    }
-
-    Data Data::operator+(const dataStore::Data *other) const {
-        Data value{};
-        if(valid() && other -> valid()) {
-            value += this;
-            value += other;
-        }
-        return value;
-    }
-
-    void Data::copy(Data** a) const {
-        *a = new Data{};
-        **a = this;
-    }
-
-    bool Data::needSave() const{
-        return !neverSave() && !saved && valid();
-    }
-
-    bool Data::neverSave() const {
-        return _neverSave || name.empty() || path.empty();
-    }
-
-    void Data::NeverSave() {
-        _neverSave = true;
-    }
-
-    inline void setSaved(dataStore::Data* data, bool saved = false){
-        data -> saved = saved;
-    }
-
-    template<typename T>
-    map<const string,T>* getMap(Data* data){
-        if constexpr (is_same_v<T,Data>)
-            return &(data -> data);
-        else if constexpr (is_same_v<T,string>)
-            return &(data -> strings);
-        else if constexpr (is_same_v<T,int>)
-            return &(data -> ints);
-        else if constexpr (is_same_v<T,float>)
-            return &(data -> floats);
-        else if constexpr (is_same_v<T,bool>)
-            return &(data -> bools);
-        cppUtil::throwError("Wrong Type !");
-    }
-
-    template<typename T>
-    map<const string,vector<T>>* getVector(Data* data){
-        if constexpr (is_same_v<T,Data>)
-            return &(data -> dataArrays);
-        else if constexpr (is_same_v<T,string>)
-            return &(data -> stringArrays);
-        else if constexpr (is_same_v<T,int>)
-            return &(data -> intArrays);
-        else if constexpr (is_same_v<T,float>)
-            return &(data -> floatArrays);
-        else if constexpr (is_same_v<T,bool>)
-            return &(data -> boolArrays);
-        cppUtil::throwError("Wrong Type !");
-    }
-
-    template<typename T>
-    void put(Data* data,const char* label,const T *content, bool vector, bool recover){
-        if(!data -> valid())
-            return;
-        string stringLabel(label);
-        if(vector){
-            auto v = getVector<T>(data);
-            if(v -> contains(stringLabel)){
-                if(content != nullptr)
-                    (*v)[stringLabel].emplace_back(*content);
-                else v -> erase(stringLabel);
-                setSaved(data);
-            }else if(content != nullptr){
-                std::vector<T> newVector{};
-                newVector.emplace_back(*content);
-                (*v)[stringLabel] = newVector;
-                setSaved(data);
-            }
-        }else{
-            auto m = getMap<T>(data);
-            if(m -> contains(stringLabel)){
-                if(content == nullptr){
-                    m -> erase(stringLabel);
-                    setSaved(data);
-                    return;
-                }
-                if(recover) {
-                    (*m)[stringLabel] = *content;
-                    setSaved(data);
-                }
-            }else if(content != nullptr) {
-                (*m)[stringLabel] = *content;
-                setSaved(data);
-            }
-        }
-    }
-
-    template<typename T>
-    void put(Data* data,const char* label,const vector<T> *content){
-        auto vector = getVector<T>(data);
-        string l(label);
-        if(vector->contains(l)) {
-            auto& v = (*vector)[l];
-            v.insert(v.end(),content->begin(), content->end());
-        }else (*vector)[l] = *content;
-    }
-
-    void Data::validData(const dataStore::Data *input) noexcept(false) {
-        if(!valid() || input == nullptr)
-            return;
-        for(const auto& d : input -> data){
-            if(&d.second == this){
-                cppUtil::throwError("Any json file cannot contain itself !");
-                return;
-            }
-        }
-        for(const auto& dArray : input -> dataArrays){
-            for(const auto& d : dArray.second){
-                if(&d == this){
-                    cppUtil::throwError("Any json file cannot contain itself !");
-                    return;
-                }
-            }
-        }
-    }
-
-    void Data::put(const char *label, const dataStore::Data *content, bool vector, bool recover) {
-        validData(content);
-        dataStore::put<Data>(this,label,content,vector,recover);
-    }
-
-    void Data::put(const char *label, const char *content, bool vector, bool recover) {
-        string s(content);
-        dataStore::put<string>(this,label,&s,vector,recover);
-    }
-
-    void Data::put(const char *label, const int *content, bool vector, bool recover) {
-        dataStore::put<int>(this,label,content,vector,recover);
-    }
-
-    void Data::put(const char *label, const float *content, bool vector, bool recover){
-        dataStore::put<float>(this,label,content,vector,recover);
-    }
-
-    void Data::put(const char *label, const bool *content, bool vector, bool recover){
-        dataStore::put<bool>(this,label,content,vector,recover);
-    }
-
-    void Data::put(const char *label, const dataStore::Data &content, bool vector, bool recover) {
-        validData(&content);
-        dataStore::put<Data>(this,label,&content,vector,recover);
-    }
-
-    void Data::put(const char *label, const int &content, bool vector, bool recover) {
-        dataStore::put<int>(this,label,&content,vector,recover);
-    }
-
-    void Data::put(const char *label, const float &content, bool vector, bool recover){
-        dataStore::put<float>(this,label,&content,vector,recover);
-    }
-
-    void Data::put(const char *label, const bool &content, bool vector, bool recover){
-        dataStore::put<bool>(this,label,&content,vector,recover);
-    }
-
-    template<typename T>
-    void getMap(const Data* data,const char *label,T* input){
-        if(input == nullptr)
-            return;
-        auto m = dataStore::getMap<T>(const_cast<Data*>(data));
-        *input = m -> at(label);
-    }
-
-    template<typename T>
-    void getVector(const Data* data,const char *label,vector<T>* input){
-        if(input == nullptr)
-            return;
-        auto v = dataStore::getVector<T>(const_cast<Data*>(data));
-        *input = v -> at(label);
-    }
-
-    void Data::get(const char *label, dataStore::Data *data) const {
-        dataStore::getMap<Data>(this,label,data);
-    }
-
-    void Data::get(const char *label, vector<dataStore::Data> *data) const {
-        dataStore::getVector<Data>(this,label,data);
-    }
-
-    void Data::get(const char *label,string *string) const{
-        if(string == nullptr)
-            return;
-        *string = this -> strings.at(label);
-    }
-
-    void Data::get(const char *label,vector<string> *string) const {
-        if(string == nullptr)
-            return;
-        *string = this -> stringArrays.at(label);
-    }
-
-    void Data::get(const char *label,const char* *string, bool) const{
-        *string = this -> strings.at(label).c_str();
-    }
-
-    void Data::get(const char *label, vector<const char *> **string,const bool copy) const {
-        if(string == nullptr)
-            return;
-        auto s = this -> stringArrays.at(label);
-        for(auto element : s){
-            if(copy)
-                element = std::string(element);
-            (*string) -> emplace_back(element.c_str());
-        }
-    }
-
-    void Data::get(const char *label, int *ints) const {
-        dataStore::getMap<int>(this,label,ints);
-    }
-
-    void Data::get(const char *label, vector<int> *ints) const {
-        dataStore::getVector<int>(this,label,ints);
-    }
-
-    void Data::get(const char *label, float *floats) const {
-        dataStore::getMap<float>(this,label,floats);
-    }
-
-    void Data::get(const char *label, vector<float> *floats) const {
-        dataStore::getVector<float>(this,label,floats);
-    }
-
-    void Data::get(const char *label, bool *bools) const{
-        dataStore::getMap<bool>(this,label,bools);
-    }
-
-    void Data::get(const char *label, vector<bool> *bools) const{
-        dataStore::getVector<bool>(this,label,bools);
-    }
-
-    bool Data::writeToJson(const char *target_name, const char *target_path,bool recover, bool storage) {
-        if(!needSave())
-            return false;
-        setName(target_name);
-        setPath(target_path);
-        Json json = recover ? Json() : getJson(name.c_str(), path.c_str());
-        if (!recover && json == nullptr) {
-            string error = "File not exists ! Cannot write Json ! File path: ";
-            error.append(path);
-            cppUtil::throwError(error);
-            return false;
-        }else {
-            dataStore::to_json(json,*this);
-            storeJson(name.c_str(),path.c_str(),json);
-            bool back = !storage || saveToFile(target_name, target_path);
-            saved = back;
-            return back;
-        }
-    }
-
-    bool Data::writeToJson() {
-        return !this -> name.empty() && !this -> path.empty() && writeToJson(this -> name.c_str(),this -> path.c_str());
-    }
-
-    Data Data::readFromJson(const char *path, const char *name, const bool _throw) {
-        Data d;
-        d.setName(name);
+    Data readFromJson(const char *path, const char *name, const bool _throw) {
         ifstream file;
-        char* filePath;
+        char* filePath = nullptr;
+
         if(fileExists(path)){
-            d.setPath(path);
             file = ifstream(path);
         }else {
             defaultOutputChar(&filePath);
-            d = Data{};
-            if(toConfigPath(filePath,)) {
+            toConfigPath(filePath,path,MAX_BUFFER_SIZE,".json");
+            if(!fileExists(filePath)) {
                 if(_throw) {
                     string error("Path not exists ! Current path: ");
                     error.append(path);
                     cppUtil::throwError(error);
                 }
-                d.broken();
-                return d;
+                freeOutputChar(&filePath);
+                return nullptr;
             }
-            d.setPath(filePath);
             file = ifstream(filePath);
         }
-        if(file.is_open()) {
+
+        if(!file.is_open()) {
+            if(filePath != nullptr)
+                freeOutputChar(&filePath);
+            return nullptr;
+        }
+
+        try {
             Json json;
             file >> json;
             file.close();
-            d = json.get<dataStore::Data>();
-        }else d.broken();
-        return d;
-    }
-
-    void from_json(const Json& json,Data& data){
-        try{
-            data.clear();
-            for(const auto& pair : json.items()){
-                const Json& j = pair.value();
-                const string& label = pair.key();
-                if(j.is_array()){
-                    if(j.empty())
-                        continue;
-                    switch (j[0].type()) {
-                        case nlohmann::detail::value_t::object: {
-                            for(int slot = 0;slot < j.size();slot++) {
-                                const Data dataInSlot = j[slot].get<Data>();
-                                data.put(label.c_str(),&dataInSlot,true);
-                            }
-                            break;
-                        }
-                        case nlohmann::detail::value_t::string: {
-                            for(int slot = 0;slot < j.size();slot++) {
-                                const string dataInSlot = j[slot].get<string>();
-                                data.put(label.c_str(),dataInSlot.c_str(),true);
-                            }
-                            break;
-                        }
-                        case nlohmann::detail::value_t::number_unsigned:
-                        case nlohmann::detail::value_t::number_integer: {
-                            for(int slot = 0;slot < j.size();slot++) {
-                                const int dataInSlot = j[slot].get<int>();
-                                data.put(label.c_str(),&dataInSlot,true);
-                            }
-                            break;
-                        }
-                        case nlohmann::detail::value_t::number_float: {
-                            for(int slot = 0;slot < j.size();slot++) {
-                                const float dataInSlot = j[slot].get<float>();
-                                data.put(label.c_str(),&dataInSlot,true);
-                            }
-                            break;
-                        }
-                        case nlohmann::detail::value_t::boolean: {
-                            for(int slot = 0;slot < j.size();slot++) {
-                                const bool dataInSlot = j[slot].get<bool>();
-                                data.put(label.c_str(),&dataInSlot,true);
-                            }
-                        }
-                        case nlohmann::detail::value_t::null:
-                            break;
-                        default: {
-                            data.broken();
-                            string error("Unchecked Json file, not right format. now label: ");
-                            error += label;
-                            cppUtil::throwError(error);
-                            return;
-                        }
-                    }
-                }else {
-                    switch (j.type()) {
-                        case nlohmann::detail::value_t::object: {
-                            const Data d = j.get<Data>();
-                            data.put(label.c_str(),&d);
-                            break;
-                        }
-                        case nlohmann::detail::value_t::string: {
-                            const string d = j.get<string>();
-                            data.put(label.c_str(),d.c_str());
-                            break;
-                        }
-                        case nlohmann::detail::value_t::number_unsigned:
-                        case nlohmann::detail::value_t::number_integer: {
-                            const int d = j.get<int>();
-                            data.put(label.c_str(),&d);
-                            break;
-                        }
-                        case nlohmann::detail::value_t::number_float: {
-                            const float d = j.get<float>();
-                            data.put(label.c_str(),&d);
-                            break;
-                        }
-                        case nlohmann::detail::value_t::boolean: {
-                            const bool d = j.get<bool>();
-                            data.put(label.c_str(),&d);
-                            break;
-                        }
-                        case nlohmann::detail::value_t::null:
-                            break;
-                        default: {
-                            data.broken();
-                            string error("Unchecked Json file, not right format. now label: ");
-                            error += label;
-                            cppUtil::throwError(error);
-                            return;
-                        }
-                    }
-                }
+            if(name != nullptr) {
+                const char* storedPath = filePath == nullptr ? path : filePath;
+                storeJson(name,storedPath,json);
             }
+            if(filePath != nullptr)
+                freeOutputChar(&filePath);
+            return json;
         }catch(const std::exception& e) {
-            data.broken();
+            if(filePath != nullptr)
+                freeOutputChar(&filePath);
             cppUtil::say({false, RED}, "Invalid Json File !");
-            if(!data.path.empty())
-                cppUtil::say({false, RED}, "File Path: ", data.path);
             cppUtil::say({false, BLUE}, "Exception Info: ");
             cppUtil::say({true, BLUE}, e.what());
-            cppUtil::throwError(e.what());
+            if(_throw)
+                cppUtil::throwError(e.what());
+            return nullptr;
         }
     }
 
-    void to_json(Json& json,const Data& data){
-        string label;
-        for(const auto& i : data.data){
-            label = json.contains(i.first) ? Data::DATA + i.first : i.first;
-            json[label] = i.second;
+    bool writeToJson(const Data& data,const char *target_name, const char *target_path,bool recover, bool storage) {
+        Json json = recover ? Json::object() : getJson(target_name, target_path);
+        if (!recover && json == nullptr) {
+            string error = "File not exists ! Cannot write Json ! File path: ";
+            error.append(target_path);
+            cppUtil::throwError(error);
         }
-        for(const auto& i : data.dataArrays){
-            label = json.contains(i.first) ? Data::DATA_ARRAY + i.first : i.first;
-            for(int slot = 0;slot < i.second.size(); slot++)
-                json[label][slot] = i.second.at(slot);
-        }
-        for(const auto& i : data.strings){
-            label = json.contains(i.first) ? Data::STRING + i.first : i.first;
-            json[label] = i.second;
-        }
-        for(const auto& i : data.stringArrays){
-            label = json.contains(i.first) ? Data::STRING_ARRAY + i.first : i.first;
-            for(int slot = 0;slot < i.second.size(); slot++)
-                json[label][slot] = i.second.at(slot);
-        }
-        for(const auto& i : data.ints){
-            label = json.contains(i.first) ? Data::INT + i.first : i.first;
-            json[label] = i.second;
-        }
-        for(const auto& i : data.intArrays){
-            label = json.contains(i.first) ? Data::INT_ARRAY + i.first : i.first;
-            for(int slot = 0;slot < i.second.size(); slot++)
-                json[label][slot] = i.second.at(slot);
-        }
-        for(const auto& i : data.floats){
-            label = json.contains(i.first) ? Data::FLOAT + i.first : i.first;
-            json[label] = i.second;
-        }
-        for(const auto& i : data.floatArrays){
-            label = json.contains(i.first) ? Data::FLOAT_ARRAY + i.first : i.first;
-            for(int slot = 0;slot < i.second.size(); slot++)
-                json[label][slot] = i.second.at(slot);
-        }
-        for(const auto& i : data.bools){
-            label = json.contains(i.first) ? Data::BOOL + i.first : i.first;
-            json[label] = i.second;
-        }
-        for(const auto& i : data.boolArrays){
-            label = json.contains(i.first) ? Data::BOOL_ARRAY + i.first : i.first;
-            for(int slot = 0;slot < i.second.size(); slot++)
-                json[label][slot] = i.second.at(slot);
-        }
+
+        if (json.is_object() && data.is_object())
+            json.update(data);
+        else
+            json = data;
+
+        storeJson(target_name,target_path,json);
+        return !storage || saveToFile(target_name, target_path);
     }
 }
-
-const string dataStore::Data::DATA = "data_";
-const string dataStore::Data::DATA_ARRAY = "data_array_";
-const string dataStore::Data::STRING = "string_";
-const string dataStore::Data::STRING_ARRAY = "string_array_";
-const string dataStore::Data::INT = "int_";
-const string dataStore::Data::INT_ARRAY = "int_array_";
-const string dataStore::Data::FLOAT = "float_";
-const string dataStore::Data::FLOAT_ARRAY = "float_array_";
-const string dataStore::Data::BOOL = "bool_";
-const string dataStore::Data::BOOL_ARRAY = "bool_array_";
 
     template<typename key, typename value>
 LinkedMap<key, value>::LinkedMap(unsigned int count) : maxCount(count) {

@@ -257,45 +257,34 @@ bool crawlTask::validIndex(unsigned int index){
 }
 
 void crawlTask::task_from_data(dataStore::Data &data, crawlTask::Task* task) {
-    string keyword;
-    data.get("keyword",&keyword);
+    string keyword = data.value("keyword", "");
     replaceCString(task -> keyword, keyword.c_str());
-    int count = 0;
-    data.get("videoCount",&count);
-    task -> videoCount = count;
-    if(data.strings.contains("working_mode")) {
-        const char *mode;
-        data.get("working_mode", &mode);
-        task -> mode = byName(mode);
+    task -> videoCount = data.value("videoCount", 0);
+    if(data.contains("working_mode") && data["working_mode"].is_string()) {
+        const string mode = data["working_mode"];
+        task -> mode = byName(mode.c_str());
     }else {
-        int mode = 0;
-        data.get("working_mode",&mode);
+        int mode = data.value("working_mode", 0);
         task -> mode = static_cast<WorkingMode>(mode);
     }
 }
 
 void crawlTask::task_to_data(dataStore::Data& data,const Task* task){
-    data.put("keyword",task -> keyword);
-    data.put("working_mode", getName(task -> mode));
-    data.put("videoCount",&task -> videoCount);
+    data["keyword"] = task -> keyword;
+    data["working_mode"] = getName(task -> mode);
+    data["videoCount"] = task -> videoCount;
 }
 
 void crawlTask::group_from_data(dataStore::Data& data, Group* group){
-    string name;
-    data.get("name",&name);
+    string name = data.value("name", "");
     replaceCString(group -> name, name.c_str());
-    if (!data.strings.contains("platform")) {
+    if (!data.contains("platform") || !data["platform"].is_string()) {
         cppUtil::throwError("Missing platform in group data");
     }
-    string platform;
-    data.get("platform",&platform);
+    string platform = data["platform"];
     replaceCString(group -> platform, platform.c_str());
-    vector<dataStore::Data> datas;
-    data.get("tasks",&datas);
-    int count = 0;
-    data.get("videoCount",&count);
-    group -> videoCount = count;
-    for(auto& task : datas){
+    group -> videoCount = data.value("videoCount", 0);
+    for(auto& task : data.value("tasks", dataStore::Data::array())){
         Task* t = new Task("",0);
         task_from_data(task,t);
         if(!string(t -> keyword).empty())
@@ -308,13 +297,14 @@ void crawlTask::group_from_data(dataStore::Data& data, Group* group){
 }
 
 void crawlTask::group_to_data(dataStore::Data& data, const Group* group){
-    data.put("name",group -> name);
-    data.put("platform",group -> platform);
-    data.put("videoCount",&group -> videoCount);
+    data["name"] = group -> name;
+    data["platform"] = group -> platform;
+    data["videoCount"] = group -> videoCount;
+    data["tasks"] = dataStore::Data::array();
     for(auto& task : group -> tasks){
         dataStore::Data a{};
         task_to_data(a,task);
-        data.put("tasks",&a,true);
+        data["tasks"].push_back(a);
     }
 }
 

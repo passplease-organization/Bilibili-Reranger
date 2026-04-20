@@ -20,13 +20,13 @@ PluginStatus load(){
     exampleConfig();
     char* _path;
     defaultOutputChar(&_path);
-    if(getConfig(_path,CONFIG_PATH)) {
-        cppUtil::say({false, nullptr}, NAME);
-        cppUtil::say({false, nullptr}, "配置文件创建成功，路径：");
+    toConfigPath(_path,CONFIG_PATH,MAX_BUFFER_SIZE,CONFIG_FILE_TYPE);
+    if(createConfig(_path)) {
+        cppUtil::say({false, nullptr},NAME "配置文件创建成功，路径：");
         cppUtil::say({true, BLUE}, _path);
         freeOutputChar(&_path);
-        CONFIG = new dataStore::Data(dataStore::Data::readFromJson(CONFIG_PATH,NAME));
-        if(CONFIG -> valid()) {
+        CONFIG = new dataStore::Data(dataStore::readFromJson(CONFIG_PATH,NAME));
+        if(!CONFIG -> is_null()) {
         #if DEVELOP
         #else
             if (CONFIG -> empty()) {
@@ -34,7 +34,6 @@ PluginStatus load(){
                 *CONFIG = getJson(EXAMPLE_NAME,EXAMPLE_PATH);
             }
         #endif
-            CONFIG -> NeverSave();
             return PluginStatus::SUCCESS;
         }
         cppUtil::warn({false, nullptr}, NAME);
@@ -50,8 +49,7 @@ PluginStatus load(){
 
 void registerGroups(){
     if (CONFIG -> contains(GROUPS_LABEL)) {
-        vector<dataStore::Data> array;
-        CONFIG -> get(GROUPS_LABEL,&array);
+        vector<dataStore::Data> array = (*CONFIG)[GROUPS_LABEL].get<vector<dataStore::Data>>();
         if(!array.empty()){
             for(auto& data : array){
                 auto* group = new crawlTask::Group("",BILIBILI,0);

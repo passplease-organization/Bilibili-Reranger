@@ -106,11 +106,8 @@ bool CrawlerHelper::dealJson() {
         try {
             json = Json::parse(tempData);
     #ifdef DEVELOP
-            auto data = json.get<dataStore::Data>();
-            data.setPath(tempDataPath);
-            data.setName(tempDataName);
             cppUtil::say("保存此次爬取临时数据");
-            data.writeToJson();
+            dataStore::writeToJson(json,tempDataName,tempDataPath);
     #endif
         }catch (const exception&){
     #ifdef DEVELOP
@@ -210,7 +207,17 @@ bool CrawlerHelper::crawlNext() const {
 }
 
 void CrawlerHelper::addSubscriber(const dataStore::Data& _subscribers) {
-    subscribers += _subscribers;
+    if (subscribers.is_object() && _subscribers.is_object()) {
+        for (const auto& [key,value] : _subscribers.items()) {
+            if (subscribers.contains(key) && subscribers[key].is_array() && value.is_array())
+                subscribers[key].insert(subscribers[key].end(), value.begin(), value.end());
+            else if (subscribers.contains(key) && subscribers[key].is_object() && value.is_object())
+                subscribers[key].update(value);
+            else
+                subscribers[key] = value;
+        }
+    }else
+        subscribers = _subscribers;
 }
 
 void CrawlerHelper::clearSubscriber() {
@@ -223,7 +230,7 @@ dataStore::Data CrawlerHelper::getSubscribers(const string& name) {
     Json sub = subscribers;
     for (auto &up: _getListFromData(sub, false).items()) {
         if (_getSubscriberName(up.value()) == name)
-            return up.value().get<dataStore::Data>();
+            return up.value();
     }
     return dataStore::Data();
 }

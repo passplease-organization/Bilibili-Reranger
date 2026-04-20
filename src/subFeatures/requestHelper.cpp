@@ -35,7 +35,7 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
     auto& groups = crawlTask::getAllGroups();
     dataStore::Data data{};
     for (const auto group : groups)
-        data.put(group -> platform,group -> name,true);
+        data[group -> platform].push_back(group -> name);
     const Json json = data;
     const string&& payload = json.dump();
     return back(sendMessage(socket,payload,payload.empty()));

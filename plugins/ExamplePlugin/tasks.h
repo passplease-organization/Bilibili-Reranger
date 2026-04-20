@@ -57,35 +57,32 @@ void exampleConfig(){
     #endif
     if(createConfig(path)) {
         initGroups();
-        auto example = dataStore::Data::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);
+        auto example = dataStore::readFromJson(EXAMPLE_PATH,EXAMPLE_NAME);
+        if (!example.is_object())
+            example = dataStore::Data::object();
+        example[GROUPS_LABEL] = dataStore::Data::array();
         dataStore::Data a{};
         crawlTask::group_to_data(a,&political);
-        dataStore::Data* b = nullptr;
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b,true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&math);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&physical);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&chemistry);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
         crawlTask::group_to_data(a,&biological);
-        a.copy(&b);
-        example.put(GROUPS_LABEL,b, true);
+        example[GROUPS_LABEL].push_back(a);
         a.clear();
 
-        example.writeToJson();
+        dataStore::writeToJson(example,EXAMPLE_NAME,path);
     }
     freeOutputChar(&path);
 }
