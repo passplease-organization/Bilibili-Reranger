@@ -174,7 +174,9 @@ namespace dataStore{
 
         try {
             Json json;
-            file >> json;
+            if (std::filesystem::is_empty(filePath))// empty file
+                json = Json::object();
+            else file >> json;
             file.close();
             if(name != nullptr) {
                 const char* storedPath = filePath == nullptr ? path : filePath;

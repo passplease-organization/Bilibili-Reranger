@@ -65,6 +65,8 @@ int work(CrawlInfo info,shared_ptr<const atomic<bool>> cancel,ip::tcp::socket so
 auto WorkFunction = &work;
 
 int startWork() {
+    if (!makeConfigDir())
+        cppUtil::throwError("创建配置文件夹失败，退出程序");
     readConfig();
     if(checkEnv()) {
         return 1;

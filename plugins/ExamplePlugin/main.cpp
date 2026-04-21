@@ -22,8 +22,7 @@ PluginStatus load(){
     defaultOutputChar(&_path);
     toConfigPath(_path,CONFIG_PATH,MAX_BUFFER_SIZE,CONFIG_FILE_TYPE);
     if(createConfig(_path)) {
-        cppUtil::say({false, nullptr},NAME "配置文件创建成功，路径：");
-        cppUtil::say({true, BLUE}, _path);
+        cppUtil::say({false, nullptr},NAME "配置文件创建成功，路径：",_path);
         freeOutputChar(&_path);
         CONFIG = new dataStore::Data(dataStore::readFromJson(CONFIG_PATH,NAME));
         if(!CONFIG -> is_null()) {
@@ -36,12 +35,9 @@ PluginStatus load(){
         #endif
             return PluginStatus::SUCCESS;
         }
-        cppUtil::warn({false, nullptr}, NAME);
-        cppUtil::warn("Open config failed !");
+        cppUtil::warn({false, nullptr}, NAME " Open config failed !");
     }else{
-        cppUtil::warn({false, nullptr}, NAME);
-        cppUtil::warn({false, nullptr}, " Config file create failed ! Now path: ");
-        cppUtil::warn(_path);
+        cppUtil::warn({false, nullptr}, NAME " Config file create failed ! Now path: ",_path);
         freeOutputChar(&_path);
     }
     return PluginStatus::FAIL;

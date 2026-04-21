@@ -22,7 +22,7 @@ crawlTask::Group biological("biological",BILIBILI,0);
     #define FORCE_CONFIG false
 #endif
 
-void initGroups(){
+inline void initGroups(){
     crawlTask::Task* a = nullptr;
     a = new crawlTask::Task{"波士顿圆脸",10,crawlTask::WorkingMode::SUBSCRIBE};
     political.registerTask(a);
@@ -48,10 +48,10 @@ void initGroups(){
     biological.registerTask(a);
 }
 
-void exampleConfig(){
+inline void exampleConfig(){
     char* path;
     defaultOutputChar(&path);
-    toConfigPath(path,EXAMPLE_PATH);
+    toConfigPath(path,EXAMPLE_PATH,MAX_BUFFER_SIZE,CONFIG_FILE_TYPE);
     #if FORCE_CONFIG
         deleteConfig(path);
     #endif

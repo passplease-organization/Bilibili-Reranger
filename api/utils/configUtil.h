@@ -3,6 +3,7 @@
 #include "../APIStatus.h"
 
 #ifdef __cplusplus
+    #include <initializer_list>
     #include <string>
     #include <toml11/types.hpp>
 
@@ -15,6 +16,8 @@
 #ifndef MAX_BUFFER_SIZE
     #define MAX_BUFFER_SIZE 100
 #endif
+
+API [[nodiscard]] bool makeConfigDir();
 
 extern "C" {
 /**
@@ -63,6 +66,9 @@ namespace cppUtil {
 
     template<typename ValueType>
     API void setConfig(Config& config, const string& flag, const ValueType &value, const string& description = "",const bool& recover = false);
+
+    template<typename ValueType>
+    API void setConfig(Config& config, const string& flag, const ValueType &value, std::initializer_list<string> descriptions,const bool& recover = false);
 
     template<typename ValueType>
     concept SupportedValue = requires(Config config,ValueType&& value){

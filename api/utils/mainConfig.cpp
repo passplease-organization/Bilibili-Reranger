@@ -5,14 +5,13 @@
 #define FORCE_GENERATE_CONFIG true
 #else
 #define FORCE_GENERATE_CONFIG false
+#include "../webAPIs/socialAPI.h"
 #endif
 
 /**
  * Read only, shouldn't be modified
  */
-Config defaultConfigs = Config();
-
-extern string randomString(size_t length);
+Config defaultConfigs = toml::table();
 
 #define _setConfigHelper(flag,value,description,recover) \
     cppUtil::setConfig(config,flag,value,description,recover)

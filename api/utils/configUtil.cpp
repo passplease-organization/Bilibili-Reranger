@@ -3,8 +3,13 @@
 #include <filesystem>
 #include <toml.hpp>
 #include <fstream>
+#include <sys/stat.h>
 
 constexpr string ConfigPath = "config";
+
+bool makeConfigDir() {
+    return access(ConfigPath.c_str(),0) == 0 || mkdir(ConfigPath.c_str(),S_IRWXU | S_IRWXG | S_IRWXO) == 0;
+}
 
 void toConfigPath(char* output, const char* filePath, size_t maxLength, const char *fileType) noexcept {
     string path{};
@@ -51,7 +56,7 @@ bool writeConfig(const char *filePath, const char *flag, const char *initValue, 
 }
 
 template<typename ValueType>
-void cppUtil::setConfig(Config &config, const string &flag, const ValueType &value, const string &description,const bool& recover) {
+inline static void setConfigValue(Config &config, const string &flag, const ValueType &value, std::initializer_list<string> descriptions,const bool& recover) {
     static_assert(
          cppUtil::SupportedValue<ValueType> || cppUtil::ConvirtableValue<ValueType>,
         "Unsupported value type"
@@ -60,14 +65,29 @@ void cppUtil::setConfig(Config &config, const string &flag, const ValueType &val
     if (config.contains(flag) && !recover)
         return;
     auto& v = config[flag];
-    if constexpr (SupportedValue<ValueType>)
+    if constexpr (cppUtil::SupportedValue<ValueType>)
         v = value;
     else v = to_toml(value);
-    if (!description.empty())
+    for (const auto& description : descriptions) {
+        if (description.empty())
+            continue;
         v.comments().push_back(description);
+    }
 }
 
-#define setConfig_declare(type) template void cppUtil::setConfig<type>(Config&, const string&, const type&, const string&, const bool&)
+template<typename ValueType>
+void cppUtil::setConfig(Config &config, const string &flag, const ValueType &value, const string &description,const bool& recover) {
+    setConfigValue(config, flag, value, {description}, recover);
+}
+
+template<typename ValueType>
+void cppUtil::setConfig(Config &config, const string &flag, const ValueType &value, std::initializer_list<string> descriptions,const bool& recover) {
+    setConfigValue(config, flag, value, descriptions, recover);
+}
+
+#define setConfig_declare(type) \
+    template void cppUtil::setConfig<type>(Config&, const string&, const type&, const string&, const bool&); \
+    template void cppUtil::setConfig<type>(Config&, const string&, const type&, std::initializer_list<string>, const bool&)
 
 setConfig_declare(int);
 setConfig_declare(bool);
