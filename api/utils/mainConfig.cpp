@@ -49,6 +49,7 @@ void readConfig() {
     #ifndef DEVELOP
         _setConfig(POSTGRES_ENCRYPT_KEY,webAPI::SimpleESA::randomKey(),"数据写入数据库使用加密秘钥");
     #endif
+        _setConfig(BROWSER_WORK_MAX_TIME,120,"Browser为每一次请求视频工作最大时长，单位：秒。若为负值则不限时");
         cppUtil::saveConfig(path,config);
         defaultConfigs = config;
     }

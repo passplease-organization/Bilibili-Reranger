@@ -45,7 +45,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function pushResult(results: Check[], name: string, passed: boolean, detail?: string): void {
     results.push({name, passed, detail});
-    const prefix = passed ? "PASS" : "FAIL";
+    const prefix = passed ? "通过" : "失败";
     const log = `[${prefix}] 测试名：${name}${detail ? ` -> ${detail}` : ""}`;
     passed ? console.log(log) : console.warn(log);
 }

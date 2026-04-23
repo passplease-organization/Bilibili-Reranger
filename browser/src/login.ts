@@ -4,6 +4,7 @@ import {ChildProcessWithoutNullStreams, spawn} from "child_process";
 import {LOGIN_IDLE_SECONDS, MAX_LOGIN_PORT, START_SERVICE_WAITING_TIME} from "./env";
 import * as net from "node:net";
 import fs from "node:fs";
+import {logger} from "./logger";
 
 export namespace login{
     type ScreenSize = {
@@ -255,7 +256,7 @@ export namespace login{
             },START_SERVICE_WAITING_TIME);
             web.addListener("exit",(code,signal) => {
                 const err = `Websockify关闭，状态码：${code}，收到信号：${signal}`;
-                console.log(err);
+                logger.warn({code, signal}, "Websockify 已关闭");
                 closer();
                 clearTimeout(timer);
                 reject(err);
@@ -266,7 +267,7 @@ export namespace login{
             })
             web.addListener("error", (err) => {
                 const error = `Websockify遇到错误：${err}`;
-                console.log(error);
+                logger.error({error: err}, "Websockify 遇到错误");
                 closer();
                 clearTimeout(timer);
                 reject(error);
@@ -302,7 +303,7 @@ export namespace login{
 
     export async function collectContext(token: string,session: string): Promise<CollectResponse>{
         if(loginSessions.has(session)){
-            console.log(`收集${session}的登录信息`);
+            logger.info({session}, "收集登录信息");
             const login: LoginSession = loginSessions.get(session);
             if(login.token == token) {
                 for (const context of login.browser.contexts()) {
@@ -325,7 +326,7 @@ export namespace login{
                         }
                     }
                 }
-                console.error(`收集${session}的登录信息失败`);
+                logger.error({session}, "收集登录信息失败");
                 return {
                     ok: false,
                     error: {

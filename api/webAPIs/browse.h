@@ -2,7 +2,7 @@
 
 #include <string>
 #include <nlohmann/json.hpp>
-
+#include "../utils/config.h"
 #include "../APIStatus.h"
 
 namespace cpr {
@@ -186,7 +186,8 @@ namespace webAPI {
 
         [[nodiscard]] bool testConnection() const;
 
-        [[nodiscard]] Json perform(const BrowseWorker& worker) const;
+        [[nodiscard]] Json perform(const BrowseWorker& worker,const unsigned int& workout = config<int>(BROWSER_WORK_MAX_TIME)) const;
+        #define BROWSER_TIMEOUT "timeout"
 
         [[nodiscard]] bool closeWorker(Nullable BrowseWorkingContext* const& context) const;
         #define CLOSE_WORKER "closeWorker"

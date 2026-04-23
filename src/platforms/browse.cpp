@@ -57,13 +57,14 @@ bool BrowseController::testConnection() const {
     return _testConnection(browseIP);
 }
 
-Json BrowseController::perform(const BrowseWorker &worker) const {
+Json BrowseController::perform(const BrowseWorker &worker,const unsigned int& workout) const {
     if (!_testConnection(browseIP))
         return {};
     Json json;
     json[CLIENT_ID] = crawlInfo -> clientId;
     json[PLATFORM] = crawlInfo -> client -> handler() -> support();
     json[CONTEXT] = worker.context -> toJson();
+    json[BROWSER_TIMEOUT] = workout;
     auto&& workers = json[ActionsFlag];
     for (auto&& action : worker.actions) {
         workers.push_back(action -> toJson());

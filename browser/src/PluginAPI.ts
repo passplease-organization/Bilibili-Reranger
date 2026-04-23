@@ -3,8 +3,12 @@ import fs from "fs";
 import path from "path";
 import {pluginPath} from "./env";
 import {Handler, WorkerDescription, WorkResult} from "./server";
+import {ChineseLogger, logger} from "./logger";
 
-export const fastify = Fastify({logger: true});
+export const fastify = Fastify({
+    logger: false,
+    disableRequestLogging: true
+});
 
 export interface WorkerFactory{
     getWorker: (info: unknown) => Worker;
@@ -22,12 +26,12 @@ export function registerWorker(name: string, workerFactory:WorkerFactory): boole
 export interface ServerInitContext {
     registerWorker: typeof registerWorker;
     fastify: typeof fastify;
-    logger: typeof fastify.log;
+    logger: ChineseLogger;
 }
 
 export interface ServerCloseContext {
     fastify: typeof fastify;
-    logger: typeof fastify.log;
+    logger: ChineseLogger;
 }
 
 export interface ServerPlugin {
@@ -67,7 +71,7 @@ function listThirdPartyPluginNames(): string[] {
     try {
         byConfig = readPluginConfig(pluginPath);
     } catch (error) {
-        fastify.log.warn({ error, pluginPath }, "failed to read plugin config");
+        logger.warn({error, pluginPath}, "读取插件配置失败");
     }
     return byConfig
 }
@@ -109,7 +113,7 @@ export async function initServerPlugins(): Promise<void> {
     const initContext: ServerInitContext = {
         registerWorker,
         fastify,
-        logger: fastify.log
+        logger
     };
 
     const pluginNames = listThirdPartyPluginNames();
@@ -118,9 +122,9 @@ export async function initServerPlugins(): Promise<void> {
             const plugin = await loadThirdPartyPlugin(pluginName);
             await plugin.onServerInit?.(initContext);
             loadedPlugins.push(plugin);
-            fastify.log.info({ plugin: plugin.name }, `${pluginName} initialized`);
+            logger.info({plugin: plugin.name}, "插件初始化完成");
         } catch (error) {
-            fastify.log.error({ error, pluginName }, `${pluginName} init failed`);
+            logger.error({error, pluginName}, "插件初始化失败");
         }
     }
 }
@@ -128,13 +132,13 @@ export async function initServerPlugins(): Promise<void> {
 export async function closeServerPlugins(): Promise<void> {
     const closeContext: ServerCloseContext = {
         fastify,
-        logger: fastify.log
+        logger
     };
     for (const plugin of loadedPlugins) {
         try {
             await plugin.onServerClose?.(closeContext);
         } catch (error) {
-            fastify.log.error({ error, plugin: plugin.name }, "third-party plugin close failed");
+            logger.error({error, plugin: plugin.name}, "第三方插件关闭失败");
         }
     }
 }

@@ -80,9 +80,12 @@ class UrlAction extends Worker {
 
     public async work(handler: Handler): Promise<WorkResult> {
         handler.page = await handler.newPage();
+        const startedAt = Date.now();
+        handler.logger.info({url: this.url}, "打开页面开始");
         await handler.page.goto(this.url,{
             waitUntil: 'domcontentloaded'
         });
+        handler.logger.info({url: handler.page.url(), durationMs: Date.now() - startedAt}, "打开页面完成");
         return {};
     }
 
@@ -97,11 +100,15 @@ class ClickAction extends Worker {
 
     public async work(handler: Handler): Promise<WorkResult> {
         const css = this.selector.toCSS();
+        const startedAt = Date.now();
+        handler.logger.info({selector: css, index: this.selector.index}, "点击元素开始");
         try {
             await handler.page.locator(css).nth(this.selector.index).click();
+            handler.logger.info({selector: css, index: this.selector.index, durationMs: Date.now() - startedAt}, "点击元素完成");
             return {};
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
+            handler.logger.warn({selector: css, index: this.selector.index, error: reason}, "点击元素失败");
             throw new Error(`click failed for selector '${css}' at index ${this.selector.index}: ${reason}`);
         }
     }
@@ -142,8 +149,11 @@ class CrawlAction extends Worker {
                 try{
                     const json = JSON.parse(this.description) as ElementSelectorJson;
                     const selector = new ElementSelector(json);
-                    const target = handler.page.locator(selector.toCSS()).nth(selector.index);
+                    const css = selector.toCSS();
+                    handler.logger.info({selector: css, index: selector.index}, "读取 DOM 数据开始");
+                    const target = handler.page.locator(css).nth(selector.index);
                     const text = await target.textContent();
+                    handler.logger.info({selector: css, index: selector.index, textLength: (text ?? "").length}, "读取 DOM 数据完成");
                     return {
                         data: returner(text ?? await target.innerText()),
                         clean_data: (text ?? "").replace(/s+/g,"  ").trim()
@@ -153,6 +163,7 @@ class CrawlAction extends Worker {
                 }
             }
             case BrowseDataMode.HTTP_REQUEST: {
+                handler.logger.info({target: this.description, recordedResponseCount: handler.records.size}, "匹配请求数据开始");
                 const backs = [...handler.records.entries()]
                     .filter(([key,]) => !key.handled && key.url.includes(this.description))
                     .map(([key,record]) => {
@@ -160,11 +171,11 @@ class CrawlAction extends Worker {
                         return record;
                     });
                 if(backs.length <= 0) {
-                    console.warn(`爬取${this.description}的url时获取数据为空，无合格请求`);
+                    handler.logger.warn({target: this.description, recordedResponseCount: handler.records.size}, "请求数据为空，没有匹配到合格响应");
                     await handler.collectDebugArtifacts(this.description);
                     return {};
                 }
-                console.log(`爬取${this.description}获取到${backs.length}条数据`);
+                handler.logger.info({target: this.description, dataCount: backs.length}, "匹配请求数据完成");
                 if(backs.length == 1){
                     return returner(backs[0].body);
                 }else return backs.map(record => returner(record.body));
@@ -198,12 +209,14 @@ class DoWhileAction extends Worker {
         type backFormat = (WorkResult | WorkResult[])[];
         const backs: backFormat[] = [];
         do{
+            handler.logger.info({iteration: count + 1, maxCount: this.maxCount}, "循环工作项开始");
             let result: backFormat = [];
             for (const worker of this.workers) {
                 try{
                     result.push(await worker.work(handler));
                     failed = false;
                 }catch(e){
+                    handler.logger.warn({iteration: count + 1, error: e}, "循环内工作项失败，继续判断循环条件");
                     failed = true;
                 }
             }

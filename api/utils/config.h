@@ -27,6 +27,7 @@
 #ifndef DEVELOP
     #define POSTGRES_ENCRYPT_KEY "postgres_encrypt_key"
 #endif
+#define BROWSER_WORK_MAX_TIME "browser_timeout"
 
 extern API Config defaultConfigs;
 
