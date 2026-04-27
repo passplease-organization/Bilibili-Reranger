@@ -65,6 +65,9 @@ void startTestThread() {
 #define DEBUG "test"
 
 namespace {
+    constexpr int SESSION_POLL_INTERVAL_MS = 200;
+    constexpr int SESSION_POLL_RETRY_COUNT = 100;
+
     void markFailed(bool& error, const string& message) {
         error = true;
         cppUtil::warn(message);
@@ -115,6 +118,87 @@ namespace {
         cppUtil::warn({false, nullptr}, step);
         cppUtil::warn(" unexpected text: ");
         cppUtil::warn(actual);
+    }
+
+    void expectStatusCodeValue(const long actual, const long expected, bool& error, const string& step) {
+        if (actual == expected)
+            return;
+        error = true;
+        cppUtil::warn({false, nullptr}, step);
+        cppUtil::warn(" failed, status code: ");
+        cppUtil::warn(actual);
+    }
+
+    string extractSession(const Response& response, webAPI::SimpleESA* esa, bool& error, const string& step) {
+        expectStatusCode(response, 200, error, step + " session response");
+        const string decrypted = decryptIfNeeded(response.text, esa);
+        if (decrypted.empty()) {
+            markFailed(error, step + " session response is empty");
+            return "";
+        }
+        const Json json = parseJsonChecked(decrypted, error, step + " session response");
+        if (!json.contains(URL_PARAMS_SESSION) || !json[URL_PARAMS_SESSION].is_string()) {
+            markFailed(error, step + " session response missing session");
+            return "";
+        }
+        return json[URL_PARAMS_SESSION];
+    }
+
+    Json waitSessionResult(
+        const string& localhost,
+        const string& id,
+        const string& session,
+        webAPI::SimpleESA* esa,
+        bool& error,
+        const string& step,
+        long* statusCode = nullptr
+    ) {
+        if (session.empty()) {
+            markFailed(error, step + " session is empty");
+            return Json();
+        }
+        Response response;
+        Json json;
+        bool finished = false;
+        for (int retry = 0; retry < SESSION_POLL_RETRY_COUNT; retry++) {
+            response = Post(
+                Url{localhost + GET},
+                Parameters{
+                    {URL_PARAMS_CLIENT_ID, id},
+                    {URL_PARAMS_SESSION, session}
+                },
+                ConnectTimeout{CONNECTION_TIMEOUT},
+                Timeout{config<int>(TIMEOUT)}
+            );
+            const string decrypted = decryptIfNeeded(response.text, esa);
+            json = parseJsonChecked(decrypted, error, step + " poll");
+            if (json.contains(SESSION_FINISHED) && json[SESSION_FINISHED].is_boolean()) {
+                finished = json[SESSION_FINISHED];
+                if (finished)
+                    break;
+            }
+            this_thread::sleep_for(chrono::milliseconds(SESSION_POLL_INTERVAL_MS));
+        }
+        if (statusCode != nullptr)
+            *statusCode = response.status_code;
+        if (!finished)
+            markFailed(error, step + " session did not finish in time");
+        if (!json.contains(SESSION_OK) || !json[SESSION_OK].is_boolean())
+            markFailed(error, step + " poll response missing ok");
+        if (!json.contains(SESSION_DATA))
+            markFailed(error, step + " poll response missing data");
+        return json;
+    }
+
+    string stringifySessionData(const Json& json, bool& error, const string& step) {
+        if (!json.contains(SESSION_DATA)) {
+            markFailed(error, step + " poll response missing data");
+            return "";
+        }
+        const auto& data = json[SESSION_DATA];
+        if (data.is_string())
+            return data.get<string>();
+        return data.dump();
     }
 }
 
@@ -270,12 +354,15 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-        if (response.status_code != 200 && response.status_code != 500)
-            expectStatusCode(response,200,error,"Login status");
         {
-            const string decrypted = decryptIfNeeded(response.text,&esa);
+            const string session = extractSession(response,&esa,error,"Login status");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Login status",&statusCode);
+            const string decrypted = stringifySessionData(json,error,"Login status");
             _say("Login status: ");
             _say(decrypted);
+            if (statusCode != 200 && statusCode != 500)
+                markFailed(error,"Login status returned unexpected status code");
             if (decrypted != "有效COOKIE" && decrypted != "无效COOKIE")
                 markFailed(error,"Login status returned unexpected text");
             json.clear();
@@ -298,51 +385,55 @@ void test() {
             ConnectTimeout{CONNECTION_TIMEOUT},
             Timeout{config<int>(TIMEOUT)}
         );
-#if ALL_CONTAINER_ONLINE
-        expectStatusCode(response,200,error,"Login");
         {
-            const string decrypted = decryptIfNeeded(response.text,&esa);
+            const string session = extractSession(response,&esa,error,"Login");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Login",&statusCode);
+            const Json sessionData = json.contains(SESSION_DATA) ? json[SESSION_DATA] : Json();
+            const string decrypted = sessionData.is_string() ? sessionData.get<string>() : sessionData.dump();
             _say("Login: ");
             _say(decrypted);
+#if ALL_CONTAINER_ONLINE
+            if (statusCode != 200 && statusCode != 500)
+                markFailed(error,"Login returned unexpected status code");
             if (decrypted.empty()) {
                 error = true;
                 EMPTY_WARN("Login");
             }
-            json = parseJsonChecked(decrypted,error,"Login");
-            if (!json.contains("success") || !json["success"].is_boolean())
+            if (!sessionData.is_object())
+                markFailed(error,"Login data should be json object");
+            if (!sessionData.contains("success") || !sessionData["success"].is_boolean())
                 markFailed(error,"Login missing boolean success");
-            if (!json.contains("url") || !json["url"].is_string())
+            if (!sessionData.contains("url") || !sessionData["url"].is_string())
                 markFailed(error,"Login missing string url");
-            if (json.value("success", false) && json.value("url", string()).empty())
+            if (sessionData.value("success", false) && sessionData.value("url", string()).empty())
                 markFailed(error,"Login success is true but url is empty");
             json[DEBUG] = decrypted;
-        }
 #else
-        expectStatusCode(response,200,error,"Login");
-        {
-            const string decrypted = decryptIfNeeded(response.text,&esa);
-            _say("Login: ");
-            _say(decrypted);
+            expectStatusCodeValue(statusCode,200,error,"Login");
             expectTextEquals(decrypted,"测试成功",error,"Offline login");
             json.clear();
             json[DEBUG] = decrypted;
-        }
 #endif
+        }
         OUTPUT(LOGIN_OUTPUT,LOGIN_NO_SLASH);
 
         _say("Init:");
         response = POST_PARAMS_ID(localhost + INIT);
         {
-            const string decrypted = decryptIfNeeded(response.text,&esa);
+            const string session = extractSession(response,&esa,error,"Init");
+            long statusCode = 0;
+            json = waitSessionResult(localhost,id,session,&esa,error,"Init",&statusCode);
+            const string decrypted = stringifySessionData(json,error,"Init");
             _say("Init: ");
             _say(decrypted);
 #if ALL_CONTAINER_ONLINE
-            if (response.status_code != 200 && response.status_code != 500)
+            if (statusCode != 200 && statusCode != 500)
                 markFailed(error,"Init returned unexpected status code");
             if (decrypted != "准备过程完成" && decrypted != "准备过程失败")
                 markFailed(error,"Init returned unexpected text");
 #else
-            expectStatusCode(response,200,error,"Init");
+            expectStatusCodeValue(statusCode,200,error,"Init");
             expectTextEquals(decrypted,"准备过程完成",error,"Offline init");
 #endif
             json.clear();

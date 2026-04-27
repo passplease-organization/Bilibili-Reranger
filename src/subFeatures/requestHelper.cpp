@@ -66,10 +66,9 @@ inline string getSession() {
     data[SESSION_OK] = true;
     data[SESSION_DATA] = "";
     string back;
+    allReturnsMutex.lock();
     do {
-        allReturnsMutex.unlock();
         back = randomString(32);
-        allReturnsMutex.lock();
     }while (allReturns.contains(back));
     allReturns.insert({back,data});
     allReturnsMutex.unlock();
@@ -85,7 +84,7 @@ inline bool writeSession(const string& session,const Data& data,const bool& fail
     back[SESSION_OK] = !failed;
     back[SESSION_FINISHED] = finished;
     lock_guard<mutex> lock(allReturnsMutex);
-    allReturns.insert({session,back});
+    allReturns[session] = back;
     return allReturns.contains(session);
 }
 
