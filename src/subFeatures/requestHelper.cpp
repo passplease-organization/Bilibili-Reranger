@@ -21,11 +21,78 @@
 #define RELEASE_LOG(message) \
     if (config<bool>(DETAILS)) \
         cppUtil::say(message)
+#define SESSION_LOG(session) \
+    RELEASE_LOG("获取到session为：" + (session));
 
 namespace webAPI{
     socialAPI* const& getHandler(Client const* client){
         return client -> _handler;
     }
+}
+
+std::map<string,Json> allReturns{};
+std::mutex allReturnsMutex{};
+
+int get(boost::asio::ip::tcp::socket& socket) {
+    LOG(GET,"get");
+    REQUIRE_CLIENT(socket);
+    string session;
+    for (const auto& param: crawlInfo -> params) {
+        if (param.key == URL_PARAMS_SESSION) {
+            session = param.value;
+            break;
+        }
+    }
+    allReturnsMutex.lock();
+    if (!allReturns.contains(session)) {
+        cppUtil::warn("此次请求" URL_PARAMS_SESSION "不存在，传递" URL_PARAMS_SESSION ": ",session);
+        allReturnsMutex.unlock();
+        Json backJson{};
+        backJson[SESSION_FINISHED] = true;
+        backJson[SESSION_OK] = false;
+        backJson[SESSION_DATA] = {};
+        return back(sendMessage(socket,backJson.dump(),true));
+    }
+    const auto data = allReturns[session];
+    if (!data[SESSION_DATA].empty())
+        allReturns.erase(session);
+    allReturnsMutex.unlock();
+    return back(sendMessage(socket,data.dump(),data[SESSION_OK].get<bool>()));
+}
+
+inline string getSession() {
+    Json data{};
+    data[SESSION_FINISHED] = false;
+    data[SESSION_OK] = true;
+    data[SESSION_DATA] = "";
+    string back;
+    do {
+        allReturnsMutex.unlock();
+        back = randomString(32);
+        allReturnsMutex.lock();
+    }while (allReturns.contains(back));
+    allReturns.insert({back,data});
+    allReturnsMutex.unlock();
+    return back;
+}
+
+template<class Data>
+inline bool writeSession(const string& session,const Data& data,const bool& failed = false,const bool& finished = true) {
+    static_assert(validData<Data>,"Invalid back data type !");
+
+    Json back{};
+    back[SESSION_DATA] = data;
+    back[SESSION_OK] = !failed;
+    back[SESSION_FINISHED] = finished;
+    lock_guard<mutex> lock(allReturnsMutex);
+    allReturns.insert({session,back});
+    return allReturns.contains(session);
+}
+
+inline void sendSession(boost::asio::ip::tcp::socket& socket,const string& session) {
+    Json json;
+    json[URL_PARAMS_SESSION] = session;
+    sendMessage(socket,json.dump());
 }
 
 int getAllCategories(boost::asio::ip::tcp::socket& socket) {
@@ -53,12 +120,15 @@ int login(boost::asio::ip::tcp::socket& socket) {
     }
     if (test == "true") {
         RELEASE_LOG("测试后台登录状态");
+        const auto& session = getSession();
+        SESSION_LOG(session)
+        sendSession(socket,session);
         if (crawlInfo -> client -> handler() != nullptr) {
             if (crawlInfo -> client -> handler() -> validBrowse())
-                return back(sendMessage(socket,"有效COOKIE"));
-            return back(sendMessage(socket,"无效COOKIE",true));
+                return back(writeSession(session,"有效COOKIE"));
+            return back(writeSession(session,"无效COOKIE",true));
         }
-        return back(sendMessage(socket,"未设置平台！",true));
+        return back(writeSession(session,"未设置平台！",true));
     }
     if (!BODY_CONTAIN(BODY_PARAMS_PLATFORM)) {
         RELEASE_LOG("获取全部平台");
@@ -70,15 +140,18 @@ int login(boost::asio::ip::tcp::socket& socket) {
     crawlInfo -> client -> getHandler(INFO_BODY(BODY_PARAMS_PLATFORM),stop);
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
+    const auto& session = getSession();
+    SESSION_LOG(session)
+    sendSession(socket,session);
     auto const& handler = getHandler(crawlInfo -> client);
 #if !ALL_CONTAINER_ONLINE
-    return back(sendMessage(socket,"测试成功",handler == nullptr));
+    return back(writeSession(session,"测试成功",handler == nullptr));
 #else
     bool failed = false;
     Json response;
     response["url"] = handler -> login(crawlInfo -> clientId,failed).str();
     response["success"] = !failed;
-    return back(sendMessage(socket,response.dump(),failed));
+    return back(writeSession(session,response,failed));
 #endif
 }
 
@@ -141,6 +214,9 @@ int testID(boost::asio::ip::tcp::socket& socket) {
 int init(boost::asio::ip::tcp::socket& socket){
     LOG(INIT, "init");
     REQUIRE_CLIENT(socket);
+    const auto& session = getSession();
+    SESSION_LOG(session)
+    sendSession(socket,session);
     bool gather = false;
     Json json;
     if (BODY_CONTAIN("token")) {
@@ -178,7 +254,7 @@ int init(boost::asio::ip::tcp::socket& socket){
     Prepare:
         ok &= crawlInfo -> client -> prepare();
     Back:
-    return back(sendMessage(socket, ok ? "准备过程完成" : "准备过程失败", !ok));
+    return back(writeSession(session,ok ? "准备过程完成" : "准备过程失败", !ok));
 }
 
 int set(boost::asio::ip::tcp::socket& socket){
@@ -197,7 +273,9 @@ int set(boost::asio::ip::tcp::socket& socket){
 }
 
 handler checkURL(const std::string& url) {
-    if (url.starts_with(GET_ALL_CATEGORIES))
+    if (url.starts_with(GET))
+        return get;
+    else if (url.starts_with(GET_ALL_CATEGORIES))
         return getAllCategories;
     else if (url.starts_with(LOGIN))
         return login;

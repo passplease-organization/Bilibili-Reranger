@@ -22,6 +22,7 @@ RUN apt-get update \
   && echo $TZ > /etc/timezone \
   && rm -rf /var/lib/apt/lists/*
 
+RUN npm install -g @playwright/cli
 RUN npm install -g typescript @types/node @google/gemini-cli @openai/codex @qwen-code/qwen-code@latest
 
 RUN mkdir -p /crawler/logs && chmod 777 /crawler/logs

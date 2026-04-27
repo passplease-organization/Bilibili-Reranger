@@ -13,7 +13,11 @@ import {
     BROWSER_DEBUG_ENABLED,
     BROWSER_DEBUG_HEADLESS,
     BROWSER_DEBUG_HTML_LIMIT,
-    BROWSER_DEBUG_KEEP_OPEN
+    BROWSER_DEBUG_KEEP_OPEN,
+    BROWSER_REQUEST_LOG_SUMMARY_ENABLED,
+    BROWSER_VERBOSE_LOG_ENABLED,
+    BROWSER_VERBOSE_LOG_RECORD_LIMIT,
+    BROWSER_VERBOSE_LOG_TEXT_LIMIT
 } from "./env";
 import {DisplaySession, ensureDisplayForHeadedLaunch} from "./debug/xvfb";
 import buildNginxURL = login.buildNginxURL;
@@ -22,7 +26,14 @@ import getSession = login.getSession;
 import CollectRequest = login.CollectRequest;
 import CollectResponse = login.CollectResponse;
 import closeAll = login.closeAll;
-import {ChineseLogger, getCurrentLogger, logger, runWithLogger} from "./logger";
+import {
+    ChineseLogger,
+    clearRequestLogSummary,
+    getCurrentLogger,
+    logger,
+    runWithLogger,
+    takeRequestLogSummary
+} from "./logger";
 
 export interface WorkContext {
     cookie: {
@@ -61,6 +72,7 @@ export interface DebugSnapshot {
     title?: string;
     screenshot?: string;
     html?: string;
+    summaryLog?: string;
     htmlPreview?: string;
     records?: {url: string, handled: boolean}[];
     workerType?: string;
@@ -73,6 +85,123 @@ type NetRecord = {
     body: string;
     headers: Record<string, string>;
 };
+
+type CookieSummary = {
+    count: number;
+    domain: string;
+    path: string;
+    rawLength: number;
+    names: string[];
+};
+
+type WorkerSummary = {
+    index: number;
+    type: string;
+    info: unknown;
+};
+
+type ContextSummary = {
+    cookie: CookieSummary;
+};
+
+function summarizeText(value: string, limit = BROWSER_VERBOSE_LOG_TEXT_LIMIT): string {
+    const flattened = value.replace(/\s+/g, " ").trim();
+    return flattened.length > limit ? `${flattened.slice(0, limit)}...` : flattened;
+}
+
+function summarizeCookie(cookie: WorkContext["cookie"]): CookieSummary {
+    const names = cookie.value
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((pair) => {
+            const eq = pair.indexOf("=");
+            return eq >= 0 ? pair.slice(0, eq).trim() : pair;
+        })
+        .filter(Boolean);
+    return {
+        count: names.length,
+        domain: cookie.domain,
+        path: cookie.path || "/",
+        rawLength: cookie.value.length,
+        names
+    };
+}
+
+function summarizeContext(context: WorkContext): ContextSummary {
+    return {
+        cookie: summarizeCookie(context.cookie)
+    };
+}
+
+function summarizeWorkers(workers?: WorkerDescription[]): WorkerSummary[] | undefined {
+    if (!workers) return undefined;
+    return workers.map((worker, index) => ({
+        index: index + 1,
+        type: worker.type,
+        info: worker.info
+    }));
+}
+
+function summarizeRecentRecords(
+    records: Map<{ url:string, handled: boolean }, NetRecord>,
+    limit = BROWSER_VERBOSE_LOG_RECORD_LIMIT
+): object[] {
+    return Array.from(records.entries())
+        .slice(-limit)
+        .map(([key, record]) => ({
+            url: key.url,
+            handled: key.handled,
+            contentType: record.headers["content-type"],
+            bodyPreview: summarizeText(record.body)
+        }));
+}
+
+function loggableUnknown(value: unknown): object | string | number | boolean | null | undefined {
+    if (
+        value === null ||
+        value === undefined ||
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+    ) {
+        return value as null | undefined | string | number | boolean;
+    }
+    if (value instanceof Error) {
+        return value as Error;
+    }
+    if (typeof value === "object") {
+        return value as object;
+    }
+    return String(value);
+}
+
+function writeRequestFailureSummary(requestId: string, debug?: DebugSnapshot): void {
+    if (!BROWSER_REQUEST_LOG_SUMMARY_ENABLED) {
+        return;
+    }
+    const lines = takeRequestLogSummary(requestId);
+    if (lines.length <= 0) {
+        return;
+    }
+    const summary = [
+        `===== 请求失败摘要 requestId=${requestId} =====`,
+        ...lines,
+        debug?.screenshot ? `screenshot=${debug.screenshot}` : undefined,
+        debug?.html ? `html=${debug.html}` : undefined,
+        "===== 请求失败摘要结束 ====="
+    ].filter((line): line is string => Boolean(line));
+    fs.mkdirSync(BROWSER_DEBUG_ARTIFACTS_DIR, {recursive: true});
+    const summaryPath = debug?.screenshot
+        ? debug.screenshot.replace(/\.png$/i, ".log")
+        : debug?.html
+            ? debug.html.replace(/\.html$/i, ".log")
+            : path.join(BROWSER_DEBUG_ARTIFACTS_DIR, `${requestId}-request-failed.log`);
+    fs.writeFileSync(summaryPath, `${summary.join("\n")}\n`, "utf8");
+    if (debug) {
+        debug.summaryLog = summaryPath;
+    }
+}
 export class Handler{
     protected browse: Browser;
     private readonly displaySession: DisplaySession;
@@ -95,6 +224,7 @@ export class Handler{
     public async init(context: WorkContext) : Promise<boolean>{
         this.records.clear();
         this.logger.info({cookieCount: WorkContext.toCookie(context).length}, "初始化浏览器上下文");
+        this.logger.dev({context: summarizeContext(context)}, "开发诊断：浏览器上下文参数");
         this.context = await this.browse.newContext();
         await this.context.addCookies(WorkContext.toCookie(context));
         return true;
@@ -188,9 +318,31 @@ export class Handler{
             back.html = html;
             back.htmlPreview = content.slice(0, BROWSER_DEBUG_HTML_LIMIT);
         } catch {}
+        this.logger.dev({url: back.url, title: back.title, tag, recentRecords: summarizeRecentRecords(this.records)}, "开发诊断：调试信息摘要");
         this.logger.warn({screenshot: back.screenshot, html: back.html}, "浏览器调试文件已保存");
 
         return back;
+    }
+
+    public async describePageState(): Promise<Record<string, unknown>> {
+        const state: Record<string, unknown> = {};
+        if (!this.page) {
+            return state;
+        }
+        try {
+            state.url = this.page.url();
+        } catch {}
+        try {
+            state.title = await this.page.title();
+        } catch {}
+        try {
+            state.readyState = await this.page.evaluate(() => document.readyState);
+        } catch {}
+        return state;
+    }
+
+    public recentRecordsSummary(limit = BROWSER_VERBOSE_LOG_RECORD_LIMIT): object[] {
+        return summarizeRecentRecords(this.records, limit);
     }
 
     public async close(): Promise<void> {
@@ -338,8 +490,22 @@ fastify.post('/',async (request) => {
         const deadlineMs = timeoutSeconds === undefined ? undefined : startedAt + timeoutSeconds * 1000;
         return await runWithLogger(requestLogger, async () => {
             requestLogger.info({workerCount: body.workers?.length || 0, timeoutSeconds}, "爬取请求开始");
+            if (BROWSER_VERBOSE_LOG_ENABLED) {
+                requestLogger.dev({
+                    body: {
+                        clientID: body.clientID,
+                        platform: body.platform,
+                        mode: body.mode,
+                        requestID: body.requestID,
+                        timeout: body.timeout,
+                        context: summarizeContext(body.context),
+                        workers: summarizeWorkers(body.workers)
+                    }
+                }, "开发诊断：爬取请求参数");
+            }
             if(!body.workers) {
                 requestLogger.warn("爬取请求缺少工作项");
+                clearRequestLogSummary(requestID);
                 return {
                     ok: false,
                     requestID,
@@ -356,10 +522,12 @@ fastify.post('/',async (request) => {
             if (initResult === timeoutResult) {
                 requestLogger.warn({timeoutSeconds, durationMs: Date.now() - startedAt}, "爬取请求超过限定时长，直接返回已有结果");
                 void closeHandler(body.clientID, body.platform);
+                clearRequestLogSummary(requestID);
                 return back;
             }
             if(!initResult) {
                 requestLogger.warn("初始化浏览器上下文失败");
+                clearRequestLogSummary(requestID);
                 return {
                     ok: false,
                     requestID,
@@ -373,27 +541,39 @@ fastify.post('/',async (request) => {
             for(let index = 0; index < body.workers.length; index++) {
                 if (deadlineMs !== undefined && Date.now() >= deadlineMs) {
                     requestLogger.warn({timeoutSeconds, durationMs: Date.now() - startedAt, completedWorkerCount: back.back.length}, "爬取请求超过限定时长，直接返回已有结果");
+                    clearRequestLogSummary(requestID);
                     return back;
                 }
                 const description = body.workers[index];
                 const workerStartedAt = Date.now();
                 handler.setCurrentWorker(description.type, index);
                 requestLogger.info({index: index + 1, type: description.type}, "工作项开始执行");
+                requestLogger.dev({index: index + 1, type: description.type, info: loggableUnknown(description.info)}, "开发诊断：工作项参数");
                 try {
                     const workerResult = await withDeadline(Worker.fromDescription(description).work(handler), deadlineMs);
                     if (workerResult === timeoutResult) {
                         requestLogger.warn({timeoutSeconds, durationMs: Date.now() - startedAt, completedWorkerCount: back.back.length}, "爬取请求超过限定时长，直接返回已有结果");
                         void closeHandler(body.clientID, body.platform);
+                        clearRequestLogSummary(requestID);
                         return back;
                     }
                     back.back.push(workerResult);
                     requestLogger.info({index: index + 1, type: description.type, durationMs: Date.now() - workerStartedAt}, "工作项执行完成");
+                    requestLogger.dev({index: index + 1, type: description.type, pageState: await handler.describePageState()}, "开发诊断：工作项完成后的页面状态");
                 } catch (error) {
-                    requestLogger.error({index: index + 1, type: description.type, error}, "工作项执行失败");
+                    requestLogger.error({
+                        index: index + 1,
+                        type: description.type,
+                        error,
+                        pageState: await handler.describePageState(),
+                        recentRecords: handler.recentRecordsSummary(),
+                        workerInfo: loggableUnknown(description.info)
+                    }, "工作项执行失败");
                     throw error;
                 }
             }
             requestLogger.info({durationMs: Date.now() - startedAt}, "爬取请求完成");
+            clearRequestLogSummary(requestID);
             return back;
         });
     }catch(e){
@@ -403,6 +583,7 @@ fastify.post('/',async (request) => {
             if (body?.clientID && body?.platform && handlers[body.clientID]?.[body.platform]) {
                 debug = await handlers[body.clientID][body.platform].collectDebugArtifacts("request-failed");
             }
+            writeRequestFailureSummary(requestID, debug);
             if (!(BROWSER_DEBUG_ENABLED && BROWSER_DEBUG_KEEP_OPEN) && body?.clientID && body?.platform) {
                 await closeHandler(body.clientID, body.platform);
             }

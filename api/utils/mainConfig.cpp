@@ -30,9 +30,9 @@ void readConfig() {
 
         _setConfig(SUBSCRIBE_PUBLISH_TIME,3,"关注博主视频计入爬取列表时间，单位：天");
     #ifdef WIN32
-        _setConfig(WAIT_TIME,5000,"相邻两次爬取的间隔时间，单位毫秒");
+        _setConfig(WAIT_TIME,5000,"相邻两次爬取的间隔时间，单位：毫秒");
     #elifdef __linux__
-        _setConfig(WAIT_TIME,5000,"相邻两次爬取的间隔时间");
+        _setConfig(WAIT_TIME,10,"相邻两次爬取的间隔时间，单位：秒");
     #endif
         _setConfig(MAX_CRAWL_COUNT,25,"每次后台请求爬取次数上限");
         _setConfig(MAX_AI_TOKENS,20000,"每次AI请求最大token开销");

@@ -18,6 +18,8 @@ typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define INIT "/" INIT_NO_SLASH
 #define SET_NO_SLASH "set"
 #define SET "/" SET_NO_SLASH
+#define GET_NO_SLASH "get"
+#define GET "/" GET_NO_SLASH
 
 #define NEED_NORMAL_HANDLE -1
 handler checkURL(const std::string& url);
@@ -27,3 +29,12 @@ Nullable handler requireClient();
 #define REQUIRE_CLIENT(socket) \
     if(const auto& handler = requireClient(); handler != nullptr) \
         return handler(socket);
+
+#define SESSION_DATA "data"
+#define SESSION_FINISHED "finished"
+#define SESSION_OK "ok"
+
+template<class Data>
+concept validData = requires(Json& back,Data&& data){
+    {back = data} -> std::same_as<Json&>;
+};

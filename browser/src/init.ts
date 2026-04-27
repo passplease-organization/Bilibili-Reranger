@@ -85,6 +85,7 @@ class UrlAction extends Worker {
         await handler.page.goto(this.url,{
             waitUntil: 'domcontentloaded'
         });
+        handler.logger.dev({targetUrl: this.url, pageState: await handler.describePageState()}, "开发诊断：打开页面后的状态");
         handler.logger.info({url: handler.page.url(), durationMs: Date.now() - startedAt}, "打开页面完成");
         return {};
     }
@@ -103,12 +104,31 @@ class ClickAction extends Worker {
         const startedAt = Date.now();
         handler.logger.info({selector: css, index: this.selector.index}, "点击元素开始");
         try {
-            await handler.page.locator(css).nth(this.selector.index).click();
+            const locator = handler.page.locator(css);
+            const count = await locator.count();
+            const target = locator.nth(this.selector.index);
+            const isVisible = count > this.selector.index ? await target.isVisible().catch(() => false) : false;
+            const isEnabled = count > this.selector.index ? await target.isEnabled().catch(() => false) : false;
+            handler.logger.dev({
+                selector: css,
+                index: this.selector.index,
+                count,
+                isVisible,
+                isEnabled,
+                pageState: await handler.describePageState()
+            }, "开发诊断：点击前元素状态");
+            await target.click();
             handler.logger.info({selector: css, index: this.selector.index, durationMs: Date.now() - startedAt}, "点击元素完成");
             return {};
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
-            handler.logger.warn({selector: css, index: this.selector.index, error: reason}, "点击元素失败");
+            handler.logger.warn({
+                selector: css,
+                index: this.selector.index,
+                error: reason,
+                pageState: await handler.describePageState(),
+                recentRecords: handler.recentRecordsSummary()
+            }, "点击元素失败");
             throw new Error(`click failed for selector '${css}' at index ${this.selector.index}: ${reason}`);
         }
     }
@@ -152,6 +172,12 @@ class CrawlAction extends Worker {
                     const css = selector.toCSS();
                     handler.logger.info({selector: css, index: selector.index}, "读取 DOM 数据开始");
                     const target = handler.page.locator(css).nth(selector.index);
+                    handler.logger.dev({
+                        selector: css,
+                        index: selector.index,
+                        count: await handler.page.locator(css).count(),
+                        pageState: await handler.describePageState()
+                    }, "开发诊断：读取 DOM 前元素状态");
                     const text = await target.textContent();
                     handler.logger.info({selector: css, index: selector.index, textLength: (text ?? "").length}, "读取 DOM 数据完成");
                     return {
@@ -164,6 +190,7 @@ class CrawlAction extends Worker {
             }
             case BrowseDataMode.HTTP_REQUEST: {
                 handler.logger.info({target: this.description, recordedResponseCount: handler.records.size}, "匹配请求数据开始");
+                handler.logger.dev({target: this.description, recentRecords: handler.recentRecordsSummary()}, "开发诊断：匹配请求前的响应摘要");
                 const backs = [...handler.records.entries()]
                     .filter(([key,]) => !key.handled && key.url.includes(this.description))
                     .map(([key,record]) => {
@@ -175,6 +202,10 @@ class CrawlAction extends Worker {
                     await handler.collectDebugArtifacts(this.description);
                     return {};
                 }
+                handler.logger.dev({
+                    target: this.description,
+                    matchedUrls: backs.map((record) => record.url)
+                }, "开发诊断：匹配到的请求响应");
                 handler.logger.info({target: this.description, dataCount: backs.length}, "匹配请求数据完成");
                 if(backs.length == 1){
                     return returner(backs[0].body);

@@ -1,4 +1,9 @@
 import {AsyncLocalStorage} from "node:async_hooks";
+import {
+    BROWSER_REQUEST_LOG_SUMMARY_ENABLED,
+    BROWSER_REQUEST_LOG_SUMMARY_LIMIT,
+    BROWSER_VERBOSE_LOG_ENABLED
+} from "./env";
 
 type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "silent";
 type LogValue = string | number | boolean | null | undefined | Error | object;
@@ -22,6 +27,8 @@ const levelLabels: Record<Exclude<LogLevel, "silent">, string> = {
     error: "错误",
     fatal: "致命"
 };
+
+const requestLogSummaries = new Map<string, string[]>();
 
 function normalizeLevel(value: string | undefined): LogLevel {
     if (!value) return "info";
@@ -58,6 +65,25 @@ function formatFields(fields: LogFields): string {
         .join(" ");
 }
 
+function appendRequestSummaryLine(requestId: string, line: string): void {
+    const current = requestLogSummaries.get(requestId) || [];
+    current.push(line);
+    if (current.length > BROWSER_REQUEST_LOG_SUMMARY_LIMIT) {
+        current.splice(0, current.length - BROWSER_REQUEST_LOG_SUMMARY_LIMIT);
+    }
+    requestLogSummaries.set(requestId, current);
+}
+
+export function takeRequestLogSummary(requestId: string): string[] {
+    const lines = requestLogSummaries.get(requestId) || [];
+    requestLogSummaries.delete(requestId);
+    return lines;
+}
+
+export function clearRequestLogSummary(requestId: string): void {
+    requestLogSummaries.delete(requestId);
+}
+
 export class ChineseLogger {
     private readonly bindings: LogFields;
     private readonly minLevel: LogLevel;
@@ -87,6 +113,11 @@ export class ChineseLogger {
         this.write("info", fieldsOrMessage, message);
     }
 
+    public dev(fieldsOrMessage: LogFields | string, message?: string): void {
+        if (!BROWSER_VERBOSE_LOG_ENABLED) return;
+        this.write("info", fieldsOrMessage, message);
+    }
+
     public warn(fieldsOrMessage: LogFields | string, message?: string): void {
         this.write("warn", fieldsOrMessage, message);
     }
@@ -111,6 +142,11 @@ export class ChineseLogger {
         const text = typeof fieldsOrMessage === "string" ? fieldsOrMessage : message || "";
         const fieldText = formatFields(fields);
         const line = `${new Date().toISOString()} [${levelLabels[level]}] ${text}${fieldText ? ` ${fieldText}` : ""}`;
+        const requestId = fields.requestId;
+
+        if (BROWSER_REQUEST_LOG_SUMMARY_ENABLED && typeof requestId === "string" && requestId.trim()) {
+            appendRequestSummaryLine(requestId, line);
+        }
 
         if (level === "error" || level === "fatal") {
             console.error(line);

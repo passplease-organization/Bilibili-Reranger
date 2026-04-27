@@ -35,3 +35,5 @@ RUN apt-get update && apt-get install -y curl \
     && npm install -g @openai/codex \
     && npm install -g @qwen-code/qwen-code@latest \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @playwright/cli
