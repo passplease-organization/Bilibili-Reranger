@@ -57,7 +57,7 @@ int get(boost::asio::ip::tcp::socket& socket) {
     if (!data[SESSION_DATA].empty())
         allReturns.erase(session);
     allReturnsMutex.unlock();
-    return back(sendMessage(socket,data.dump(),data[SESSION_OK].get<bool>()));
+    return back(sendMessage(socket,data.dump(),!data[SESSION_OK].get<bool>()));
 }
 
 inline string getSession() {

@@ -16,3 +16,4 @@ node_modules
 dist
 browser/logs
 browser/test-results
+.codex

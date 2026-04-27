@@ -160,6 +160,7 @@ namespace {
         Response response;
         Json json;
         bool finished = false;
+        bool requestFailed = false;
         for (int retry = 0; retry < SESSION_POLL_RETRY_COUNT; retry++) {
             response = Post(
                 Url{localhost + GET},
@@ -170,8 +171,21 @@ namespace {
                 ConnectTimeout{CONNECTION_TIMEOUT},
                 Timeout{config<int>(TIMEOUT)}
             );
+            if (response.status_code == 0) {
+                requestFailed = true;
+                break;
+            }
             const string decrypted = decryptIfNeeded(response.text, esa);
+            if (decrypted.empty()) {
+                markFailed(error, step + " poll returned empty response");
+                requestFailed = true;
+                break;
+            }
             json = parseJsonChecked(decrypted, error, step + " poll");
+            if (json.empty() && decrypted != "{}") {
+                requestFailed = true;
+                break;
+            }
             if (json.contains(SESSION_FINISHED) && json[SESSION_FINISHED].is_boolean()) {
                 finished = json[SESSION_FINISHED];
                 if (finished)
@@ -181,6 +195,16 @@ namespace {
         }
         if (statusCode != nullptr)
             *statusCode = response.status_code;
+        if (requestFailed) {
+            if (response.status_code == 0) {
+                markFailed(error, step + " poll request failed");
+                if (!response.error.message.empty())
+                    cppUtil::warn("Poll request error: " + response.error.message);
+                if (!response.reason.empty())
+                    cppUtil::warn("Poll request reason: " + response.reason);
+            }
+            return json;
+        }
         if (!finished)
             markFailed(error, step + " session did not finish in time");
         if (!json.contains(SESSION_OK) || !json[SESSION_OK].is_boolean())
