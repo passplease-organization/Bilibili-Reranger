@@ -17,15 +17,15 @@ RUN if [ "${REINSTALL_CMAKE_VERSION_FROM_SOURCE}" != "none" ]; then \
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-RUN apt update && apt install -y libboost-all-dev
-RUN apt install -y bison flex && vcpkg install libpqxx
+RUN apt update && apt install -y libboost-all-dev && apt-get clean
+RUN apt install -y bison flex && vcpkg install libpqxx && apt-get clean
 RUN vcpkg install nlohmann-json
 RUN vcpkg install cpr
 RUN vcpkg install curl
 RUN vcpkg install openssl
 RUN vcpkg install toml11
 
-RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive
+RUN apt update && apt install -y autoconf automake libtool pkg-config autoconf-archive && apt-get clean
 RUN vcpkg install libsodium
 
 RUN apt-get update && apt-get install -y curl \

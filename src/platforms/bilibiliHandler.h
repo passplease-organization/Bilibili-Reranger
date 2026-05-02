@@ -26,10 +26,13 @@ namespace webAPI{
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_CHALLENGE "challenge"
     #define BILIBILI_LOGIN_VERIFICATION_PARAMS_CODE "code"
     #define BILIBILI_LOGIN_FLAG_PHONE_VERIFICATION "phone_verification"
+    /**
+    * End here
+    */
 
     #define BILIBILI_USER_MAIN_PAGE_URL "https://space.bilibili.com/"
     #define BILIBILI_USER_MAIN_PAGE(userId) (BILIBILI_USER_MAIN_PAGE_URL + (userId) + "/")
-    #define BILIBILI_VIDEO_SEARCH_PAGE_URL "https://search.bilibili.com/video"
+    #define BILIBILI_VIDEO_SEARCH_PAGE_URL "https://search.bilibili.com/" BILIBILI_VIDEO_ROUTER "/"
     #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER(a,b,helper,...)  helper(a,b,__VA_ARGS__)
     #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER1(keyword,page,...) (BILIBILI_VIDEO_SEARCH_PAGE_URL "?keyword=" + (keyword) + "&page=" + to_string(page))
     #define BILIBILI_VIDEO_SEARCH_PAGE_HELPER2(keyword,...) (BILIBILI_VIDEO_SEARCH_PAGE_URL "?keyword=" + (keyword))

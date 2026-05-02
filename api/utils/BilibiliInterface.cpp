@@ -1,6 +1,6 @@
 #include "../utils/BilibiliInterface.h"
 
-#include <iostream>
+#include <initializer_list>
 #include <regex>
 #include <cpr/api.h>
 
@@ -33,34 +33,89 @@ string toReadableTime(long long publishTime){// TODO 时间解析有问题
     return "刚刚";
 }
 
+namespace {
+    bool hasAnyField(const Json& json,const initializer_list<const char*> fields) {
+        for (const auto* field : fields)
+            if (json.contains(field))
+                return true;
+        return false;
+    }
+
+#ifdef DEVELOP
+    void addMissingField(string& missing,const string& field) {
+        if (!missing.empty())
+            missing += ", ";
+        missing += field;
+    }
+
+    void requireField(const Json& json,const char* field,string& missing) {
+        if (!json.contains(field))
+            addMissingField(missing, field);
+    }
+
+    void requireAnyField(const Json& json,const initializer_list<const char*> fields,const char* name,string& missing) {
+        if (!hasAnyField(json, fields))
+            addMissingField(missing, name);
+    }
+
+    void validateVideoJsonFields(const Json& json) {
+        if (!json.is_object())
+            cppUtil::throwError("Invalid Bilibili video json. Expected object, now json content: ", json.dump());
+
+        string missing;
+        requireAnyField(json, {"created", "pubdate", "senddate", "ctime"}, "created/pubdate/senddate/ctime", missing);
+        requireField(json, "title", missing);
+        requireField(json, "author", missing);
+        requireField(json, "description", missing);
+        requireField(json, "mid", missing);
+        requireAnyField(json, {"bvid", "arcurl"}, "bvid/arcurl", missing);
+        requireAnyField(json, {"length", "duration"}, "length/duration", missing);
+        requireField(json, "pic", missing);
+        requireField(json, "play", missing);
+        requireField(json, "video_review", missing);
+
+        if (!missing.empty())
+            cppUtil::throwError("Invalid Bilibili video json. Missing fields: ", missing, ". Now json content: ", json.dump());
+    }
+#endif
+
+    long long getPublishTimeFromJson(const Json& json) {
+        if (json.contains("created"))
+            return json["created"].get<long long>();
+        if (json.contains("pubdate"))
+            return json["pubdate"].get<long long>();
+        if (json.contains("senddate"))
+            return json["senddate"].get<long long>();
+        return json["ctime"].get<long long>();
+    }
+
+    string getVideoDurationFromJson(const Json& json) {
+        if (json.contains("length"))
+            return json["length"].get<string>();
+        return json["duration"].get<string>();
+    }
+}
+
 namespace webAPI{
     thread_local const Video* _nowVideo;
 
     Video::Video(const Json &json) {
         this -> json = json;
-        #ifdef DEVELOP
-        try {
-        #endif
-            _publishTime = getPublishTime(json);
-            _title = getTitle(json);
-            _author = getAuthor(json);
-            _description = getDescription(json);
-            _mid = getMid(json);
-            _url = getVideoURL(json);
-            _duration = getVideoDuration(json);
-            _image = getImageURL(json);
-            _string_publishTime = toReadableTime(publishTime());
-            _views = getViews(json);
-            _popups = getPopup(json);
-            format();
-        #ifdef DEVELOP
-        }catch (exception e){
-            cppUtil::warn("Invalid json format ! Now json content :");
-            cppUtil::warn(json);
-            cppUtil::warn(e.what());
-            reset();
-        }
-        #endif
+#ifdef DEVELOP
+        validateVideoJsonFields(json);
+#endif
+        _publishTime = getPublishTimeFromJson(json);
+        _title = json["title"].get<std::string>();
+        _author = json["author"].get<std::string>();
+        _description = json["description"].get<std::string>();
+        _mid = json["mid"].get<int>();
+        _url = getVideoURLFromJson(json);
+        _duration = getVideoDurationFromJson(json);
+        _image = getImageURLFromJson(json);
+        _string_publishTime = toReadableTime(publishTime());
+        _views = json["play"].get<unsigned int>();
+        _popups = json["video_review"].get<unsigned int>();
+        format();
     }
 
     Video Video::fromData(const dataStore::Data &data) {
@@ -76,11 +131,10 @@ namespace webAPI{
     }
 
     string Video::getVideoURLFromJson(const Json &json) {
+        if (json.contains("bvid"))
+            return BILIBILI_MAIN_PAGE_URL BILIBILI_VIDEO_ROUTER "/" + json["bvid"].get<string>();
         if(json.contains("arcurl"))
             return json["arcurl"].get<std::string>();
-        if(json.contains("three_point")){
-            return json["three_point"][1]["short_link"];
-        }
         string error("Invalid Json Format !!! Json :\n");
         error += to_string(json);
         cppUtil::throwError(error);
@@ -90,9 +144,11 @@ namespace webAPI{
     string Video::getImageURLFromJson(const Json &json) {
         if(json.contains("pic")){
             string back = json["pic"].get<string>();
-            if(startWith(back.c_str(),"https:"))
+            if(startWith(back.c_str(),"https:") || startWith(back.c_str(),"http:"))
                 return back;
-            return "https:" + back;
+            if(startWith(back.c_str(),"//"))
+                return "https:" + back;
+            return back;
         }
         string error("Invalid Json Format !!! Json :\n");
         error += to_string(json);
@@ -176,7 +232,7 @@ namespace webAPI{
         _publishTime = -1;
         _author.clear();
         _description.clear();
-        _mid = -1;
+        _mid = WRONG_MID;
         _url.clear();
         _duration.clear();
         _image.clear();

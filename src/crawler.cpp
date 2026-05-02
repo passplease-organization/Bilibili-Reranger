@@ -1,6 +1,5 @@
 #include <regex>
 #include <iostream>
-#include <sstream>
 #include "Crawler.h"
 #include "../api/utils/config.h"
 #include "bilibiliAPIs.h"
@@ -242,37 +241,38 @@ string browseManagerUrl;
 [[deprecated]] string user_agent;
 
 bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket){
+    const auto& session = getSession();
+    sendSession(socket,session);
     const int max_count = config<int>(MAX_CRAWL_COUNT);
     int count = 0;
-    const auto& handler = crawlInfo -> client -> handler();
-    bool back = true;
-    do{
-        count++;
+    try {
+        const auto& handler = crawlInfo -> client -> handler();
+        bool back = true;
+        do{
+            count++;
 
     #if SLEEP_CRAWL
-        cppUtil::say("爬取等待...");
+            cppUtil::say("爬取等待...");
         #ifdef WIN32
             Sleep(config<int>(WAIT_TIME));
         #elifdef __linux__
             sleep(config<int>(WAIT_TIME));
         #endif
     #endif
-        const auto& task = crawlTask::nowTask();
-        back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
-        if (task)
-            task -> workOnce();
-        if (webAPI::enoughVideo())
-            back &= crawlTask::nextTask(true) != nullptr;
-    }while(!cancel -> load() && back && count < max_count);
+            const auto& task = crawlTask::nowTask();
+            back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
+            if (task)
+                task -> workOnce();
+            if (webAPI::enoughVideo())
+                back &= crawlTask::nextTask(true) != nullptr;
+        }while(!cancel -> load() && back && count < max_count);
 
-    back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
-    return sendMessage(socket,"",!back,
-    #ifdef MORE_DETAILS
-        true
-    #else
-        false
-    #endif
-    ) && back;
+        back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
+        return writeSession(session,webAPI::getVideoJson(),!back) && back;
+    }catch(const std::exception& e) {
+        writeSession(session,Json(),true);
+        return false;
+    }
 }
 
 string getURL(const crawlTask::Task* task){

@@ -54,8 +54,10 @@ int get(boost::asio::ip::tcp::socket& socket) {
         return back(sendMessage(socket,backJson.dump(),true));
     }
     const auto data = allReturns[session];
-    if (!data[SESSION_DATA].empty())
+    if (data[SESSION_FINISHED].get<bool>()) {
+        cppUtil::say("成功获取Session数据，即将删除Session");
         allReturns.erase(session);
+    }
     allReturnsMutex.unlock();
     return back(sendMessage(socket,data.dump(),!data[SESSION_OK].get<bool>()));
 }
@@ -76,7 +78,7 @@ inline string getSession() {
 }
 
 template<class Data>
-inline bool writeSession(const string& session,const Data& data,const bool& failed = false,const bool& finished = true) {
+inline bool writeSession(const string& session,const Data& data,const bool& failed,const bool& finished) {
     static_assert(validData<Data>,"Invalid back data type !");
 
     Json back{};
@@ -92,6 +94,7 @@ inline void sendSession(boost::asio::ip::tcp::socket& socket,const string& sessi
     Json json;
     json[URL_PARAMS_SESSION] = session;
     sendMessage(socket,json.dump());
+    SESSION_LOG(session)
 }
 
 int getAllCategories(boost::asio::ip::tcp::socket& socket) {
@@ -120,7 +123,6 @@ int login(boost::asio::ip::tcp::socket& socket) {
     if (test == "true") {
         RELEASE_LOG("测试后台登录状态");
         const auto& session = getSession();
-        SESSION_LOG(session)
         sendSession(socket,session);
         if (crawlInfo -> client -> handler() != nullptr) {
             if (crawlInfo -> client -> handler() -> validBrowse())
@@ -140,7 +142,6 @@ int login(boost::asio::ip::tcp::socket& socket) {
     if (!crawlInfo -> client -> check())
         return failed("Client login failed !");
     const auto& session = getSession();
-    SESSION_LOG(session)
     sendSession(socket,session);
     auto const& handler = getHandler(crawlInfo -> client);
 #if !ALL_CONTAINER_ONLINE
@@ -214,7 +215,6 @@ int init(boost::asio::ip::tcp::socket& socket){
     LOG(INIT, "init");
     REQUIRE_CLIENT(socket);
     const auto& session = getSession();
-    SESSION_LOG(session)
     sendSession(socket,session);
     bool gather = false;
     Json json;

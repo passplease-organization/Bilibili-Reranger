@@ -161,10 +161,6 @@ API bool storeJson(const char* name,const char* path,const Json& json = nullptr,
 
 }
 
-constexpr bool needCrawlURL(const std::string& url){
-    return !url.contains('.');
-}
-
 /**
  * A map has a limited elements count
  * @tparam key Must can be copied

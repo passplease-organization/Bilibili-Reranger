@@ -83,7 +83,7 @@ class UrlAction extends Worker {
         const startedAt = Date.now();
         handler.logger.info({url: this.url}, "打开页面开始");
         await handler.page.goto(this.url,{
-            waitUntil: 'domcontentloaded'
+            waitUntil: 'load'
         });
         handler.logger.dev({targetUrl: this.url, pageState: await handler.describePageState()}, "开发诊断：打开页面后的状态");
         handler.logger.info({url: handler.page.url(), durationMs: Date.now() - startedAt}, "打开页面完成");
@@ -117,7 +117,8 @@ class ClickAction extends Worker {
                 isEnabled,
                 pageState: await handler.describePageState()
             }, "开发诊断：点击前元素状态");
-            await target.click();
+            await target.waitFor({ state: "visible",timeout: 15000 });
+            await target.click({timeout: 3000});
             handler.logger.info({selector: css, index: this.selector.index, durationMs: Date.now() - startedAt}, "点击元素完成");
             return {};
         } catch (error) {

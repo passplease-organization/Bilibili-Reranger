@@ -38,3 +38,10 @@ template<class Data>
 concept validData = requires(Json& back,Data&& data){
     {back = data} -> std::same_as<Json&>;
 };
+
+API string getSession();
+
+template<class Data>
+API bool writeSession(const string& session,const Data& data,const bool& failed = false,const bool& finished = true);
+
+API void sendSession(boost::asio::ip::tcp::socket& socket,const string& session);

@@ -429,22 +429,42 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
 bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) const {
     if (!validWorkerData(json))
         return false;
+    const auto* group = crawlTask::getGroup();
+    const char* groupName = group == nullptr ? "" : group -> name;
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE : {
-            const auto& crawlData = json[0];
+            const auto& crawlData = json[2];
             if (!validWhileData(crawlData))
                 return false;
-            forEachWhileData(crawlData,_data) {
-                const auto& data = _data[0];
+            bool empty = true;
+            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+                empty = false;
+                #define SEARCH_BILIBILI_VIDEOS_SUB "vlist"
                 if (!containsData(data) || !containsList(data))
-                    break;
-                forEachVideo(data) {
-                    checkVideo(Video::fromJson(videoData));
-                    if (enoughVideo())
-                        return true;
+                    return;
+                const auto& list = _getListFromData(data,true);
+                if (!list.contains(SEARCH_BILIBILI_VIDEOS_SUB))
+                    return;
+                if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array()) {
+                    for (const auto& video : videos)
+                        if (const auto& v = Video::fromJson(video); checkVideo(v))
+                            keepVideo(v,groupName,BILIBILI);
                 }
+            };
+            forEachWhileData(crawlData) {
+                auto stringData = crawlData.dump();
+                const auto& _data = _crawlData[0];
+                if (_data.is_object()) {
+                    if (!EmptyCrawlData(_data))
+                        resolver(_data[CrawlData]);
+                }else if (_data.is_array())
+                    for (const auto& __data : _data)
+                        if (!EmptyCrawlData(__data))
+                            resolver(__data[CrawlData]);
             }
-            return false;
+            if (empty)
+                cppUtil::warn("浏览器爬取的数据都是空的！",crawlData);
+            return !empty;
         }
         case crawlTask::WorkingMode::TAG :
         case crawlTask::WorkingMode::SEARCH : {// back json template is differentt from the others
@@ -452,16 +472,17 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             if (!validWhileData(data))
                 return false;
             bool empty = true;
-            auto resolver = [this,&empty](const Json& data) -> void {
+            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
                 empty = false;
-                #define SEARCH_BILIBILI_VIDEOS "result"
-                if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS))
+                #define SEARCH_BILIBILI_VIDEOS_SEARCH "result"
+                if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS_SEARCH))
                     return;
-                const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS];
+                const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_SEARCH];
                 if (!videos.is_array())
                     return;
                 for (const auto& video : videos) {
-                    checkVideo(Video::fromJson(video));
+                    if (const auto& v = Video::fromJson(video); checkVideo(v))
+                        keepVideo(v,groupName,BILIBILI);
                 }
             };
             forEachWhileData(data) {
@@ -475,10 +496,8 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                         if (!EmptyCrawlData(__data))
                             resolver(__data[CrawlData]);
             }
-            if (empty) {
-                cppUtil::warn("浏览器爬取的数据都是空的！");
-                cppUtil::warn(data.dump());
-            }
+            if (empty)
+                cppUtil::warn("浏览器爬取的数据都是空的！",data);
             return !empty;
         }
         default: return false;

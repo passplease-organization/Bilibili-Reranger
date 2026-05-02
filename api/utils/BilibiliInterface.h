@@ -9,17 +9,10 @@
 
 #pragma once
 
-#define getPublishTime(json) (json.contains("ctime") ? json["ctime"].get<long long>() : json["pubdate"].get<long long>())
-#define getTitle(json) json["title"].get<std::string>()
-#define getAuthor(json) json["author"].get<std::string>()
-#define getDescription(json) (json.contains("description") ? json["description"].get<std::string>() : "")
 #define WRONG_MID (-1)
-#define getMid(json) (json.contains("mid") ? json["mid"].get<int>() : WRONG_MID)
-#define getVideoURL(json) Video::getVideoURLFromJson(json)
-#define getVideoDuration(json) json["duration"].get<std::string>()
-#define getImageURL(json) Video::getImageURLFromJson(json)
-#define getViews(json) json["play"].get<unsigned int>()
-#define getPopup(json) json["video_review"].get<unsigned int>()
+
+#define BILIBILI_VIDEO_ROUTER "video"
+#define BILIBILI_MAIN_PAGE_URL "https://www.bilibili.com/"
 
 extern "C" {
 

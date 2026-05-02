@@ -77,8 +77,12 @@ int startWork() {
     cppUtil::say("Listening thread start");
     try {
         boost::asio::io_context io;
-        ip::tcp::acceptor acceptor(io,ip::tcp::endpoint(ip::tcp::v4(),config<int>(PORT)));
-        long long id = 1;
+        ip::tcp::acceptor acceptor(io);
+        acceptor.open(ip::tcp::v6());
+        acceptor.set_option(boost::asio::socket_base::reuse_address(true));
+        acceptor.set_option(boost::asio::ip::v6_only(false));
+        acceptor.bind(ip::tcp::endpoint(ip::tcp::v6(), config<int>(PORT)));
+        acceptor.listen();        long long id = 1;
         const bool details = config<bool>(DETAILS);
     #ifdef TEST
         startTestThread();
@@ -100,11 +104,7 @@ int startWork() {
                 socket.close();
                 continue;
             }
-            std::string url = request.target();
-            if (!needCrawlURL(url)) {
-                socket.close();
-                continue;
-            }
+            const auto& url = request.target();
             boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
 
             std::string category,clientId;
@@ -124,7 +124,7 @@ int startWork() {
                 cppUtil::say(url);
             }
 
-            CrawlInfo info(clientId,request.body(),p.params(),url,category,id);
+            CrawlInfo info(clientId,request.body(),p.has_query() ? p.params() : boost::urls::params_view(),url,category,id);
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
@@ -153,8 +153,8 @@ int startWork() {
 
 bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool releaseOutput) {
     if (data.empty()) {
-        Json json = webAPI::getVideoJson();
-        data = json.empty() ? "{}" : to_string(json);
+        cppUtil::warn("空返回数据！");
+        return false;
     }
     http::response<http::string_body> response;
     response.version(11);
@@ -163,24 +163,20 @@ bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool release
     response.set(http::field::content_type, "application/json; charset=utf-8");
     response.set(http::field::connection, "close");
     response.body() = crawlInfo -> client == nullptr ? data : crawlInfo -> client -> encrypt(data);
-    if (releaseOutput && config<bool>(DETAILS)) {
-        cppUtil::say("本次工作结果（未加密）：");
-        cppUtil::say(data);
-    }
+    if (releaseOutput && config<bool>(DETAILS))
+        cppUtil::say("本次工作结果（未加密）：",data);
     response.prepare_payload();
     boost::system::error_code error;
     http::write(socket,response,error);
     bool back = true;
     if (error) {
-        cppUtil::warn({false, nullptr}, "Error to send response, error code: ");
-        cppUtil::warn(error.message());
+        cppUtil::warn({false, nullptr}, "Error to send response, error code: ",error.message());
         back = false;
     }
     socket.shutdown(ip::tcp::socket::shutdown_both,error);
     socket.close();
     if (error) {
-        cppUtil::warn("Cannot close socket");
-        cppUtil::warn(error.message());
+        cppUtil::warn("Cannot close socket",error.message());
         back = false;
     }
     return back;

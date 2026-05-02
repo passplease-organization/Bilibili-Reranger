@@ -12,7 +12,7 @@
 #include "subFeatures/requestHelper.h"
 #include <boost/asio.hpp>
 
-inline void setup(){
+[[deprecated]] inline void setup(){
     curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
@@ -52,7 +52,7 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
     return 0;
 #endif
 
-    setup();
+    // setup();
     if (const auto& handler = checkURL(info.url); handler != nullptr) {
         if (const int& signal = handler(socket); signal != NEED_NORMAL_HANDLE)
             return signal;
