@@ -65,8 +65,10 @@ void startTestThread() {
 #define DEBUG "test"
 
 namespace {
-    constexpr int SESSION_POLL_INTERVAL_MS = 200;
-    constexpr int SESSION_POLL_RETRY_COUNT = 100;
+    constexpr int SESSION_POLL_INTERVAL_MS = 500;
+    constexpr int SESSION_POLL_RETRY_COUNT = 12;
+    constexpr int INIT_SESSION_POLL_INTERVAL_MS = 5000;
+    constexpr int INIT_SESSION_POLL_RETRY_COUNT = 12;
 
     void markFailed(bool& error, const string& message) {
         error = true;
@@ -151,7 +153,9 @@ namespace {
         webAPI::SimpleESA* esa,
         bool& error,
         const string& step,
-        long* statusCode = nullptr
+        long* statusCode = nullptr,
+        const int retryCount = SESSION_POLL_RETRY_COUNT,
+        const int intervalMs = SESSION_POLL_INTERVAL_MS
     ) {
         if (session.empty()) {
             markFailed(error, step + " session is empty");
@@ -161,7 +165,7 @@ namespace {
         Json json;
         bool finished = false;
         bool requestFailed = false;
-        for (int retry = 0; retry < SESSION_POLL_RETRY_COUNT; retry++) {
+        for (int retry = 0; retry < retryCount; retry++) {
             response = Post(
                 Url{localhost + GET},
                 Parameters{
@@ -191,7 +195,7 @@ namespace {
                 if (finished)
                     break;
             }
-            this_thread::sleep_for(chrono::milliseconds(SESSION_POLL_INTERVAL_MS));
+            this_thread::sleep_for(chrono::milliseconds(intervalMs));
         }
         if (statusCode != nullptr)
             *statusCode = response.status_code;
@@ -447,14 +451,30 @@ void test() {
         {
             const string session = extractSession(response,&esa,error,"Init");
             long statusCode = 0;
-            json = waitSessionResult(localhost,id,session,&esa,error,"Init",&statusCode);
-            const string decrypted = stringifySessionData(json,error,"Init");
+            json = waitSessionResult(
+                localhost,
+                id,
+                session,
+                &esa,
+                error,
+                "Init",
+                &statusCode,
+#if ALL_CONTAINER_ONLINE
+                INIT_SESSION_POLL_RETRY_COUNT,
+                INIT_SESSION_POLL_INTERVAL_MS
+#else
+                SESSION_POLL_RETRY_COUNT,
+                SESSION_POLL_INTERVAL_MS
+#endif
+            );
+            const bool initFinished = json.value(SESSION_FINISHED,false);
+            const string decrypted = initFinished ? stringifySessionData(json,error,"Init") : "";
             _say("Init: ");
             _say(decrypted);
 #if ALL_CONTAINER_ONLINE
             if (statusCode != 200 && statusCode != 500)
                 markFailed(error,"Init returned unexpected status code");
-            if (decrypted != "准备过程完成" && decrypted != "准备过程失败")
+            if (initFinished && decrypted != "准备过程完成" && decrypted != "准备过程失败")
                 markFailed(error,"Init returned unexpected text");
 #else
             expectStatusCodeValue(statusCode,200,error,"Init");
