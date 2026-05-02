@@ -77,8 +77,14 @@ inline string getSession() {
     return back;
 }
 
+#ifdef TEST
 template<class Data>
-inline bool writeSession(const string& session,const Data& data,const bool& failed,const bool& finished) {
+bool writeSession(const string& session,const Data& data,const bool& failed,const bool& finished)
+#else
+template<class Data>
+inline bool writeSession(const string& session,const Data& data,const bool& failed,const bool& finished)
+#endif
+{
     static_assert(validData<Data>,"Invalid back data type !");
 
     Json back{};
@@ -89,6 +95,10 @@ inline bool writeSession(const string& session,const Data& data,const bool& fail
     allReturns[session] = back;
     return allReturns.contains(session);
 }
+
+#ifdef TEST
+template bool writeSession<Json>(const string& session,const Json& data,const bool& failed,const bool& finished);
+#endif
 
 inline void sendSession(boost::asio::ip::tcp::socket& socket,const string& session) {
     Json json;

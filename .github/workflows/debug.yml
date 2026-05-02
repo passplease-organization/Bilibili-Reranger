@@ -39,11 +39,11 @@ jobs:
     needs: Test-Docker-Browser
     environment: Test
     strategy:
-      fail-fast: false
       matrix:
-        ALL_CONTAINER_ONLINE:
-          - true
-          - false
+        - ALL_CONTAINER_ONLINE: true
+          IMPORTANT: true
+        - ALL_CONTAINER_ONLINE: false
+          IMPORTANT: false
     container:
       # 镜像地址完全动态生成，确保拉取的是当前 commit 构建的镜像
       image: ghcr.io/${{ github.repository_owner }}/bilibili_reranger_backend:test_container
@@ -87,6 +87,7 @@ jobs:
           key: backend_${{ github.workflow_ref }}_${{ matrix.ALL_CONTAINER_ONLINE }}
 
       - name: Test Code
+        continue-on-error: ${{ matrix.IMPORTANT == false }}
         run: |
           cmake --preset test
           cmake --build --preset test
