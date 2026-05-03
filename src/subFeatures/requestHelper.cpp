@@ -68,9 +68,10 @@ inline string getSession() {
     data[SESSION_OK] = true;
     data[SESSION_DATA] = "";
     string back;
-    allReturnsMutex.lock();
     do {
+        allReturnsMutex.unlock();
         back = randomString(32);
+        allReturnsMutex.lock();
     }while (allReturns.contains(back));
     allReturns.insert({back,data});
     allReturnsMutex.unlock();

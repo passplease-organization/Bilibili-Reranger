@@ -6,15 +6,6 @@
 name: Qodana
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - backend
-    paths:
-      - src/*
-      - api/*
-      - plugins/*
-      - browser/src/*
 concurrency:
   group: qodana-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
