@@ -20,8 +20,8 @@ services:
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
       - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
       - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
-      - ./session/qwen:/root/.qwen
-      - ./session/qwen:/home/vscode/.qwen
+      - ./session/claude:/root/.claude
+      - ./session/claude:/home/vscode/.claude
     env_file:
       - .env
     environment:

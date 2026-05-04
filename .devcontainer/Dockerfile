@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y curl \
     && apt-get install -y nodejs \
     && npm install -g @google/gemini-cli \
     && npm install -g @openai/codex \
-    && npm install -g @qwen-code/qwen-code@latest \
+    && npm install -g @anthropic-ai/claude-code \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @playwright/cli

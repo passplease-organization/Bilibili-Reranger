@@ -263,13 +263,17 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
             back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
             if (task)
                 task -> workOnce();
-            if (webAPI::enoughVideo())
-                back &= crawlTask::nextTask(true) != nullptr;
+            if (webAPI::enoughVideo()) {
+                if (crawlTask::nextTask(false) != nullptr)
+                    crawlTask::nextTask(true);
+                else break;
+            }
         }while(!cancel -> load() && back && count < max_count);
 
         back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
         return writeSession(session,webAPI::getVideoJson(),!back) && back;
     }catch(const std::exception& e) {
+        cppUtil::warn("爬取失败，遇到错误！",e.what());
         writeSession(session,Json(),true);
         return false;
     }
