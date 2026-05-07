@@ -36,4 +36,4 @@ RUN apt-get update && apt-get install -y curl \
     && npm install -g @anthropic-ai/claude-code \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @playwright/cli
+RUN npm install -g @playwright/cli && npx playwright install chrome && npx playwright install-deps

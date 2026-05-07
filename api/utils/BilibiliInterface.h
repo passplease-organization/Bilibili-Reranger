@@ -9,7 +9,7 @@
 
 #pragma once
 
-#define WRONG_MID (-1)
+#define WRONG_MID (-1LL)
 
 #define BILIBILI_VIDEO_ROUTER "video"
 #define BILIBILI_MAIN_PAGE_URL "https://www.bilibili.com/"
@@ -32,7 +32,7 @@ namespace webAPI {
         string _title;
         string _author;
         string _description;
-        int _mid;
+        long long _mid;
         string _url;
         string _duration;
         string _image;
@@ -64,7 +64,7 @@ namespace webAPI {
 
         [[nodiscard]] API const char* description() const;
 
-        [[nodiscard]] API int const& mid() const;
+        [[nodiscard]] API long long const& mid() const;
 
         [[nodiscard]] API const char* url() const;
 

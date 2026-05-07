@@ -348,7 +348,7 @@ bool webAPI::socialAPI::checkVideo(const Video & video) const {
     const auto* group = crawlTask::getGroup();
     const char* groupName = group == nullptr ? "" : group -> name;
     if (duplicateVideo(video,groupName,this -> support().c_str()))
-        return true;
+        return false;
     if(roughCheckVideo() && finalCheckVideo()) {
         webAPI::keepVideo(video,groupName,this -> support().c_str());
         return true;

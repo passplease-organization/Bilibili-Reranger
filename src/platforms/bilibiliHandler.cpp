@@ -4,8 +4,10 @@
 #include "webAPIs/crawler.h"
 #include "../Crawler.h"
 
+#include <iomanip>
 #include <iostream>
 #include <regex>
+#include <sstream>
 #include <boost/url/parse.hpp>
 #include <cpr/api.h>
 #include <cpr/payload.h>
@@ -14,6 +16,67 @@
 #include "webAPIs/browse.h"
 
 using namespace webAPI;
+
+namespace {
+    string formatDurationFromSeconds(const long long duration) {
+        const auto hours = duration / 3600;
+        const auto minutes = duration % 3600 / 60;
+        const auto seconds = duration % 60;
+
+        std::stringstream stream;
+        if (hours > 0) {
+            stream << hours << ":"
+                << std::setw(2) << std::setfill('0') << minutes << ":";
+        }else {
+            stream << minutes << ":";
+        }
+        stream << std::setw(2) << std::setfill('0') << seconds;
+        return stream.str();
+    }
+
+    Json normalizeHomePageVideo(const Json& video) {
+        Json normalized = video;
+
+        if (video.contains("owner") && video["owner"].is_object()) {
+            const auto& owner = video["owner"];
+            if (!normalized.contains("author") && owner.contains("name"))
+                normalized["author"] = owner["name"];
+            if (!normalized.contains("mid") && owner.contains("mid")) {
+                const auto mid = owner["mid"].get<long long>();
+                normalized["mid"] = mid;
+            }
+        }
+
+        if (!normalized.contains("description"))
+            normalized["description"] = "";
+
+        if (video.contains("stat") && video["stat"].is_object()) {
+            const auto& stat = video["stat"];
+            if (!normalized.contains("play") && stat.contains("view"))
+                normalized["play"] = stat["view"];
+            if (!normalized.contains("video_review") && stat.contains("danmaku"))
+                normalized["video_review"] = stat["danmaku"];
+        }
+
+        if (!normalized.contains("length") && video.contains("duration"))
+            normalized["length"] = formatDurationFromSeconds(video["duration"].get<long long>());
+
+        if (!normalized.contains("arcurl") && video.contains("uri"))
+            normalized["arcurl"] = video["uri"];
+
+        return normalized;
+    }
+
+    bool isHomePageVideo(const Json& video) {
+        return video.is_object()
+            && video.contains("goto")
+            && video["goto"].is_string()
+            && video["goto"].get<string>() == "av"
+            && video.contains("bvid")
+            && video["bvid"].is_string()
+            && !video["bvid"].get<string>().empty();
+    }
+}
 
 verificationCodeData::verificationCodeData(string url,string captcha_key)
 : url(std::move(url)),
@@ -318,6 +381,17 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
                 }
             };
         }
+        case crawlTask::WorkingMode::HOME_PAGE_FILTER: {
+            return {
+                context,
+                UrlAction{BILIBILI_MAIN_PAGE_URL},
+                ClickAction{ElementSelector::SelectMode::CLASS,"primary-btn roll-btn"},
+                DoWhileAction{false,5,
+                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
+                    ClickAction{ElementSelector::SelectMode::CLASS,"primary-btn roll-btn"}
+                }
+            };
+        }
         default: return nullWorker();
     }
 }
@@ -445,11 +519,9 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                 const auto& list = _getListFromData(data,true);
                 if (!list.contains(SEARCH_BILIBILI_VIDEOS_SUB))
                     return;
-                if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array()) {
+                if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array())
                     for (const auto& video : videos)
-                        if (const auto& v = Video::fromJson(video); checkVideo(v))
-                            keepVideo(v,groupName,BILIBILI);
-                }
+                        checkVideo(Video::fromJson(video));
             };
             forEachWhileData(crawlData) {
                 auto stringData = crawlData.dump();
@@ -467,7 +539,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             return !empty;
         }
         case crawlTask::WorkingMode::TAG :
-        case crawlTask::WorkingMode::SEARCH : {// back json template is differentt from the others
+        case crawlTask::WorkingMode::SEARCH : {
             const auto& data = json[2];
             if (!validWhileData(data))
                 return false;
@@ -480,9 +552,41 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                 const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_SEARCH];
                 if (!videos.is_array())
                     return;
+                for (const auto& video : videos)
+                    checkVideo(Video::fromJson(video));
+            };
+            forEachWhileData(data) {
+                auto stringData = data.dump();
+                const auto& _data = _crawlData[0];
+                if (_data.is_object()) {
+                    if (!EmptyCrawlData(_data))
+                        resolver(_data[CrawlData]);
+                }else if (_data.is_array())
+                    for (const auto& __data : _data)
+                        if (!EmptyCrawlData(__data))
+                            resolver(__data[CrawlData]);
+            }
+            if (empty)
+                cppUtil::warn("浏览器爬取的数据都是空的！",data);
+            return !empty;
+        }
+        case crawlTask::WorkingMode::HOME_PAGE_FILTER : {
+            const auto& data = json[2];
+            if (!validWhileData(data))
+                return false;
+            bool empty = true;
+            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+                empty = false;
+                #define HOME_BILIBILI_VIDEOS_SEARCH "item"
+                if (!containsData(data) || !getDataFromJson(data).contains(HOME_BILIBILI_VIDEOS_SEARCH))
+                    return;
+                const auto& videos = getDataFromJson(data)[HOME_BILIBILI_VIDEOS_SEARCH];
+                if (!videos.is_array())
+                    return;
                 for (const auto& video : videos) {
-                    if (const auto& v = Video::fromJson(video); checkVideo(v))
-                        keepVideo(v,groupName,BILIBILI);
+                    if (!isHomePageVideo(video))
+                        continue;
+                    checkVideo(Video::fromJson(normalizeHomePageVideo(video)));
                 }
             };
             forEachWhileData(data) {

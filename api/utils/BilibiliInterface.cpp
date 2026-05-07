@@ -7,17 +7,13 @@
 #include "../pluginInterface.h"
 
 string toReadableTime(long long publishTime){// TODO 时间解析有问题
-    auto pubTime = static_cast<std::time_t>(publishTime);
-    std::time_t current = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    double seconds = std::difftime(current,pubTime);
-    auto days = static_cast<long long>(seconds / 86400.0);
-    std::stringstream stream;
+    const auto pubTime = static_cast<std::time_t>(publishTime);
+    const std::time_t current = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    const double seconds = std::difftime(current,pubTime);
+    const auto days = static_cast<long long>(seconds / 86400.0);
     if(days > 1){
-        if(days > 365){
-            stream << std::put_time(std::localtime(&pubTime), "%F");
-        }else {
-            stream << std::put_time(std::localtime(&pubTime), "%M-%D");
-        }
+        std::stringstream stream;
+        stream << std::put_time(std::localtime(&pubTime), "%F");
         return stream.str();
     }
     if(days == 1){
@@ -108,7 +104,7 @@ namespace webAPI{
         _title = json["title"].get<std::string>();
         _author = json["author"].get<std::string>();
         _description = json["description"].get<std::string>();
-        _mid = json["mid"].get<int>();
+        _mid = json["mid"].get<long long>();
         _url = getVideoURLFromJson(json);
         _duration = getVideoDurationFromJson(json);
         _image = getImageURLFromJson(json);
@@ -168,7 +164,7 @@ namespace webAPI{
         return _description.c_str();
     }
 
-    int const& Video::mid() const{
+    long long const& Video::mid() const{
         return _mid;
     }
 

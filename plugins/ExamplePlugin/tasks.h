@@ -10,6 +10,7 @@ crawlTask::Group math("math",BILIBILI,0);
 crawlTask::Group physical("physical",BILIBILI,0);
 crawlTask::Group chemistry("chemistry",BILIBILI,0);
 crawlTask::Group biological("biological",BILIBILI,0);
+crawlTask::Group mainPage("主页",BILIBILI,30);
 
 #define EXAMPLE_PATH "ExampleConfig"
 #define EXAMPLE_NAME "example_for_example_plugin"
@@ -46,6 +47,9 @@ inline void initGroups(){
 
     a = new crawlTask::Task("生物",20);
     biological.registerTask(a);
+
+    a = new crawlTask::Task("主页筛选",25,crawlTask::WorkingMode::HOME_PAGE_FILTER);
+    mainPage.registerTask(a);
 }
 
 inline void exampleConfig(){
@@ -79,6 +83,10 @@ inline void exampleConfig(){
         a.clear();
 
         crawlTask::group_to_data(a,&biological);
+        example[GROUPS_LABEL].push_back(a);
+        a.clear();
+
+        crawlTask::group_to_data(a,&mainPage);
         example[GROUPS_LABEL].push_back(a);
         a.clear();
 

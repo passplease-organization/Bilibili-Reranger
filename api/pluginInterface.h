@@ -23,7 +23,8 @@ namespace crawlTask{
     enum struct WorkingMode {
         SEARCH,
         SUBSCRIBE,
-        TAG
+        TAG,
+        HOME_PAGE_FILTER
     };
 
     API int defaultDaytime(WorkingMode mode);

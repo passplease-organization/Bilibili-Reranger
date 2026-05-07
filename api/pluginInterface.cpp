@@ -67,6 +67,9 @@ const char* crawlTask::getName(WorkingMode mode){
         case WorkingMode::TAG: {
             return "视频标签匹配模式";
         }
+        case WorkingMode::HOME_PAGE_FILTER: {
+            return "主页筛选";
+        }
         default: {
             cppUtil::throwError("Unknown WorkingMode Type !");
             return "Error";
@@ -89,6 +92,8 @@ WorkingMode crawlTask::byName(const char *name) {
         return WorkingMode::SUBSCRIBE;
     if(mode == "视频标签匹配模式")
         return WorkingMode::TAG;
+    if(mode == "主页筛选")
+        return WorkingMode::HOME_PAGE_FILTER;
     cppUtil::warn("未匹配的模式名称");
     return WorkingMode::SEARCH;
 }
