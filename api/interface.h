@@ -12,6 +12,7 @@
    #define FUNCTION_CALLER
 #endif
 
+extern "C" {
 /**
  * Called at program starting
  * */
@@ -56,6 +57,8 @@ typedef webAPI::BrowseWorker (FUNCTION_CALLER *GETWORKER)();
  * */
 OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
+
+}
 
 #define URL_PARAMS_CATEGORY "category"
 #define BODY_PARAMS_PLATFORM "platform"
