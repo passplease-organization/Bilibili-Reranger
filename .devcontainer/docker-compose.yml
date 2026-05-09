@@ -16,10 +16,10 @@ services:
       dockerfile: Dockerfile
     domainname: backend
     volumes:
-      - ./running_path/plugin:/opt/bilibili-reranger-backend/debug/plugins
-      - ./running_path/plugin:/opt/bilibili-reranger-backend/release/plugins
-      - ./running_path/config:/opt/bilibili-reranger-backend/debug/config
-      - ./running_path/config:/opt/bilibili-reranger-backend/release/config
+      - ../running_path/plugin:/opt/bilibili-reranger-backend/debug/plugins
+      - ../running_path/plugin:/opt/bilibili-reranger-backend/release/plugins
+      - ../running_path/config:/opt/bilibili-reranger-backend/debug/config
+      - ../running_path/config:/opt/bilibili-reranger-backend/release/config
       - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
       - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
