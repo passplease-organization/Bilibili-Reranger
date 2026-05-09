@@ -101,6 +101,8 @@ cmake -S . -B build \
 cmake --build build
 ```
 插件实现导出函数时直接包含 `interface.h`，并实现其中声明的固定导出函数即可。
+### 使用开发容器
+在`sdk.dockerfile`中定义了用于plugin的开发容器，您可以直接使用`ghcr.io/passplease-organization/bilibili_reranger:plugin_dev`镜像，其中包含了Debug和Release两种模式的SDK，直接进行您的开发即可。
 ## URL请求
 ### 相关Bug
 最重要bug：程序使用的[Boost](https://github.com/boostorg/boost)库进行`url`参数解析，在我测试时发现，有时其`url`中的参数解析会出现错误，导致解析完全错误得不到参数。且在IDE或者命令行和docker等不同方法启动程序表现还不同，故有时请求错误可能是后端解析错误所致。为避免此bug，计划将受影响的部分参数从`url`中移动至`body`中。

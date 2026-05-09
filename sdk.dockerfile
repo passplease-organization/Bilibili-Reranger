@@ -53,7 +53,7 @@ RUN cmake --preset debug \
     && mkdir -p /opt/bilibili-reranger-backend/release \
     && cp -a build/release/Release/. /opt/bilibili-reranger-backend/release/
 
-FROM sdk-base AS sdk-artifacts
+FROM scratch AS sdk-artifacts
 
 COPY --from=sdk-builder /opt/bilibili-reranger-sdk /bilibili-reranger-sdk
 COPY --from=sdk-builder /opt/bilibili-reranger-backend /bilibili-reranger-backend
