@@ -98,11 +98,11 @@ jobs:
             docker.io/noname602/bilibili_reranger_${{ matrix.image }}:${{ needs.prepare_sdk.outputs.release_tag }}
             docker.io/noname602/bilibili_reranger_${{ matrix.image }}:latest
 
-      - name: Build and push Docker image for frontend API
+      - name: Build and push Docker image for browser
         uses: docker/build-push-action@v5
         with:
           file: ./browser/Dockerfile
-          context: ./
+          context: ./browser
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/bilibili_reranger_borwser:${{ needs.prepare_sdk.outputs.release_tag }}
