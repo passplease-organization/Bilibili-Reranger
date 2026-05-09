@@ -7,6 +7,7 @@
 ## 部署
 ### 使用Vercel部署
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/passplease/Bilibili-Reranger/tree/frontend&repository-name=my-bilibili)
+
 使用Vercel的无服务器函数加载B站视频
 
 缺点：还需要访问网站者自己部署一个后端

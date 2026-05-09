@@ -1,61 +1,47 @@
 <script setup lang="ts">
-import { type Category } from '@/components/VideoCard.vue'
-import MainContainer from '@/components/MainContainer.vue'
-import { onMounted, type Ref, ref } from 'vue'
-import { refreshCategories, requestCategories } from '@/backend.ts'
-import CategoriesContainer from '@/components/CategoriesContainer.vue'
+import { type Category } from "@/components/VideoCard.vue";
+import MainContainer from "@/components/MainContainer.vue";
+import { onMounted, type Ref, ref } from "vue";
+import { refreshCategories, requestCategories } from "@/backend.ts";
+import CategoriesContainer from "@/components/CategoriesContainer.vue";
+import { setupValid } from "@/website/backendSetup.ts";
+import router from "@/router";
 
-const categories: Ref<Category[]> = ref<Category[]>([])
-const categoriesInitError: Ref<boolean> = ref<boolean>(false)
-const loadFinished = ref<boolean>(false)
+const categories: Ref<Category[]> = ref<Category[]>([]);
+const categoriesInitError: Ref<boolean> = ref<boolean>(false);
+const loadFinished = ref<boolean>(false);
 
 onMounted(async () => {
-  initBackendUrl()
+  initBackendUrl();
+  if (!setupValid()) {
+    await router.push({
+      path: "/login",
+    });
+    return false;
+  }
   try {
     categories.value = await Promise.all(
       (await requestCategories()).map(async (name) => {
         return {
           name: name,
           videos: [],
-        }
+        };
       }),
-    )
-    categoriesInitError.value = false
-    loadFinished.value = true
+    );
+    categoriesInitError.value = false;
+    loadFinished.value = true;
   } catch (reason) {
-    console.log('Init categories failed !\n' + reason)
-    categories.value = []
-    categoriesInitError.value = true
-    loadFinished.value = true
+    console.log("Init categories failed !\n" + reason);
+    categories.value = [];
+    categoriesInitError.value = true;
+    loadFinished.value = true;
   }
-})
+});
 
 async function refreshVideos(category: Category) {
-  category.videos = await refreshCategories(category.name)
+  category.videos = await refreshCategories(category.name);
 }
-</script>
-<script lang="ts">
-export const Docker: boolean = import.meta.env.VITE_DOCKER == 'true'
-export const backendURL: string = 'backend_url'
-
-export function getBackendUrl(): string {
-  let url = localStorage.getItem(backendURL)
-  if (url) return url
-  else {
-    initBackendUrl()
-    url = localStorage.getItem(backendURL)
-    return url ? url : ''
-  }
-}
-
-export function setBackendUrl(url: string | null): void {
-  if (url) localStorage.setItem(backendURL, url)
-  else localStorage.removeItem(backendURL)
-}
-
-export function initBackendUrl() {
-  if (Docker && !localStorage.getItem(backendURL)) setBackendUrl('/backend')
-}
+import { initBackendUrl } from "@/website/backendSetup.ts";
 </script>
 
 <template>
@@ -73,7 +59,7 @@ export function initBackendUrl() {
 </template>
 
 <style>
-@import '@/main.css';
+@import "@/main.css";
 h1,
 h2 {
   @apply text-base-content;
