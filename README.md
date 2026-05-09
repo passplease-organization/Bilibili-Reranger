@@ -1,3 +1,5 @@
+[English](README_en.md)
+
 ## 项目架构
 1. 后端[backend](https://github.com/passplease-organization/Bilibili-Reranger/tree/backend)(还包含`browser`)
 2. 前端[frontend](https://github.com/passplease-organization/Bilibili-Reranger/tree/frontend)
