@@ -1,0 +1,51 @@
+services:
+  website:
+    image: ${FRONTEND_IMAGE:-ghcr.io/passplease-organization/bilibili_reranger:backend_dev}
+    ports:
+      - '3000:80'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    env_file:
+      - .env
+    depends_on:
+      - plugin
+      - browser
+
+  plugin:
+    build:
+      dockerfile: Dockerfile
+    domainname: backend
+    volumes:
+      - ./running_path/plugin:/opt/bilibili-reranger-backend/debug/plugins
+      - ./running_path/plugin:/opt/bilibili-reranger-backend/release/plugins
+      - ./running_path/config:/opt/bilibili-reranger-backend/debug/config
+      - ./running_path/config:/opt/bilibili-reranger-backend/release/config
+      - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
+      - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
+      - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
+      - ./session/claude:/root/.claude
+      - ./session/claude:/home/vscode/.claude
+    env_file:
+      - .env
+    environment:
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_USER: ${POSTGRES_USER:-noname}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-nopassword}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_HOST: ${POSTGRES_HOST:-postgres}
+      DB_DELETE: ${POSTGRES_DELETE:-false}
+
+  postgres:
+    image: postgres:18
+    domainname: ${POSTGRES_HOST:-postgres}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-noname}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nopassword}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
+
+  browser:
+    image: ${BROWSER_IMAGE:-ghcr.io/passplease-organization/bilibili_reranger:browser_for_dev}

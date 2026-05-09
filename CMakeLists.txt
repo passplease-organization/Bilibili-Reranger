@@ -1,0 +1,66 @@
+cmake_minimum_required(VERSION 3.27)
+
+set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_PATH})
+set(PLUGIN_VCPKG_ROOT "$ENV{VCPKG_ROOT}")
+if(PLUGIN_VCPKG_ROOT STREQUAL "")
+    set(PLUGIN_VCPKG_ROOT "/usr/local/vcpkg")
+endif()
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND EXISTS "${PLUGIN_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "${PLUGIN_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "vcpkg toolchain")
+endif()
+
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "vcpkg target triplet")
+endif()
+
+project(VIDEO_PLUGIN)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
+set(OUTPUT_PATH ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_PATH})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_PATH})
+
+set(BILIBILI_RERANGER_SDK_ROOT "/opt/bilibili-reranger-sdk" CACHE PATH "BiliBili-Reranger SDK root")
+set(BILIBILI_RERANGER_BACKEND_ROOT "/opt/bilibili-reranger-backend" CACHE PATH "BiliBili-Reranger backend root")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(BILIBILI_RERANGER_BUILD_VARIANT "debug")
+else()
+    set(BILIBILI_RERANGER_BUILD_VARIANT "release")
+endif()
+
+set(BILIBILI_RERANGER_SDK_PREFIX "${BILIBILI_RERANGER_SDK_ROOT}/${BILIBILI_RERANGER_BUILD_VARIANT}")
+set(BILIBILI_RERANGER_BACKEND_PREFIX "${BILIBILI_RERANGER_BACKEND_ROOT}/${BILIBILI_RERANGER_BUILD_VARIANT}")
+set(BILIBILI_RERANGER_PLUGIN_DIR "${BILIBILI_RERANGER_BACKEND_PREFIX}/plugins")
+
+list(PREPEND CMAKE_PREFIX_PATH
+        "${BILIBILI_RERANGER_SDK_PREFIX}"
+        "${PLUGIN_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}"
+)
+
+add_compile_definitions(
+        $<$<CONFIG:Debug>:DEVELOP=true>
+)
+
+add_library(${PROJECT_NAME} SHARED
+    src/main.cpp
+)
+
+find_package(BiliBiliRerangerAPI CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC BiliBiliRerangerAPI::API)
+
+add_custom_target(
+        ${PROJECT_NAME}_COPY_DLL
+        DEPENDS ${PROJECT_NAME}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/running_path/plugin"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:${PROJECT_NAME}> ${CMAKE_CURRENT_SOURCE_DIR}/running_path/plugin
+        COMMENT "dealing with plugin so files ..."
+)

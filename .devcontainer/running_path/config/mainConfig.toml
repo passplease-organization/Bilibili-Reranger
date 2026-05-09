@@ -1,0 +1,23 @@
+#Browser为每一次请求视频工作最大时长，单位：秒。若为负值则不限时
+browser_timeout = 120
+#后台支持的最大客户端数量
+max_client_count = 32
+#每个请求处理限时，单位毫秒
+timeout = 300000
+#是否显示详细日志
+debug = true
+#监听端口
+port = 23223
+#每次AI请求最大token开销
+max_tokens = 20000
+#每次后台请求爬取次数上限
+max_crawl_count_per_work = 25
+#相邻两次爬取的间隔时间，单位：秒
+pause_time_between_crawls = 10
+#数据库连接方式
+postgres_connection_mode = "prefer"
+#管理员密码
+admin_client_key = "-nEMw0d.wC_9vFq."
+#关注博主视频计入爬取列表时间，单位：天
+subscriber_publish_time = 3
+
