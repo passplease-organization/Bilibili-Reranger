@@ -1,8 +1,0 @@
-// For format details, see https://aka.ms/devcontainer.json.
-{
-  "name": "Browser Manager",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "browser",
-  "workspaceFolder": "/crawler",
-  "forwardPorts": [3001, 5900, 6080]
-}
