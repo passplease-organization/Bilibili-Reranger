@@ -105,9 +105,9 @@ jobs:
           context: ./browser
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_borwser:${{ needs.prepare_sdk.outputs.release_tag }}
-            docker.io/noname602/bilibili_reranger_borwser:${{ needs.prepare_sdk.outputs.release_tag }}
-            docker.io/noname602/bilibili_reranger_borwser:latest
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_browser:${{ needs.prepare_sdk.outputs.release_tag }}
+            docker.io/noname602/bilibili_reranger_browser:${{ needs.prepare_sdk.outputs.release_tag }}
+            docker.io/noname602/bilibili_reranger_browser:latest
         if: matrix.image == 'backend'
 
   publish_sdk:
