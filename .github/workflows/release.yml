@@ -101,14 +101,14 @@ jobs:
       - name: Build and push Docker image for frontend API
         uses: docker/build-push-action@v5
         with:
-          file: ./express/Dockerfile
+          file: ./browser/Dockerfile
           context: ./
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_${{ matrix.image }}_api:${{ needs.prepare_sdk.outputs.release_tag }}
-            docker.io/noname602/bilibili_reranger_${{ matrix.image }}_api:${{ needs.prepare_sdk.outputs.release_tag }}
-            docker.io/noname602/bilibili_reranger_${{ matrix.image }}_api:latest
-        if: matrix.image == 'frontend'
+            ghcr.io/${{ github.repository_owner }}/bilibili_reranger_borwser:${{ needs.prepare_sdk.outputs.release_tag }}
+            docker.io/noname602/bilibili_reranger_borwser:${{ needs.prepare_sdk.outputs.release_tag }}
+            docker.io/noname602/bilibili_reranger_borwser:latest
+        if: matrix.image == 'backend'
 
   publish_sdk:
     runs-on: ubuntu-22.04
