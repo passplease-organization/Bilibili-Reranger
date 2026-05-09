@@ -21,7 +21,8 @@ services:
   backend:
     image: noname602/bilibili_reranger_backend
     volumes:
-      - ./backend_config:/bilibili-backend/config
+      - ./config:/bilibili-backend/config
+#      - ./plugin:/bilibili-backend/plugin
     depends_on:
       - postgres
     env_file:
