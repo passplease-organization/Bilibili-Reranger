@@ -1,97 +1,67 @@
-[中文](README.md)
+[Chinese](README.md)
 
-# Browser Manager
+See root documentation: [Chinese](../README.md) / [English](../README_en.md)
 
-This directory contains all code for the BrowserManager part of the project.
-
-See also the backend overview in the root documentation:
-- [Root README (Chinese)](../README.md)
-- [Root README (English)](../README_en.md)
-
+## Purpose
+This folder contains all code for the BrowseManager part.
 ## Routes
-
-| Path                   | JSON Response                                                                 | Body Parameters                               | Notes                                                                 |
-|------------------------|-------------------------------------------------------------------------------|-----------------------------------------------|-----------------------------------------------------------------------|
-| /                      | See the project README                                                        | See the project README                        | Main working endpoint                                                 |
-| /test                  | `ok`: whether normal                                                          | See the project README                        | Test whether the service is available                                 |
-| /other/closeWorker     | `ok`: whether normal                                                          | See the project README                        | Close the corresponding handler                                       |
-| /other/testContext     | `ok`: whether normal                                                          | See the project README                        | Test the handler context data                                         |
-| /screen                | Sets `X-Accel-Redirect` header; `url` is for nginx to access the login page   | URL params: `token`, `session` from `/login` | Intended for nginx; it returns the internal port and nginx proxies it |
-| /other/login/backend   | `ok`, `context`: account info required by browser access                      | `token` returned by `/login`                  | Backend collects login result from client and closes the page         |
-| /other/login           | `ok`: whether normal                                                          | See the project README                        | Open a login link for the client                                      |
-
+| Path                 | Returned JSON | Body Parameters | Notes |
+|----------------------|---------------|-----------------|-------|
+| /                    | See project README | See project README | General work |
+| /test                | `ok`: whether normal | See project README | Test whether the service is available |
+| /other/closeWorker   | `ok`: whether normal | See project README | Close the corresponding handler |
+| /other/testContext   | `ok`: whether normal | See project README | Test the COOKIE corresponding to the handler; currently exactly the same as `/` |
+| /screen              | Sets the `X-Accel-Redirect` header<br/>`url`: used by nginx to access the specific login page | URL parameters:<br/>`token`, `session`: both are returned by `/login` | Dedicated to nginx. It returns the corresponding port, and nginx accesses it |
+| /other/login/backend | `ok`: whether normal, `context`: account information required by browser access | `token`: returned by `/login` | Backend obtains the client login result and closes the page directly |
+| /other/login         | `ok`: whether normal | See project README | Open a login link for the client |
 ## Environment Variables
-
-| Variable         | Purpose                                          | Default               | Notes            |
-|------------------|--------------------------------------------------|-----------------------|------------------|
-| PORT             | Main service port                                | 3000                  |                  |
-| PLUGIN_PATH      | Plugin config file path                          | `config/plugins.json` | Usually keep this |
-| MAX_LOGIN_PORT   | Maximum number of login windows                  | 10                    |                  |
-| LOGIN_SECONDS    | Backend idle expiration time during login (sec)  | 60                    |                  |
-| COOKIE           | Cookie used by test code                         |                       | Test only        |
-| USER_AGENT       | User-Agent used by test code                     |                       | Test only        |
-
+| Variable | Purpose | Default | Notes |
+|----------|---------|---------|-------|
+| PORT | Port listened to by the main program | 3000 | |
+| PLUGIN_PATH | Plugin config file path | config/plugins.json | Not recommended to change |
+| MAX_LOGIN_PORT | Maximum number of login windows | 10 | |
+| MAX_LOGIN_PORT | Maximum number of login windows | 10 | |
+| LOGIN_SECONDS | Backend idle expiration time during client login | 60 seconds | |
+| COOKIE | Cookie used by test code | | Test code only |
+| USER_AGENT | User-Agent used by test code | | Test code only |
+| WAITING_TIME | Configures the wait time for related services to start when a client logs in | 5000 milliseconds | |
 ## Plugins
-
 ### Installation
-
-To install plugins, write plugin entries into the config file pointed to by `PLUGIN_PATH`. By default it is `config/plugins.json`.
-
+To install plugins, write plugin names into the config file corresponding to `PLUGIN_PATH` (default: `config/plugins.json`). The config format is:
 ```json
 {
   "plugins": [
-    "your-plugin-package-name",
-    "../plugins-dev/local-plugin/dist/index.js"
+    "just write the plugin name",
+    "a relative path is also allowed, and it will be converted to a path relative to the config JSON folder"
   ]
 }
 ```
-
-Each item supports two forms:
-- Package name, loaded by `require("package-name")`
-- Local JavaScript path, resolved relative to the folder containing `plugins.json`
-
-For example, if `PLUGIN_PATH` is `/crawler/config/plugins.json`, then:
-- `"my-browser-plugin"` is loaded as an npm package
-- `"../plugins-dev/demo-plugin/dist/index.js"` resolves to `/crawler/plugins-dev/demo-plugin/dist/index.js`
-
-The current implementation only supports a string array. It does **not** yet support per-plugin option objects in this config file.
-
 ### Development
-
-The browser side already has a basic plugin mechanism. A plugin can do two main things:
-- Register new `Worker` types so the backend request `workers` array can use new `type` values
-- Add routes, logs, or startup logic to the Fastify server during initialization
-
-This section only documents abilities that are already implemented.
+The browser side currently supports a basic plugin mechanism. Plugins can do two things:
+- Register new `Worker` types, so the `workers` array in backend requests supports new `type` values
+- Add their own routes, logs, or other initialization logic to `fastify` when the service starts
 
 ### Current Interfaces
+The plugin entry code is in `src/PluginAPI.ts`. The most important interfaces for plugin development are:
 
-The plugin entry API is defined in `src/PluginAPI.ts`. The most important interfaces are:
-- `registerWorker(name, workerFactory)`: register a new worker type (corresponds to browser actions used by the backend)
+- `registerWorker(name, workerFactory)`: registers a new worker type (corresponding to the BrowseAction class in backend)
 - `Worker`: base class for all custom workers
-- `ServerPlugin`: the object type a plugin should export as default
-- `onServerInit(context)`: called when the server starts
-- `onServerClose(context)`: called when the server is shutting down
+- `ServerPlugin`: object type exported by plugins by default
+- `onServerInit(context)`: called when the service starts
+- `onServerClose(context)`: called when the service shuts down
 
-As long as your plugin calls `registerWorker(...)` during startup, the main program can later find that worker by the request `type` field and execute your crawling logic.
+As long as a plugin calls `registerWorker(...)` during startup, the main program can later find your worker through the `type` field in requests and execute your crawling strategy.
 
 ### Packaging
+Plugins need to be packaged as Node.js packages so the main program can load them.
 
-Plugins should be prepared as Node.js-loadable JavaScript modules.
+- First compile the plugin to JavaScript
+- Then let the main project `require("your plugin name")`
 
-Typical flow:
-- Write the plugin in TypeScript
-- Compile it to JavaScript
-- Let the browser service load it by package name or local JS file path
+The current implementation only supports writing plugin name strings. It does **not** yet support passing separate parameters for each plugin in this config file.
 
-For local development, the easiest way is usually:
-- Compile with `tsc -w`
-- Point `plugins.json` to the generated `dist/index.js`
-
-### Minimum Plugin Example
-
-A usable plugin must default-export an object, and at minimum it needs `onServerInit`.
-
+### Minimum Requirements
+A usable plugin needs to default-export an object. This object must at least have `onServerInit`, for example:
 ```ts
 import { ServerPlugin } from "../../src/PluginAPI";
 
@@ -105,16 +75,12 @@ const plugin: ServerPlugin = {
 export default plugin;
 ```
 
-This means:
-- `name` is the plugin name; it is optional but recommended
+- `name` is the plugin name. It can be omitted, but it is recommended
 - `onServerInit` runs once when the service starts
-- `context.logger` is the Fastify logger
+- `context.logger` is the fastify logger and can be used directly
 
-### Registering a New Worker
-
-To add a new worker, call `registerWorker`. After registration, when the backend sends a work request with matching `type` and `info`, your worker logic will be executed.
-
-Example request body:
+### New Worker
+Registering a Worker means calling `registerWorker`. After registration succeeds, when the backend sends a work request whose `type` and `info` correspond to your newly registered Worker, the corresponding logic can run.
 
 ```json
 {
@@ -127,50 +93,23 @@ Example request body:
     {
       "type": "ReadTitleWorker",
       "info": {
-        "prefix": "Title: "
+        "prefix": "Page title: "
       }
     }
   ]
 }
 ```
 
-### What `handler` Can Do
+The main program automatically executes the worker you registered.
 
-The `handler` passed into `work(handler)` is the browser operation object managed by the main program. The most commonly used members are:
-- `handler.newPage()`: create a new page
-- `handler.page`: current page object; you can call Playwright APIs on it directly
-- `handler.records`: recorded network responses
-- `handler.stopRecord()`: stop recording network responses
+### Current Version Capability Boundary
+The following are **already supported**:
 
-So for plugin development, the main things you need are:
-- Basic TypeScript classes
-- `async/await`
-- Some Playwright page operations
-
-### Current Capability Boundary
-
-The following are already supported:
 - Plugin initialization at startup
-- Plugin cleanup on shutdown
-- Custom worker registration
-- Custom HTTP route registration
-
-The following are **not** yet provided as dedicated plugin APIs:
-- Per-plugin option objects in `plugins.json`
-- Dedicated config/data directories for each plugin
-- Finer-grained hooks around each request
-- A separate standalone SDK package only for plugin authors
-
-### Development Notes
-
-- The main program loads plugins with `require(...)`, so plugin output must be loadable in CommonJS mode
-- Duplicate `registerWorker` names will fail, so do not reuse built-in worker names
-- `workers[].info` is not validated automatically; validate fields in your constructor if needed
-- If your worker depends on `handler.page`, make sure a page has already been created or call `handler.newPage()` yourself
-- Local path plugins should point to built JavaScript files, not `.ts` source files
-
+- Plugin resource cleanup on shutdown
+- Registering custom workers
+- Registering custom HTTP routes
 ## Warning
+Except for the remote desktop part (whose safety also depends on nginx assistance), this part has no encryption measures. Data is transmitted in plaintext. Either deploy it with the rest of the backend in the same compose setup or LAN, or add your own security protection. Users should also make sure that their login address is safe.
 
-Except for the remote desktop part (whose safety also depends on nginx), this module currently has no encryption of its own. Data is transmitted in plain text. Either deploy it together with the rest of the backend in one compose/network, or add your own protection.
-
-If this part must be separated for any reason, make sure the container is placed behind nginx. Several behaviors in this module assume such a setup, and a fixed external entry is also easier to maintain.
+If this part must be separated for any reason, make sure the container is proxied by nginx. Related behavior is based on this assumption, and a fixed access endpoint is easier to use.

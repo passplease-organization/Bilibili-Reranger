@@ -75,24 +75,12 @@ docker run -p 23223:23223 -e BROWSE_URL=<your_browse_manager_url> -v <path_to_co
 代码中有[示例插件](plugins/ExamplePlugin/main.cpp)，提供接口在[API动态链接库](api/interface.h)中，[API动态链接库](api)中的以C程序导出的方法都是可用的，方便做插件。
 
 ### 本地 Plugin SDK
-如果插件不能公开放在本仓库，可以先从后端构建产物安装一个本地 SDK，再让私有插件仓库通过 CMake 查找它：
-```bash
-cmake -S . -B build/test -DCMAKE_BUILD_TYPE=Test -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake
-cmake --build build/test
-cmake --install build/test --prefix /path/to/reranger-sdk
-```
-私有插件仓库的 `CMakeLists.txt` 可以这样链接 SDK：
-```cmake
-cmake_minimum_required(VERSION 3.27)
-project(MyPrivatePlugin)
+为了定制化您的视频需要开发您专属的插件，为此有两种开发方案
+### 使用开发容器（推荐）
+在`sdk.dockerfile`中定义了用于plugin的开发容器，您可以直接使用`plugin-template`分支提供的插件开发模板直接进行开发，其中包含了Debug和Release两种模式的SDK，直接进行您的开发即可。
+#### 本地开发
+可以先从后端构建产物编译一个本地 SDK（也可以直接去仓库Release界面下载SDK），再让私有插件仓库通过 CMake 查找它
 
-set(CMAKE_CXX_STANDARD 23)
-
-find_package(BiliBiliRerangerAPI CONFIG REQUIRED)
-
-add_library(MyPrivatePlugin SHARED main.cpp)
-target_link_libraries(MyPrivatePlugin PRIVATE BiliBiliRerangerAPI::API)
-```
 配置私有插件时指定 SDK 路径，并使用和后端一致的 toolchain：
 ```bash
 cmake -S . -B build \
@@ -100,9 +88,7 @@ cmake -S . -B build \
   -DCMAKE_TOOLCHAIN_FILE=/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build build
 ```
-插件实现导出函数时直接包含 `interface.h`，并实现其中声明的固定导出函数即可。
-### 使用开发容器
-在`sdk.dockerfile`中定义了用于plugin的开发容器，您可以直接使用`ghcr.io/passplease-organization/bilibili_reranger:plugin_dev`镜像，其中包含了Debug和Release两种模式的SDK，直接进行您的开发即可。
+插件实现导出函数时直接包含 `interface.h`，并实现其中声明的固定导出函数即可（部分函数必须实现）。
 ## URL请求
 ### 相关Bug
 最重要bug：程序使用的[Boost](https://github.com/boostorg/boost)库进行`url`参数解析，在我测试时发现，有时其`url`中的参数解析会出现错误，导致解析完全错误得不到参数。且在IDE或者命令行和docker等不同方法启动程序表现还不同，故有时请求错误可能是后端解析错误所致。为避免此bug，计划将受影响的部分参数从`url`中移动至`body`中。

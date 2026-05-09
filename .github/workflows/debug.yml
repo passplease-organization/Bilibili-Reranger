@@ -13,6 +13,8 @@ on:
       - LICENSE
       - .github/workflows/qodana_code_quality.yml
       - browser/qodana.yaml
+      - qodana*.yaml
+      - sdk.dockerfile
 
 jobs:
   Test-Code-Browser:
