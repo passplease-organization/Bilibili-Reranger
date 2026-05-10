@@ -12,11 +12,11 @@ services:
       - bilibili-reranger
 
   browser:
-    image: noname602/bilibili_reranger_borwser
+    image: noname602/bilibili_reranger_browser
     networks:
       bilibili-reranger:
-        - aliases:
-            - browser
+        aliases:
+          - browser
 
   backend:
     image: noname602/bilibili_reranger_backend
@@ -29,8 +29,8 @@ services:
       - .env
     networks:
       bilibili-reranger:
-        - aliases:
-            - backend
+        aliases:
+          - backend
 
   postgres:
     image: postgres:18
@@ -45,8 +45,8 @@ services:
       - .env
     networks:
       bilibili-reranger:
-        - aliases:
-            - ${POSTGRES_HOST:-postgres}
+        aliases:
+          - ${POSTGRES_HOST:-postgres}
 
 networks:
   bilibili-reranger:
