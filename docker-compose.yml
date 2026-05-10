@@ -1,18 +1,28 @@
 services:
   website:
     image: noname602/bilibili_reranger_frontend
+    restart: unless-stopped
     ports:
       - '3000:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - browser
-      - backend
+      browser:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     networks:
       - bilibili-reranger
 
   browser:
     image: noname602/bilibili_reranger_browser
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':0BB8 ' /proc/net/tcp /proc/net/tcp6 || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
     networks:
       bilibili-reranger:
         aliases:
@@ -20,13 +30,16 @@ services:
 
   backend:
     image: noname602/bilibili_reranger_backend
+    restart: unless-stopped
     volumes:
       - ./config:/bilibili-backend/config
 #      - ./plugin:/bilibili-backend/plugin
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       DB_NAME: ${POSTGRES_DB:-postgres}
       DB_USER: ${POSTGRES_USER:-noname}
@@ -34,6 +47,12 @@ services:
       DB_PORT: ${POSTGRES_PORT:-5432}
       DB_HOST: ${POSTGRES_HOST:-postgres}
       DB_DELETE: ${POSTGRES_DELETE:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':5AB7 ' /proc/net/tcp /proc/net/tcp6 || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
     networks:
       bilibili-reranger:
         aliases:
@@ -41,15 +60,23 @@ services:
 
   postgres:
     image: postgres:18
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-noname}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nopassword}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
     volumes:
       - ./postgres-data:/var/lib/postgresql
     env_file:
-      - .env
+      - path: .env
+        required: false
     networks:
       bilibili-reranger:
         aliases:
