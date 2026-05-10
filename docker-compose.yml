@@ -12,7 +12,7 @@ services:
       - bilibili-reranger
 
   browser:
-    image: noname602/bilibili_reranger_borwser
+    image: noname602/bilibili_reranger_browser
     networks:
       bilibili-reranger:
         aliases:
