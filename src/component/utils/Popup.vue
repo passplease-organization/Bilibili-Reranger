@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import {
+  toastLink,
   toastMessage,
   toastType,
   toastVisible,
@@ -22,7 +23,18 @@ const popupClass = computed(() => [
       aria-live="polite"
     >
       <span class="popup-indicator"></span>
-      <span class="popup-message">{{ toastMessage }}</span>
+      <span class="popup-content">
+        <span class="popup-message">{{ toastMessage }}</span>
+        <a
+          v-if="toastLink"
+          class="popup-link"
+          :href="toastLink.href"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ toastLink.label }}
+        </a>
+      </span>
     </div>
   </Teleport>
 </template>
@@ -64,6 +76,7 @@ const popupClass = computed(() => [
 
 .popup-visible {
   opacity: 1;
+  pointer-events: auto;
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
@@ -76,12 +89,32 @@ const popupClass = computed(() => [
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--popup-accent) 18%, transparent);
 }
 
-.popup-message {
+.popup-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.popup-message {
   font-size: 15px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.popup-link {
+  width: fit-content;
+  color: var(--popup-accent);
+  font-size: 14px;
+  line-height: 1.3;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  pointer-events: auto;
+}
+
+.popup-link:hover {
+  opacity: 0.84;
 }
 
 .popup-info {

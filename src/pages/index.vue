@@ -8,16 +8,24 @@ import type {Video, VideoJson} from "@/component/videos/interfaces.ts";
 import VideoCard from "@/component/videos/VideoCard.vue";
 
 const categories: Ref<string[] | null> = ref(null);
+const categoriesLoading = ref(false);
+const videosLoading = ref(false);
 onMounted(async () => {
   if(!getValid()){
     await router.push("/login");
+    return;
   }
-  const response = await fetchBackend("/all_category");
-  if(response.ok){
-    const json = await response.json();
-    categories.value = json[nowPlatform.value] || null;
-    if(categories.value)
-      return;
+  categoriesLoading.value = true;
+  try {
+    const response = await fetchBackend("/all_category");
+    if(response.ok){
+      const json = await response.json();
+      categories.value = json[nowPlatform.value] || null;
+      if(categories.value)
+        return;
+    }
+  } finally {
+    categoriesLoading.value = false;
   }
   showPopup("您的后端无效！请检查！");
 });
@@ -26,20 +34,27 @@ const videos: Ref<Video[]> = ref([]);
 const selectedCategory: Ref<string | null> = ref(null);
 async function getVideos(category: string | null){
   selectedCategory.value = category;
-  const response = await fetchBackend(category ? `/?category=${category}` : '/');
-  if(response.ok || response.status == 500)
-    try{
-      const json = await response.json() as VideoJson | null;
-      if(json){
-        if(category)
-          videos.value = json[category] || [];
-        else
-          videos.value = Object.values(json).flat();
-        showPopup(`获取视频成功`);
-        return;
-      }
-    } catch(e) {}
-  showPopup(`获取${category}视频失败，请检查！`);
+  videosLoading.value = true;
+  try {
+    const response = await fetchBackend(category ? `/?category=${category}` : '/');
+    if(response.ok || response.status == 500)
+      try{
+        const json = await response.json() as VideoJson | null;
+        if(json){
+          if(category)
+            videos.value = json[category] || [];
+          else
+            videos.value = Object.values(json).flat();
+          showPopup(`获取视频成功`);
+          return;
+        }
+      } catch(e) {}
+  } finally {
+    videosLoading.value = false;
+  }
+  showPopup(`获取${category ?? "全部"}视频失败，请检查！`, {
+    type: "error",
+  });
 }
 </script>
 
@@ -50,10 +65,21 @@ async function getVideos(category: string | null){
         <span class="home-sidebar-kicker">Discovery</span>
         <h1 class="home-sidebar-title">视频目录</h1>
         <p class="home-sidebar-desc">按分类切换来源，让当前平台的视频结果更快进入同一个工作台。</p>
+        <p v-if="categoriesLoading" class="home-sidebar-status">分类同步中，请稍等...</p>
       </div>
       <div class="home-category-list">
-        <label class="base-content home-category" :class="{ active: selectedCategory === null }" @click="getVideos(null)">全部视频</label>
-        <label v-for="category in categories" :key="category" class="base-content home-category" :class="{ active: selectedCategory === category }" @click="getVideos(category)">{{category}}</label>
+        <label class="base-content home-category" :class="{ active: selectedCategory === null, busy: videosLoading && selectedCategory === null }" @click="getVideos(null)">
+          <span class="home-category-label">
+            <span v-if="videosLoading && selectedCategory === null" class="inline-spinner" aria-hidden="true"></span>
+            全部视频
+          </span>
+        </label>
+        <label v-for="category in categories" :key="category" class="base-content home-category" :class="{ active: selectedCategory === category, busy: videosLoading && selectedCategory === category }" @click="getVideos(category)">
+          <span class="home-category-label">
+            <span v-if="videosLoading && selectedCategory === category" class="inline-spinner" aria-hidden="true"></span>
+            {{category}}
+          </span>
+        </label>
       </div>
     </div>
     <div class="home-videos">
@@ -64,7 +90,17 @@ async function getVideos(category: string | null){
         </div>
         <div class="home-videos-meta">{{ videos.length }} 条结果</div>
       </div>
-      <a v-if="videos.length <= 0">请点击左侧设置视频</a>
+      <div v-if="videosLoading" class="home-videos-loading">
+        <div class="home-videos-loading-visual" aria-hidden="true">
+          <span class="home-videos-loading-ring home-videos-loading-ring-outer"></span>
+          <span class="home-videos-loading-ring home-videos-loading-ring-middle"></span>
+          <span class="home-videos-loading-ring home-videos-loading-ring-inner"></span>
+          <span class="home-videos-loading-pulse"></span>
+        </div>
+        <p class="home-videos-loading-title">正在筛选并整理视频结果</p>
+        <p class="home-videos-loading-desc">后端会持续轮询直到新结果准备完成。这个区域会保持活跃状态，避免页面看起来像是卡住。</p>
+      </div>
+      <a v-else-if="videos.length <= 0">请点击左侧设置视频</a>
       <div v-else class="home-video-grid">
         <VideoCard
           v-for="video in videos"
@@ -139,6 +175,13 @@ async function getVideos(category: string | null){
   line-height: 1.6;
 }
 
+.home-sidebar-status {
+  margin: 12px 0 0;
+  color: var(--focus-color);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .home-category-list {
   display: flex;
   flex-direction: column;
@@ -161,10 +204,20 @@ async function getVideos(category: string | null){
     box-shadow 0.22s ease;
 }
 
+.home-category-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .home-category.active {
   color: var(--focus-color);
   background: color-mix(in srgb, var(--focus-color) 10%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--focus-color) 18%, transparent);
+}
+
+.home-category.busy {
+  cursor: wait;
 }
 
 .home-category:hover {
@@ -227,6 +280,99 @@ async function getVideos(category: string | null){
   align-items: stretch;
 }
 
+.inline-spinner,
+.home-videos-loading-ring {
+  border-radius: 50%;
+  border-style: solid;
+  border-top-color: currentColor;
+}
+
+.inline-spinner {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+  animation: home-spin 0.9s linear infinite;
+}
+
+.home-videos-loading {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  min-height: 320px;
+  padding: 46px 28px;
+  border: 1px solid color-mix(in srgb, var(--font-color) 10%, transparent);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--focus-color) 10%, transparent), transparent 28%),
+    radial-gradient(circle at 78% 30%, rgba(251, 114, 153, 0.10), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-color) 94%, transparent), color-mix(in srgb, var(--surface-elevated) 88%, transparent));
+  box-shadow: var(--surface-shadow-soft);
+  text-align: center;
+  overflow: hidden;
+}
+
+.home-videos-loading-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+}
+
+.home-videos-loading-ring {
+  position: absolute;
+  inset: 0;
+  border-width: 3px;
+}
+
+.home-videos-loading-ring-outer {
+  color: var(--focus-color);
+  border-color: color-mix(in srgb, var(--focus-color) 18%, transparent);
+  animation: home-spin 1.15s linear infinite;
+}
+
+.home-videos-loading-ring-middle {
+  inset: 13px;
+  color: #fb7299;
+  border-color: color-mix(in srgb, #fb7299 20%, transparent);
+  animation: home-spin-reverse 1.65s linear infinite;
+}
+
+.home-videos-loading-ring-inner {
+  inset: 28px;
+  color: #24b8a9;
+  border-color: color-mix(in srgb, #24b8a9 22%, transparent);
+  animation: home-spin 1.05s linear infinite;
+}
+
+.home-videos-loading-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--focus-color), #fb7299);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus-color) 24%, transparent);
+  animation: home-pulse 1.8s ease-out infinite;
+}
+
+.home-videos-loading-title,
+.home-videos-loading-desc {
+  margin: 0;
+}
+
+.home-videos-loading-title {
+  font-size: 20px;
+  font-weight: 640;
+  letter-spacing: -0.03em;
+}
+
+.home-videos-loading-desc {
+  max-width: 560px;
+  color: var(--dark-font-color);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
 .home-video-grid::before {
   content: "";
   position: absolute;
@@ -240,6 +386,33 @@ async function getVideos(category: string | null){
   filter: blur(12px);
   pointer-events: none;
   z-index: 0;
+}
+
+@keyframes home-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes home-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes home-pulse {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus-color) 26%, transparent);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 18px color-mix(in srgb, var(--focus-color) 0%, transparent);
+  }
+  100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--focus-color) 0%, transparent);
+  }
 }
 
 .home-video-grid > * {

@@ -4,6 +4,7 @@ import {IconSettings2} from "@tabler/icons-vue";
 import {getValid, initBackend, setup} from "@/pages/settings/backendSetup.ts";
 import {onMounted} from "vue";
 import Popup from "@/component/utils/Popup.vue";
+import LoadingOverlay from "@/component/utils/LoadingOverlay.vue";
 
 onMounted(async () => {
   await setup();
@@ -53,6 +54,7 @@ onMounted(async () => {
     <main class="app-main">
       <router-view />
     </main>
+    <LoadingOverlay />
     <Popup />
   </div>
 </template>

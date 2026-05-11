@@ -31,8 +31,15 @@ services:
       DB_PORT: ${POSTGRES_PORT:-5432}
       DB_HOST: ${POSTGRES_HOST:-postgres}
       DB_DELETE: ${POSTGRES_DELETE:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':5AB7 ' /proc/net/tcp /proc/net/tcp6 || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: postgres:18
@@ -44,6 +51,12 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
     volumes:
       - ./postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
   browser:
     image: ${BROWSER_IMAGE:-ghcr.io/passplease-organization/bilibili_reranger:browser_for_dev}
@@ -52,6 +65,12 @@ services:
       - .env
     environment:
       BROWSER_DEBUG_ENABLED: 1
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':0BB8 ' /proc/net/tcp /proc/net/tcp6 || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
   nginx:
     image: nginx
@@ -60,6 +79,9 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - frontend
-      - backend
-      - browser
+      browser:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
