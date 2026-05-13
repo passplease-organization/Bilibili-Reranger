@@ -1,6 +1,8 @@
 #include "PluginHandler.h"
 #include "utils/Util.h"
 #include <iostream>
+#include "utils/config.h"
+#include "exit.h"
 #include "webAPIs/browse.h"
 
 #ifdef WIN32
@@ -15,7 +17,7 @@ using namespace crawlTask;
 namespace fs = std::filesystem;
 
 PluginHandler::PluginHandler(const string &name) {
-    this -> name = std::move(name);
+    this -> name = name;
     #ifdef WIN32
         SetDllDirectoryA(PluginDir);
         dll = LoadLibrary(TEXT((this -> name + DLL).c_str()));
@@ -106,6 +108,13 @@ bool PluginHandler::dealJson(const string &tempdata) {
     return plugin(tempdata.c_str());
 }
 
+int PluginHandler::dealRequest(boost::asio::ip::tcp::socket &socket,const Json& data) {
+    auto plugin = (DEAL_REQUEST) getFunction("dealRequest");
+    if (plugin == nullptr)
+        return success();
+    return plugin(socket,data);
+}
+
 const string &PluginHandler::getName() const {
     return this -> name;
 }
@@ -166,6 +175,14 @@ void PluginHandler::loadAll() {
             delete examplePlugin;
         }
     }
+}
+
+int PluginHandler::handleRequest(boost::asio::ip::tcp::socket &socket, const string &name, const Json& data) {
+    for (const auto& plugin : *plugins) {
+        if (plugin->getName() == name)
+            return plugin -> dealRequest(socket,data);
+    }
+    return success();
 }
 
 vector<string> *PluginHandler::searchPlugin(vector<string> *back) {

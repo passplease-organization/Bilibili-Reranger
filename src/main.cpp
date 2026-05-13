@@ -6,9 +6,9 @@
 #include "pluginInterface.h"
 #include "develop/flags.h"
 #include "../api/utils/config.h"
-#include "exit.h"
+#include "../api/exit.h"
 #include "platforms/bilibiliHandler.h"
-#include "PortListener.h"
+#include "../api/PortListener.h"
 #include "subFeatures/requestHelper.h"
 #include <boost/asio.hpp>
 

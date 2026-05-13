@@ -39,7 +39,7 @@ add_executable(${PROJECT_NAME} src/main.cpp
         src/pluginHandler.cpp
         src/subFeatures/requestHelper.cpp
         src/subFeatures/requestHelper.h
-        src/exit.h
+        api/exit.h
         src/platforms/bilibiliHandler.cpp
         src/platforms/bilibiliHandler.h
         src/platforms/browse.cpp

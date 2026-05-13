@@ -1,14 +1,14 @@
 #include "requestHelper.h"
 #include <cpr/api.h>
-#include "../../api/utils/config.h"
+#include "utils/config.h"
 
 #ifdef TEST
     #include "utils/BilibiliInterface.h"
     #include "webAPIs/platforms.h"
 #endif
 
-#include "../PortListener.h"
-#include "../exit.h"
+#include "PortListener.h"
+#include "exit.h"
 #include "interface.h"
 #include "../Crawler.h"
 #include "../PluginHandler.h"
@@ -34,7 +34,7 @@ std::map<string,Json> allReturns{};
 std::mutex allReturnsMutex{};
 
 int get(boost::asio::ip::tcp::socket& socket) {
-    LOG(GET,"get");
+    LOG(GET,GET_NO_SLASH);
     REQUIRE_CLIENT(socket);
     string session;
     for (const auto& param: crawlInfo -> params) {
@@ -122,7 +122,7 @@ int getAllCategories(boost::asio::ip::tcp::socket& socket) {
 }
 
 int login(boost::asio::ip::tcp::socket& socket) {
-    LOG(LOGIN, "login");
+    LOG(LOGIN, LOGIN_NO_SLASH);
     REQUIRE_CLIENT(socket);
     string test;
     for (auto const& param : crawlInfo -> params) {
@@ -167,7 +167,7 @@ int login(boost::asio::ip::tcp::socket& socket) {
 }
 
 int key(boost::asio::ip::tcp::socket& socket){
-    LOG(KEY,"key");
+    LOG(KEY,KEY_NO_SLASH);
     if (BODY_CONTAIN(BODY_PARAMS_ADMIN)) {
         RELEASE_LOG("管理员登录");
         REQUIRE_CLIENT(socket);
@@ -223,7 +223,7 @@ int testID(boost::asio::ip::tcp::socket& socket) {
 
 #define GET_LOGIN_DATA_URL "/other/login/backend"
 int init(boost::asio::ip::tcp::socket& socket){
-    LOG(INIT, "init");
+    LOG(INIT, INIT_NO_SLASH);
     REQUIRE_CLIENT(socket);
     const auto& session = getSession();
     sendSession(socket,session);
@@ -268,7 +268,7 @@ int init(boost::asio::ip::tcp::socket& socket){
 }
 
 int set(boost::asio::ip::tcp::socket& socket){
-    LOG(SET, "set");
+    LOG(SET, SET_NO_SLASH);
     REQUIRE_CLIENT(socket);
     string platform;
     for (auto const& param : crawlInfo -> params) {
@@ -280,6 +280,25 @@ int set(boost::asio::ip::tcp::socket& socket){
     if (!platform.empty())
         crawlInfo -> client -> getHandler(platform,stop);
     return back(sendMessage(socket,"设置成功"));
+}
+
+int plugin(boost::asio::ip::tcp::socket& socket) {
+    LOG(PLUGIN,PLUGIN_NO_SLASH);
+    Json data;
+    {
+        string name;
+        bool handle = true;
+        if (BODY_CONTAIN("plugin"))
+            name = INFO_BODY("plugin").get<string>();
+        else handle = false;
+        if (handle && BODY_CONTAIN("data"))
+            data = INFO_BODY("data");
+        else handle = false;
+        if (handle)
+            return PluginHandler::handleRequest(socket,name,data);
+    }
+    data[PLUGIN_NO_SLASH] = *PluginHandler::pluginNames;
+    return back(sendMessage(socket,data.dump()));
 }
 
 handler checkURL(const std::string& url) {
@@ -297,6 +316,8 @@ handler checkURL(const std::string& url) {
         return init;
     else if (url.starts_with(SET))
         return ::set;
+    else if (url.starts_with(PLUGIN))
+        return plugin;
     return nullptr;
 }
 

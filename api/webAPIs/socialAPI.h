@@ -99,6 +99,8 @@ namespace webAPI {
         dataStore::Data _subscribers;
 
         BrowseWorkingContext* context;
+
+        bool prepared = false;
     public:
         /**
          * Should call ensureContext() after called
@@ -157,7 +159,7 @@ namespace webAPI {
 
         API virtual void init();
 
-        API virtual bool prepare() = 0;
+        API virtual const bool &prepare() = 0;
 
         /**
          * Register your platform login handler
@@ -177,7 +179,7 @@ namespace webAPI {
             stop = timer;
         }
 
-        API bool checkVideo(const Video& video) const;
+        API [[nodiscard]] bool checkVideo(const Video& video) const;
 
         API [[nodiscard]] BrowseWorkingContext* const& getContext() const noexcept {
             return context;
@@ -191,8 +193,6 @@ namespace webAPI {
         std::string ID;
 
         SimpleESA esa;
-
-        bool prepared = false;
 
     protected:
         socialAPI* _handler;
@@ -239,15 +239,12 @@ namespace webAPI {
 
         API [[nodiscard]] bool setHandlerContext(const BrowseWorkingContext& context) const;
 
-        API [[nodiscard]] const bool& prepare() {
-            if (prepared)
-                return prepared;
+        API [[nodiscard]] bool prepare() const {
         #if ALL_CONTAINER_ONLINE
-            prepared = _handler && _handler -> prepare();
+            return _handler && _handler -> prepare();
         #else
-            prepared = true;
+            return true;
         #endif
-            return prepared;
         }
 
         API [[nodiscard]] bool check() const noexcept;
