@@ -192,6 +192,8 @@ namespace webAPI {
 
         SimpleESA esa;
 
+        bool prepared = false;
+
     protected:
         socialAPI* _handler;
         vector<socialAPI*> handlers;
@@ -237,12 +239,15 @@ namespace webAPI {
 
         API [[nodiscard]] bool setHandlerContext(const BrowseWorkingContext& context) const;
 
-        API [[nodiscard]] bool prepare() const {
+        API [[nodiscard]] const bool& prepare() {
+            if (prepared)
+                return prepared;
         #if ALL_CONTAINER_ONLINE
-            return _handler && _handler -> prepare();
+            prepared = _handler && _handler -> prepare();
         #else
-            return true;
+            prepared = true;
         #endif
+            return prepared;
         }
 
         API [[nodiscard]] bool check() const noexcept;
