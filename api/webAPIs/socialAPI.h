@@ -99,6 +99,10 @@ namespace webAPI {
         dataStore::Data _subscribers;
 
         BrowseWorkingContext* context;
+
+        bool prepared = false;
+
+        map<string,Json> storedData;
     public:
         /**
          * Should call ensureContext() after called
@@ -157,7 +161,7 @@ namespace webAPI {
 
         API virtual void init();
 
-        API virtual bool prepare() = 0;
+        API virtual const bool &prepare() = 0;
 
         /**
          * Register your platform login handler
@@ -177,11 +181,15 @@ namespace webAPI {
             stop = timer;
         }
 
-        API bool checkVideo(const Video& video) const;
+        API [[nodiscard]] bool checkVideo(const Video& video) const;
 
         API [[nodiscard]] BrowseWorkingContext* const& getContext() const noexcept {
             return context;
         }
+
+        API [[nodiscard]] bool storeData(const string& category,const Json& videoData);
+
+        API [[nodiscard]] bool getData(const string& category,Json& data);
     };
 
     class Client {
@@ -251,6 +259,14 @@ namespace webAPI {
 
         API void constexpr resetTimer(const std::shared_ptr<const std::atomic<bool>>& timer) const noexcept {
             _handler -> resetTimer(timer);
+        }
+
+        API [[nodiscard]] bool storeData(const string& category,const Json& videoData) const {
+            return _handler != nullptr && _handler -> storeData(category,videoData);
+        }
+
+        API [[nodiscard]] bool getData(const string& category,Json& data) const {
+            return _handler != nullptr && _handler -> getData(category,data);
         }
     };
 
@@ -341,6 +357,7 @@ namespace webAPI {
 
         ~AutoCurlHelper() override = default;
 
+    protected:
         bool dealJson() override;
     };
 }

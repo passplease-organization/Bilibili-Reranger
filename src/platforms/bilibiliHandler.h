@@ -71,7 +71,7 @@ namespace webAPI{
 
         [[deprecated]] bool refreshSubscribers(CrawlerHelper& helper, bool force) const override;
 
-        [[nodiscard]] bool prepare() override;
+        [[nodiscard]] const bool &prepare() override;
 
         [[nodiscard]] std::string support() const override {
             return BILIBILI;

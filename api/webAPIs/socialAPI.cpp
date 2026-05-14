@@ -19,8 +19,7 @@ using namespace webAPI;
 extern ::webAPI::postgres dataBase;
 
 webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop):
-stop(stop),
-context(nullptr) {}
+stop(stop),context(nullptr){}
 
 webAPI::socialAPI::~socialAPI() {
     if (context != nullptr && !webAPI::getController().closeWorker(context)) {
@@ -81,6 +80,19 @@ string webAPI::socialAPI::allPlatform() {
         json.push_back(pair.first);
     }
     return to_string(json);
+}
+
+bool webAPI::socialAPI::storeData(const string &category, const Json &videoData) {
+    storedData[category] = videoData;
+    return storedData.contains(category);
+}
+
+bool webAPI::socialAPI::getData(const string &category, Json &data) {
+    if (storedData.contains(category)) {
+        data = storedData[category];
+        return !data.empty();
+    }
+    return false;
 }
 
 auto rsa = SimpleRSA();

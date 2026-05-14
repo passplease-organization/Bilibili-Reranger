@@ -1,6 +1,6 @@
 #include "bilibiliHandler.h"
 #include "bilibiliAPIs.h"
-#include "../../api/utils/config.h"
+#include "utils/config.h"
 #include "webAPIs/crawler.h"
 #include "../Crawler.h"
 
@@ -12,7 +12,7 @@
 #include <cpr/api.h>
 #include <cpr/payload.h>
 
-#include "../PortListener.h"
+#include "PortListener.h"
 #include "webAPIs/browse.h"
 
 using namespace webAPI;
@@ -660,7 +660,9 @@ bool bilibiliHandler::refreshSubscribers(CrawlerHelper& helper, const bool force
     return !helper.getSubscribers().empty();
 }
 
-bool bilibiliHandler::prepare() {
+const bool &bilibiliHandler::prepare() {
+    if (prepared)
+        return prepared;
     const auto& _crawlData = webAPI::getController().perform({
         context,
         UrlAction{BILIBILI_USER_MAIN_PAGE_URL},
@@ -678,7 +680,8 @@ bool bilibiliHandler::prepare() {
             cppUtil::warn("Wrong browser answer:");
             cppUtil::warn(_crawlData.dump());
         #endif
-        return false;
+        prepared = false;
+        return prepared;
     }
     const auto& crawlData = _crawlData[2];
     if (!validWhileData(crawlData)) {
@@ -686,7 +689,8 @@ bool bilibiliHandler::prepare() {
             cppUtil::warn("Wrong browser answer:");
             cppUtil::warn(_crawlData.dump());
         #endif
-        return false;
+        prepared = false;
+        return prepared;
     }
     _subscribers.clear();
     auto dataResolver = [this](const Json& _data) -> void {
@@ -703,7 +707,8 @@ bool bilibiliHandler::prepare() {
     forEachWhileData(crawlData,__data)
         dataResolver(__data[0]);
     dataResolver(_crawlData[3]);
-    return !_subscribers.empty();
+    prepared = !_subscribers.empty();
+    return prepared;
 }
 
 bool bilibiliHandler::validBrowse() const {

@@ -23,6 +23,8 @@ class PluginHandler {
 #endif
     static const vector<string>* pluginNames;
     static vector<PluginHandler*>* plugins;
+
+    friend int plugin(boost::asio::ip::tcp::socket& socket);
 public:
     explicit PluginHandler(const string& name);
 
@@ -43,6 +45,8 @@ public:
     webAPI::BrowseWorker getWorker();
 
     bool dealJson(const string& tempdata);
+
+    int dealRequest(boost::asio::ip::tcp::socket& socket,const Json& data);
 
     [[nodiscard]] const string& getName() const;
 
@@ -68,6 +72,8 @@ public:
     static bool checkVideo(VideoStatus function(PluginHandler&));
 
     static void loadAll();
+
+    static int handleRequest(boost::asio::ip::tcp::socket& socket,const string& name,const Json& data);
 
 private:
     static vector<string>* searchPlugin(NotNull vector<string>* back);

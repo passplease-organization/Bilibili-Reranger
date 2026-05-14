@@ -58,9 +58,152 @@ export namespace login{
 
     const loginSessions: Map<string, LoginSession> = new Map();
 
+    function isProcessRunning(process: ChildProcessWithoutNullStreams): boolean {
+        return !process.killed && process.exitCode === null && process.signalCode === null;
+    }
+
+    function stopProcess(process: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): void {
+        if (!isProcessRunning(process)) {
+            return;
+        }
+        try {
+            process.kill(signal);
+        } catch (error) {
+            logger.warn({error}, "关闭登录子进程失败");
+        }
+    }
+
+    function pipeProcessOutput(name: string, process: ChildProcessWithoutNullStreams): void {
+        process.stdout.on("data", (chunk) => {
+            globalThis.process.stdout.write(`[${name}] ${chunk}`);
+        });
+        process.stderr.on("data", (chunk) => {
+            globalThis.process.stderr.write(`[${name}] ${chunk}`);
+        });
+    }
+
+    function isLoginSessionAlive(session: LoginSession): boolean {
+        return session.browser.isConnected()
+            && isProcessRunning(session.Xvfb.xvfb)
+            && isProcessRunning(session.Vnc.vnc)
+            && isProcessRunning(session.Websockify.websockify);
+    }
+
+    function platformFromSession(session: string): string {
+        const splitAt = session.indexOf(":");
+        return splitAt >= 0 ? session.slice(splitAt + 1) : "";
+    }
+
+    function loginCookieUrls(platform: string, url: string): string[] {
+        if (platform === "Bilibili") {
+            return Array.from(new Set([
+                url,
+                "https://www.bilibili.com/",
+                "https://space.bilibili.com/",
+                "https://passport.bilibili.com/"
+            ]));
+        }
+        return [url];
+    }
+
+    function hasLoginCookie(platform: string, cookies: Awaited<ReturnType<import("playwright").BrowserContext["cookies"]>>): boolean {
+        const names = new Set(cookies.map(cookie => cookie.name));
+        if (platform === "Bilibili") {
+            return names.has("SESSDATA") || names.has("DedeUserID");
+        }
+        return names.has("_uuid");
+    }
+
+    function settleCloser(closer: () => void | Promise<void>): void {
+        Promise.resolve()
+            .then(closer)
+            .catch(error => logger.warn({error}, "关闭登录会话失败"));
+    }
+
+    function waitForPort(
+        name: string,
+        port: number,
+        process: ChildProcessWithoutNullStreams,
+        host = "127.0.0.1",
+        timeoutMs = START_SERVICE_WAITING_TIME
+    ): Promise<void> {
+        const startedAt = Date.now();
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            let retryTimer: NodeJS.Timeout | undefined;
+
+            const cleanup = () => {
+                settled = true;
+                if (retryTimer) {
+                    clearTimeout(retryTimer);
+                    retryTimer = undefined;
+                }
+            };
+
+            const fail = (message: string) => {
+                cleanup();
+                reject(new Error(message));
+            };
+
+            const tryConnect = () => {
+                if (settled) {
+                    return;
+                }
+                if (!isProcessRunning(process)) {
+                    fail(`${name}启动失败，进程已退出，端口：${host}:${port}`);
+                    return;
+                }
+
+                const socket = net.createConnection({host, port});
+                let socketSettled = false;
+
+                const retry = () => {
+                    if (socketSettled || settled) {
+                        return;
+                    }
+                    socketSettled = true;
+                    socket.destroy();
+                    if (Date.now() - startedAt >= timeoutMs) {
+                        fail(`${name}启动超时，端口不可连接：${host}:${port}`);
+                        return;
+                    }
+                    retryTimer = setTimeout(tryConnect, 100);
+                };
+
+                socket.setTimeout(1000);
+                socket.once("connect", () => {
+                    if (socketSettled || settled) {
+                        return;
+                    }
+                    socketSettled = true;
+                    socket.destroy();
+                    cleanup();
+                    resolve();
+                });
+                socket.once("error", retry);
+                socket.once("timeout", retry);
+            };
+
+            tryConnect();
+        });
+    }
+
+    async function cleanupDeadSession(session: string): Promise<boolean> {
+        const current = loginSessions.get(session);
+        if (!current) {
+            return false;
+        }
+        if (isLoginSessionAlive(current)) {
+            return true;
+        }
+        logger.warn({session}, "登录会话子进程已失效，准备重新创建");
+        await close(session);
+        return false;
+    }
+
     export async function login(body: LoginRequest): Promise<LoginResponse>{
         const session = getSession(body.clientID, body.platform);
-        if(loginSessions.has(session))
+        if(await cleanupDeadSession(session))
             return {
                 ok: true,
                 back: [],
@@ -119,6 +262,10 @@ export namespace login{
         if(loginSessions.has(session)){
             const login = loginSessions.get(session);
             if(login.token == token) {
+                if (!isLoginSessionAlive(login)) {
+                    settleCloser(() => close(session));
+                    throw new Error("登录屏幕服务已经关闭，请重新发起登录");
+                }
                 return `/nginx/browser_screen/${login.Websockify.port}/vnc.html?autoconnect=1&resize=remote&reconnect=1`
             }
         }
@@ -222,21 +369,23 @@ export namespace login{
             "-display", `:${display}`,
             "-rfbport", `${port}`,
             "-localhost",
+            "-forever",
+            "-shared",
             "-nopw"
         ]);
-        return await new Promise((resolve, reject) => {
-            const timer = setTimeout(()=>{
-                clearTimeout(timer);
-                resolve({
-                    vnc,
-                    port
-                });
-                vnc.on("error", (err) => {
-                    clearTimeout(timer);
-                    reject(new Error(`启动VNC失败，原因如下：\n${err.stack}`));
-                });
-            },START_SERVICE_WAITING_TIME);
+        pipeProcessOutput(`vnc:${display}:${port}`, vnc);
+        vnc.on("error", (err) => {
+            logger.error({error: err}, "VNC 遇到错误");
         });
+        vnc.on("exit", (code, signal) => {
+            logger.warn({display, port, code, signal}, "VNC 已关闭");
+        });
+        await waitForPort("VNC", port, vnc);
+        logger.info({display, port}, "VNC 已启动");
+        return {
+            vnc,
+            port
+        };
     }
 
     async function startWebsockify(closer: () => void,vnc: vnc): Promise<web>{
@@ -246,51 +395,41 @@ export namespace login{
             "--idle-timeout", `${LOGIN_IDLE_SECONDS}`,
             `${port}`, `localhost:${vnc.port}`
         ]);
-        return await new Promise((resolve, reject) => {
-            const timer = setTimeout(()=>{
-                clearTimeout(timer);
-                resolve({
-                    websockify: web,
-                    port
-                });
-            },START_SERVICE_WAITING_TIME);
-            web.addListener("exit",(code,signal) => {
-                const err = `Websockify关闭，状态码：${code}，收到信号：${signal}`;
-                logger.warn({code, signal}, "Websockify 已关闭");
-                closer();
-                clearTimeout(timer);
-                reject(err);
-            })
-            web.on("error", (err) => {
-                clearTimeout(timer);
-                reject(new Error(`启动Websockify失败，原因如下：\n${err.stack}`));
-            })
-            web.addListener("error", (err) => {
-                const error = `Websockify遇到错误：${err}`;
-                logger.error({error: err}, "Websockify 遇到错误");
-                closer();
-                clearTimeout(timer);
-                reject(error);
-            })
+        pipeProcessOutput(`websockify:${port}`, web);
+        web.on("exit",(code,signal) => {
+            logger.warn({port, vncPort: vnc.port, code, signal}, "Websockify 已关闭");
+            settleCloser(closer);
         });
+        web.on("error", (err) => {
+            logger.error({error: err}, "Websockify 遇到错误");
+            settleCloser(closer);
+        });
+        try {
+            await waitForPort("Websockify", port, web);
+        } catch (error) {
+            stopProcess(web, "SIGKILL");
+            throw error;
+        }
+        logger.info({port, vncPort: vnc.port}, "Websockify 已启动");
+        return {
+            websockify: web,
+            port
+        };
     }
 
     async function close(session: string): Promise<void>{
         if(!loginSessions.has(session))
             return;
         const {browser: browser,Xvfb: xvfb,Vnc: vnc,Websockify: web} = loginSessions.get(session);
-        await browser.close();
-        if(!xvfb.xvfb.killed)
-            xvfb.xvfb.kill("SIGQUIT");
-        if(!vnc.vnc.killed)
-            vnc.vnc.kill("SIGQUIT");
-        if(!web.websockify.killed)
-            web.websockify.kill("SIGQUIT");
         loginSessions.delete(session);
+        await browser.close().catch(error => logger.warn({error, session}, "关闭登录浏览器失败"));
+        stopProcess(xvfb.xvfb, "SIGQUIT");
+        stopProcess(vnc.vnc, "SIGQUIT");
+        stopProcess(web.websockify, "SIGQUIT");
     }
 
     export async function closeAll(): Promise<void>{
-        return Array.from(loginSessions.keys()).forEach(close)
+        await Promise.all(Array.from(loginSessions.keys()).map(close));
     }
 
     export interface CollectRequest extends RequestBody {
@@ -306,9 +445,10 @@ export namespace login{
             logger.info({session}, "收集登录信息");
             const login: LoginSession = loginSessions.get(session);
             if(login.token == token) {
+                const platform = platformFromSession(session);
                 for (const context of login.browser.contexts()) {
-                    const cookies = Array.from(await context.cookies(login.url));
-                    if(cookies.find(c => c.name == "_uuid") != undefined) {
+                    const cookies = Array.from(await context.cookies(loginCookieUrls(platform, login.url)));
+                    if(hasLoginCookie(platform, cookies)) {
                         let cookie = "";
                         for (const c of cookies) {
                             cookie += `${c.name}=${c.value}; `;
@@ -325,6 +465,7 @@ export namespace login{
                             }
                         }
                     }
+                    logger.warn({session, platform, cookieNames: cookies.map(cookie => cookie.name)}, "当前浏览器上下文没有登录凭据");
                 }
                 logger.error({session}, "收集登录信息失败");
                 return {

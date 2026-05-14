@@ -66,11 +66,7 @@ BrowserManager文档： [中文](browser/README.md) / [English](browser/README_e
 }
 ```
 ## 使用
-强烈建议使用docker部署，使用打包镜像直接部署，使用下述命令
-```bash
-docker run -p 23223:23223 -e BROWSE_URL=<your_browse_manager_url> -v <path_to_config>:/bilibili-backend/config -v <path_to_plugin>:/bilibili-backend/plugins docker.io/noname602/bilibili_reranger:latest
-```
-`BROWSE_URL`是必须的，代表程序的浏览器组地址（使用docker-compose部署默认地址内部地址为`http://browser:3000`），`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
+强烈建议使用docker部署，使用打包镜像直接部署，具体请见主分支`docker-compose.yml`，`config`文件夹储存的是配置文件，`plugins`文件夹是存储的加载的插件，默认有一个`EXAMPLE PLUGIN`插件
 ## 插件
 代码中有[示例插件](plugins/ExamplePlugin/main.cpp)，提供接口在[API动态链接库](api/interface.h)中，[API动态链接库](api)中的以C程序导出的方法都是可用的，方便做插件。
 
@@ -104,17 +100,19 @@ cmake --build build
 | /init         | 初始化爬虫，若有登录`token`会首先收集登录信息并存储在数据库中 | `token`：`/login`返回url中的`token`参数（无则不执行收集登录信息相关逻辑）             | 无额外参数                                                                              | 需在login之后调用                                           | 需要                |    |
 | /set          | 设置参数                               | `platform`：设置工作平台                                             | 无支持参数                                                                              |                                                       |                   |    |
 | /get          | 获取之前某次长期请求结果                       | `session`： 之前返回的请求session                                     | 无支持参数                                                                              | `ok`：是否处理已经失败<br/>`finished`：是否已经处理完成<br/>`data`：相关数据 |                   |    |
+| /plugins      | 无参数获取全部plugin，有参数则处理plugin对应设置     | 可不要`id`，由plugin自行决定                                           | `plugin`：插件名称<br/>`data`：全部计划发给插件的Json字段                                           |                                                       | 由plugin自行决定       |    |
 
 > 注：需要Session模式时会首先返回一个Json，其中`session`字段是对应session，后面使用这个session请求`/get`直到得到返回值即可（请求成功后就会销毁session）
 
 此外，返回值为500表示内部处理错误，具体信息请检查正文内容。且Body部分是整体进行加密（对整个Json进行），而非对Json各个部分分开加密。
 
-爬取参数（对于其他URL路径）：
+根路径爬取参数（对于其他URL路径）：
 
-| 参数名        | 意义            | 其他                                                |
-|------------|---------------|---------------------------------------------------|
-| category   | 本次工作的类型       | 需配合`/set`使用，只会针对当前平台工作                            |
-| id         | 后端用于区分客户端的值   | 除/key请求，其他默认均需要携带<br/>加密是对整个正文进行的，而非json中各个单独字段加密 |
+| 参数名      | 意义             | 其他                                                |
+|----------|----------------|---------------------------------------------------|
+| category | 本次工作的类型        | 需配合`/set`使用，只会针对当前平台工作                            |
+| id       | 后端用于区分客户端的值    | 除/key请求，其他默认均需要携带<br/>加密是对整个正文进行的，而非json中各个单独字段加密 |
+| prepared | 是否是程序自动触发的预先加载 | 此时不会有回信，直接内部内存存储数据用于后续请求加速返回；且不需要传入任何值，只识别有无这个标签  |
 
 ### 请求流程
 首先应连接`/key`先获取公钥，再交换对称密钥并储存`id`，随后连接`/login`获取开启登录浏览器，然后`/init`存储登录状态并初始化后端，然后就可以使用`category`获取不同类别视频了

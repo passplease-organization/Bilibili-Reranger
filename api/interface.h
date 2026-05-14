@@ -1,7 +1,6 @@
 #pragma once
 #include "pluginInterface.h"
-
-#pragma once
+#include <boost/asio/ip/tcp.hpp>
 
 #define REQUIRED
 #define OPTIONAL
@@ -58,9 +57,17 @@ typedef webAPI::BrowseWorker (FUNCTION_CALLER *GETWORKER)();
 OPTIONAL bool dealJson(const char* data);
 typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 
+/**
+ * Allow plugin to handle network request from client
+ * @return success or not, examples see exit.h
+ */
+OPTIONAL int dealRequest(boost::asio::ip::tcp::socket& socket,const Json& data);
+typedef int (FUNCTION_CALLER *DEAL_REQUEST)(boost::asio::ip::tcp::socket& socket,const Json& data);
+
 }
 
 #define URL_PARAMS_CATEGORY "category"
+#define URL_PARAMS_PREPARED "prepared"
 #define BODY_PARAMS_PLATFORM "platform"
 //#define URL_PARAMS_USERNAME "username"
 //#define URL_PARAMS_PASSWORD "password"

@@ -35,4 +35,5 @@ extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 int startWork();
 
-bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);
+
+API bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);
