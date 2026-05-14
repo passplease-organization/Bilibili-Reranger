@@ -67,6 +67,7 @@ typedef int (FUNCTION_CALLER *DEAL_REQUEST)(boost::asio::ip::tcp::socket& socket
 }
 
 #define URL_PARAMS_CATEGORY "category"
+#define URL_PARAMS_PREPARED "prepared"
 #define BODY_PARAMS_PLATFORM "platform"
 //#define URL_PARAMS_USERNAME "username"
 //#define URL_PARAMS_PASSWORD "password"

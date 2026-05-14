@@ -1,6 +1,6 @@
 #include "bilibiliHandler.h"
 #include "bilibiliAPIs.h"
-#include "../../api/utils/config.h"
+#include "utils/config.h"
 #include "webAPIs/crawler.h"
 #include "../Crawler.h"
 
@@ -12,7 +12,7 @@
 #include <cpr/api.h>
 #include <cpr/payload.h>
 
-#include "../../api/PortListener.h"
+#include "PortListener.h"
 #include "webAPIs/browse.h"
 
 using namespace webAPI;

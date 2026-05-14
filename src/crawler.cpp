@@ -14,6 +14,7 @@
 #include "../api/PortListener.h"
 #include <boost/asio.hpp>
 #include <utility>
+#include <cpr/api.h>
 
 CrawlerHelper::CrawlerHelper(){
     if (crawlInfo != nullptr && crawlInfo -> client != nullptr) {
@@ -240,9 +241,21 @@ webAPI::postgres dataBase(postgresConfig);
 string browseManagerUrl;
 [[deprecated]] string user_agent;
 
-bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket){
-    const auto& session = getSession();
-    sendSession(socket,session);
+bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket,bool& prepared){
+    Json data;
+    if (!prepared) {
+        if (crawlInfo -> client -> getData(crawlInfo -> target,data)) {
+            sendMessage(socket,data.dump());
+            cppUtil::say("已加载预爬取数据，接下来更改为预爬取模式");
+            prepared = true;
+        }
+    }
+    cppUtil::say("启动爬取，当前模式：",prepared ? "预爬取" : "正式爬取","模式");
+    string session;
+    if (!prepared) {
+        session = getSession();
+        sendSession(socket,session);
+    }
     const int max_count = config<int>(MAX_CRAWL_COUNT);
     int count = 0;
     try {
@@ -270,11 +283,26 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
             }
         }while(!cancel -> load() && back && count < max_count);
 
-        back &= handler -> getWorker(crawlTask::nowTask()) == webAPI::nullWorker();
-        return writeSession(session,webAPI::getVideoJson(),!back) && back;
+        if (handler -> getWorker(crawlTask::nowTask()) != webAPI::nullWorker())
+            cppUtil::warn("爬取视频工作未全部完成");
+        data = webAPI::getVideoJson();
+        if (prepared) {
+            if (back)
+                back = crawlInfo -> client -> storeData(crawlInfo -> target,data);
+            cppUtil::say("预爬取完成，当前准备",back ? "成功" : "失败");
+            return back;
+        }else {
+            writeSession(session,data,!back);
+            cppUtil::say("正式爬取已结束，接下来准备预爬取，当前状态：",back ? "成功" : "失败");
+            cpr::Post(
+                cpr::Url{"localhost:" + to_string(config<int>(PORT)) + "/?" URL_PARAMS_CATEGORY "=" + crawlInfo -> target + "&" URL_PARAMS_CLIENT_ID "=" + crawlInfo -> clientId + "&" URL_PARAMS_PREPARED "=true"}
+            );
+            return back;
+        }
     }catch(const std::exception& e) {
         cppUtil::warn("爬取失败，遇到错误！",e.what());
-        writeSession(session,Json(),true);
+        if (!prepared)
+            writeSession(session,Json(),true);
         return false;
     }
 }

@@ -61,7 +61,8 @@ int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio:
         cppUtil::say("爬取工作开始");
     REQUIRE_CLIENT(socket);
     try{
-        if(crawl(cancel,socket)) {
+        bool prepared = crawlInfo -> params.contains(URL_PARAMS_PREPARED);
+        if(crawl(cancel,socket,prepared)) {
             return success();
         }
     }catch(const std::exception& e) {
