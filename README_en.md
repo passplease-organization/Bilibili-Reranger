@@ -1,6 +1,8 @@
 # Service Frontend
 [中文](README.md)
 
+***Now this branch is almost done by Codex***
+
 ## Architecture
 Built with Vue and mainly written in TypeScript. I am still learning while building it.
 

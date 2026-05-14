@@ -1,4 +1,4 @@
-import {showPopup} from "@/component/utils/screen.ts";
+import {hideLoading, showLoading, showPopup, updateLoading, type LoadingStateInput} from "@/component/utils/screen.ts";
 import {SimpleESA} from "@/component/utils/SimpleESA.ts";
 import {
   getBackendUrl,
@@ -63,8 +63,49 @@ export interface ResponseFromSession{
   data: unknown;
 }
 
-export async function fetchBackend(url: string,init?: RequestInit): Promise<Response> {
+export interface BackendRequestInit extends RequestInit {
+  loading?: LoadingStateInput | null;
+}
+
+function isAbortLike(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function createAbortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort(): void {
+      window.clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    }
+    signal?.addEventListener("abort", onAbort);
+  });
+}
+
+export function isAbortError(error: unknown): boolean {
+  return isAbortLike(error);
+}
+
+export async function fetchBackend(url: string,init?: BackendRequestInit): Promise<Response> {
   const _init: RequestInit = init ? { ...init } : {};
+  delete (_init as BackendRequestInit).loading;
+  const controller = new AbortController();
+  if (init?.signal) {
+    if (init.signal.aborted) {
+      controller.abort();
+    } else {
+      init.signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+  _init.signal = controller.signal;
   if (init?.body != null) {
     const body = init.body as unknown;
     let raw: string;
@@ -131,25 +172,61 @@ export async function fetchBackend(url: string,init?: RequestInit): Promise<Resp
   if (parsed && typeof parsed === "object" && "session" in parsed) {
     const sessionResp = parsed as SessionNeededResponse;
     const startTime = Date.now();
-    while (Date.now() - startTime < POLL_TIMEOUT) {
-      await new Promise(r => setTimeout(r, POLL_INTERVAL));
-      const getFullUrl = new URL("get", base);
-      if (id)
-        getFullUrl.searchParams.set("id", id);
-      getFullUrl.searchParams.set("session", sessionResp.session);
-      const pollResponse = await fetch(getFullUrl.toString());
-      const pollEncrypted = await pollResponse.text();
-      if (pollEncrypted === "") {
-        await new Promise(r => setTimeout(r, POLL_INTERVAL));
-        continue;
-      }
-      const pollDecrypted = decrypt(pollEncrypted, true) as ResponseFromSession;
-      if (pollDecrypted.finished) {
-        return new Response(JSON.stringify(pollDecrypted.data), {
-          status: pollResponse.status,
-          statusText: pollResponse.statusText,
-          headers,
+    const loadingToken = init?.loading ? showLoading({
+      ...init.loading,
+      cancelLabel: init.loading.cancelLabel ?? "放弃当前等待",
+      onCancel: () => {
+        controller.abort();
+        showPopup("已放弃当前等待请求", {
+          type: "info",
         });
+      },
+    }) : null;
+    try {
+      while (Date.now() - startTime < POLL_TIMEOUT) {
+        await createAbortableDelay(POLL_INTERVAL, controller.signal);
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+        const elapsedLabel = `${minutes}:${String(seconds).padStart(2, "0")}`;
+        const loadingState = init?.loading;
+        if (loadingToken !== null && loadingState) {
+          updateLoading(loadingToken, {
+            ...loadingState,
+            detail: `${loadingState.detail ?? "后端正在继续处理任务，请保持当前页面打开。"} 已等待 ${elapsedLabel}`,
+            cancelLabel: loadingState.cancelLabel ?? "放弃当前等待",
+            onCancel: () => {
+              controller.abort();
+              showPopup("已放弃当前等待请求", {
+                type: "info",
+              });
+            },
+          });
+        }
+        const getFullUrl = new URL("get", base);
+        if (id)
+          getFullUrl.searchParams.set("id", id);
+        getFullUrl.searchParams.set("session", sessionResp.session);
+        const pollResponse = await fetch(getFullUrl.toString(), {
+          signal: controller.signal,
+        });
+        const pollEncrypted = await pollResponse.text();
+        if (pollEncrypted === "") {
+          await createAbortableDelay(POLL_INTERVAL, controller.signal);
+          continue;
+        }
+        const pollDecrypted = decrypt(pollEncrypted, true) as ResponseFromSession;
+        if (pollDecrypted.finished) {
+          return new Response(JSON.stringify(pollDecrypted.data), {
+            status: pollResponse.status,
+            statusText: pollResponse.statusText,
+            headers,
+          });
+        }
+      }
+    } finally {
+      if (loadingToken !== null) {
+        hideLoading(loadingToken);
       }
     }
     return new Response(null, {
@@ -235,14 +312,44 @@ export async function setup(): Promise<client> {
 }
 
 export async function initBackend(){
-  const response = await fetchBackend("/login");
-  if(response.ok){
-    supportPlatform.value = JSON.parse(await response.text()) as string[];
-    const r = await fetchBackend("/init");
-    const r2 = await fetchBackend(`/set?platform=${nowPlatform.value}`);
-    showPopup(`当前平台：${supportPlatform.value}，初始化情况：${r.ok}，当前平台为${nowPlatform.value}，后端平台配置情况：${r2.ok}`);
-    if(!r.ok || !r2.ok)
-      router.push("/login");
+  try {
+    const response = await fetchBackend("/login", {
+      loading: {
+        title: "正在同步平台列表",
+        detail: "后端正在读取可用平台与登录状态，请稍等。",
+      },
+    });
+    if(response.ok){
+      supportPlatform.value = JSON.parse(await response.text()) as string[];
+      const r = await fetchBackend("/init", {
+        loading: {
+          title: "正在初始化推荐后端",
+          detail: "后端正在准备推荐与抓取环境，这一步通常比普通请求更慢。",
+        },
+      });
+      const r2 = await fetchBackend(`/set?platform=${nowPlatform.value}`, {
+        loading: {
+          title: "正在同步当前平台",
+          detail: "后端正在切换当前平台设置，请稍等。",
+        },
+      });
+      showPopup(`当前平台：${supportPlatform.value}，初始化情况：${r.ok}，当前平台为${nowPlatform.value}，后端平台配置情况：${r2.ok}`);
+      if(!r.ok || !r2.ok)
+        router.push("/login");
+      return;
+    }
+    showPopup("初始化失败：获取平台列表失败，请检查后端状态", {
+      type: "error",
+      durationMs: 4200,
+    });
+  } catch (error) {
+    if (isAbortLike(error)) {
+      return;
+    }
+    showPopup("初始化失败：后端请求异常，请检查服务和代理配置", {
+      type: "error",
+      durationMs: 4200,
+    });
   }
 }
 
