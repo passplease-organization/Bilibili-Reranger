@@ -1,4 +1,4 @@
-FROM ghcr.io/passplease/bilibili_reranger:plugin_dev
+FROM ghcr.io/passplease-organization/bilibili_reranger:plugin_dev
 
 RUN apt-get update && apt-get install -y curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
