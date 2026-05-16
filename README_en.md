@@ -32,124 +32,283 @@ After opening the page, log in first, initialize the backend after logging in, a
 For first-time use, configure all backend service URLs on the settings page (otherwise the app will not work). This is not required for docker-compose deployment.
 
 ## Plugin Configuration API
-The backend now supports handling requests through `plugin`s. The frontend settings page will render an individual configuration card for each plugin that can receive requests. Since plugins may be implemented as C++ programs, this protocol is intentionally simple: plugins only need to return static JSON descriptions, while the frontend handles rendering and status display.
+The backend now supports handling requests through `plugin`s. There are two layers here:
+- Backend-fixed standard: the outer request format is always `{ "plugin": "plugin-name", "data": { ... } }`
+- Frontend generic standard: if the content inside `data` follows the protocol below, the frontend can render a generic settings card automatically
+
+This section is written for backend and plugin developers. It explains:
+- how the frontend calls a plugin
+- what a plugin should return for automatic rendering
+- what values a plugin receives on save
+- when and how the frontend refreshes plugin state
 
 ### `/plugins`
-- Without parameters: return all plugins and their configuration descriptors
-- With parameters: handle a configuration submission for the specified plugin
+- If the request body does not match the plugin request format, the backend returns the full plugin list
+- If the request body matches the plugin request format, the backend forwards the request to the target plugin
 
-Request body fields:
-- `plugin`: plugin name
-- `data`: the full JSON configuration object to send to the plugin
-
-Recommended response when listing plugins:
-
-```json
-{
-  "ok": true,
-  "plugins": [
-    {
-      "plugin": "example",
-      "name": "Example Plugin",
-      "description": "Used to demonstrate plugin configuration",
-      "configurable": true,
-      "status": "ready",
-      "statusText": "Working normally",
-      "fields": [
-        {
-          "key": "enabled",
-          "label": "Enabled",
-          "type": "bool",
-          "value": true
-        },
-        {
-          "key": "apiUrl",
-          "label": "API URL",
-          "type": "string",
-          "input": "url",
-          "value": "http://127.0.0.1:8080"
-        },
-        {
-          "key": "mode",
-          "label": "Mode",
-          "type": "select",
-          "value": "safe",
-          "options": [
-            { "label": "Safe", "value": "safe" },
-            { "label": "Aggressive", "value": "aggressive" }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-Field descriptions:
-- `plugin`: unique plugin identifier
-- `name`: display name shown in the frontend
-- `description`: plugin description
-- `configurable`: whether the frontend should render a configuration card
-- `status`: current plugin status
-- `statusText`: text description of the status
-- `fields`: list of declared configuration fields
-
-Recommended field types supported by the frontend:
-- `bool`
-- `string`
-- `number`
-- `select`
-
-Meaning of each type:
-- `bool` for toggle-like configuration
-- `string` for plain text input
-- `number` for numeric input
-- `select` for enumerated options, which must also provide `options`
-
-Example request when submitting plugin configuration:
+The plugin request format must be exactly:
 
 ```json
 {
   "plugin": "example",
   "data": {
+    "anything": "decided by plugin"
+  }
+}
+```
+
+Field meanings:
+- `plugin`: plugin name
+- `data`: a JSON object fully defined by the plugin itself; the frontend does not standardize its internal structure
+
+Any request that does not match the format above will cause the backend to return the full plugin list in this form:
+
+```json
+{
+  "plugin": ["plugin-name"]
+}
+```
+
+Frontend adaptation rules:
+- If the response looks like `{ "plugin": ["a", "b"] }`, treat it as the plugin list result
+- If a specific plugin is requested and there is no reply from that plugin, treat it as “this plugin has no configurable items”
+- If a specific plugin replies, the reply format is entirely defined by that plugin; if it wants to be rendered automatically by the generic frontend settings page, it should follow the frontend protocol below
+
+In other words, this layer only guarantees:
+- a fixed request format from the frontend to a plugin
+- a fixed plugin-list response format
+- “no reply” means “no configuration items”
+
+Everything else, including configuration fields, content shape, and status representation for an individual plugin, is defined by the plugin itself.
+
+### Frontend Standard Inside `data`
+To let the frontend generate plugin settings cards automatically, the frontend currently expects the following protocol inside `data`. Everything outside `data` is handled by the backend, so the plugin only needs to care about the `data` object itself.
+
+```json
+{
+  "plugin": "example",
+  "data": {
+    "protocol": "frontend-plugin-settings",
+    "version": 1,
+    "action": "describe"
+  }
+}
+```
+
+Field meanings:
+- `protocol`: must be `frontend-plugin-settings`
+- `version`: currently fixed to `1`
+- `action`: the operation initiated by the frontend
+- `values`: a field-value object submitted when `action` is `save`; keys correspond one-to-one with `fields[].key`
+
+Currently supported actions:
+- `describe`: request the plugin's settings description, status, and current values
+- `save`: submit the current form values
+
+### Frontend Request Flow
+The settings page currently behaves like this:
+
+1. The frontend requests `/plugins`
+2. If the backend returns `{ "plugin": ["a", "b"] }`, the frontend treats it as the plugin-name list
+3. The frontend then sends a separate `describe` request for each plugin
+4. If a plugin does not reply at all, the frontend treats it as “this plugin has no configurable items”
+5. If a plugin replies but the format does not follow this document, the frontend keeps the card but does not auto-render a form
+6. When the user clicks save, the frontend sends a `save` request
+7. After a successful `save`, the frontend immediately sends another `describe` request for that same plugin to refresh the latest status and values
+
+In practice, a plugin should assume that:
+- `describe` may be called many times, not just once when the page opens
+- a successful `save` is usually followed by another `describe` very soon
+
+Example save request:
+
+```json
+{
+  "plugin": "example",
+  "data": {
+    "protocol": "frontend-plugin-settings",
+    "version": 1,
+    "action": "save",
+    "values": {
+      "enabled": true,
+      "mode": "safe"
+    }
+  }
+}
+```
+
+### What the Plugin Actually Receives on `save`
+`values` is a plain object. Each key comes from the `key` declared in `fields`. The frontend does not send extra wrappers or dirty-field metadata; it submits the full current form state each time.
+
+Example:
+
+```json
+{
+  "protocol": "frontend-plugin-settings",
+  "version": 1,
+  "action": "save",
+  "values": {
     "enabled": true,
-    "apiUrl": "http://127.0.0.1:8080",
+    "mode": "safe",
+    "retryCount": 3
+  }
+}
+```
+
+The actual value rules are:
+- `string`: always a JSON string
+- `number`: always a JSON number; if the user clears the input, the plugin receives `null`
+- `boolean`: always `true` or `false`
+- `select`: always a JSON string equal to the selected `options[].value`
+
+Do not assume that:
+- a `number` field is always non-empty
+- a `select` value is always still valid for your backend logic
+
+The plugin should perform final validation and fallback handling itself.
+
+### Plugin Description Response Format
+If a plugin wants to be rendered automatically as a generic settings form, it should return something like this after receiving `describe`:
+
+```json
+{
+  "protocol": "frontend-plugin-settings",
+  "version": 1,
+  "name": "Example Plugin",
+  "description": "Used to demonstrate plugin configuration",
+  "status": {
+    "type": "ready",
+    "text": "Working normally"
+  },
+  "fields": [
+    {
+      "key": "enabled",
+      "label": "Enable Plugin",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "mode",
+      "label": "Mode",
+      "type": "select",
+      "options": [
+        { "label": "Safe", "value": "safe" },
+        { "label": "Fast", "value": "fast" }
+      ],
+      "default": "safe"
+    }
+  ],
+  "values": {
+    "enabled": true,
+    "mode": "safe"
+  },
+  "submitLabel": "Save Plugin Settings"
+}
+```
+
+Response field meanings:
+- `protocol`: must be `frontend-plugin-settings`
+- `version`: must be `1`
+- `name`: card title; if omitted, the frontend falls back to the plugin name
+- `description`: card description; may be an empty string
+- `status`: current plugin status
+- `fields`: field-definition array
+- `values`: current field-value object
+- `submitLabel`: text shown on the save button; optional
+
+### Field Definition Rules
+Each field must at least provide:
+
+```json
+{
+  "key": "enabled",
+  "label": "Enable Plugin",
+  "type": "boolean"
+}
+```
+
+Supported field properties:
+- `key`: unique field identifier; used as the key inside `values` during save
+- `label`: display label shown in the frontend
+- `type`: field type
+- `description`: optional field description
+- `placeholder`: optional placeholder; meaningful for `string` and `number`
+- `input`: input type; meaningful only for `string`, currently `text`, `password`, or `url`
+- `options`: required for `select`
+- `default`: optional default value
+
+### How Each Field Type Renders and Saves
+`string`
+- Rendered as a single-line input
+- If `input` is omitted, it is treated as a plain text input
+- `input: "password"` renders as a password field
+- `input: "url"` renders as a URL input; this only affects frontend validation and does not imply that the plugin runs as a standalone service
+- Saved as a JSON string
+
+`number`
+- Rendered as a numeric input
+- Saved as a JSON number when the input contains a valid number
+- Saved as `null` when the user clears the field
+- `default` should be a number or `null`
+
+`boolean`
+- Rendered as a checkbox
+- Always saved as `true` or `false`
+- `default` should be a boolean
+
+`select`
+- Rendered as a dropdown
+- `options` is required
+- Each option must be `{ "label": "shown text", "value": "actual value" }`
+- Saved as the selected `value` string
+- `default` should be one of the `options[].value` entries
+
+### `values` Rules
+`values` tells the frontend the current effective values. It should be a plain object without extra metadata.
+
+Example:
+
+```json
+{
+  "values": {
+    "enabled": true,
+    "retryCount": 3,
     "mode": "safe"
   }
 }
 ```
 
-Example success response:
+The frontend handles missing values as follows:
+- if a field is missing in `values`, the frontend falls back to `default`
+- missing `string` becomes an empty string if no `default` is available
+- missing `number` becomes empty if no `default` is available
+- missing `boolean` becomes `false` or `default`
+- missing `select` falls back to `default`, then to the first available option
+
+### `status` Rules
+Recommended shape:
 
 ```json
 {
-  "ok": true,
-  "plugin": "example",
-  "status": "ready",
-  "statusText": "Saved successfully",
-  "errors": []
+  "status": {
+    "type": "ready",
+    "text": "Working normally"
+  }
 }
 ```
 
-Example failure response:
-
-```json
-{
-  "ok": false,
-  "plugin": "example",
-  "status": "error",
-  "statusText": "Configuration validation failed",
-  "errors": [
-    {
-      "key": "apiUrl",
-      "message": "The URL cannot be empty"
-    }
-  ]
-}
-```
-
-The following status values are recommended so the frontend can determine plugin state directly:
+Supported status types:
 - `ready`
-- `unconfigured`
-- `disabled`
+- `info`
+- `warning`
 - `error`
+
+`text` is displayed directly in the card status area, so it should be a short user-facing sentence, not a debug log.
+
+### Plugin Development Notes
+- `describe` should be idempotent and safe to call repeatedly
+- `save` should ideally validate and persist, then leave the final refreshed state to the next `describe`
+- if a plugin wants to stay outside the generic frontend settings flow, simply do not reply to `describe`
+- if a plugin needs a fully custom UI, it may still return custom content; the current frontend will keep the card but mark it as not using the generic frontend protocol
+
+If a plugin replies with content but does not follow this protocol, the frontend will still keep the plugin card, but it will not auto-generate a settings form and will instead indicate that the plugin has not adopted the generic frontend protocol.
