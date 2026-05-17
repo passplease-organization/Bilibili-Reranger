@@ -100,6 +100,8 @@ WorkingMode crawlTask::byName(const char *name) {
 
 Nullable Group* crawlTask::getGroup(const char* groupName,const char* platform) noexcept{
     if (groupName == nullptr || platform == nullptr) {
+        if (groups.size() <= workingOn)
+            cppUtil::throwError("错误工作位点：",workingOn,"当前group大小仅为",groups.size());
         return groups[workingOn];
     }
     if (const auto& key = makeGroupKey(groupName,platform); groupIndex.contains(key))
@@ -119,10 +121,8 @@ bool crawlTask::registerTask(const char* groupName,const char* platform,Task* ta
         group = &temp;
         registerGroup(group);
     }
-    if(group == nullptr) {
+    if(group == nullptr)
         cppUtil::throwError("Register task failed due to get group failed");
-        return false;
-    }
     return group -> registerTask(task);
 }
 
@@ -139,9 +139,9 @@ bool crawlTask::registerGroup(Group *group, const char *groupName,const char* pl
     if (resolvedName == nullptr || resolvedPlatform == nullptr)
         return false;
 #ifdef TEST
-    if (filterActive && resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS)){
+    if (filterActive && (resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS))){
 #else
-    if (filterActive && resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second) {
+    if (filterActive && (resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second)) {
 #endif
         return true;
     }

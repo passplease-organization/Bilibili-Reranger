@@ -30,10 +30,10 @@ struct CrawlInfo {
     #define INFO_BODY(key) crawlInfo -> body[key]
 };
 
-extern thread_local CrawlInfo const* crawlInfo;
+extern "C" API thread_local CrawlInfo const* crawlInfo;
 extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 int startWork();
 
 
-API bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);
+extern "C" API bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);
