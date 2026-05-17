@@ -366,7 +366,20 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
                 DoWhileAction{false,5,
                     CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/space/wbi/arc/search"},
                     ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
-                }
+                },
+                CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/space/wbi/arc/search"},
+            };
+        }
+        case crawlTask::WorkingMode::CATEGORY: {
+            return {
+                context,
+                UrlAction{BILIBILI_MAIN_PAGE_URL "c/" + string(task -> keyword)},
+                ScrollDownAction{},
+                DoWhileAction{false,5,
+                    CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/region"},
+                    ScrollDownAction{}
+                },
+                CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/region"},
             };
         }
         case crawlTask::WorkingMode::TAG:
@@ -378,7 +391,8 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
                 DoWhileAction{false,5,
                     CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
                     ClickAction{ElementSelector::SelectMode::CLASS,"vui_button vui_pagenation--btn vui_pagenation--btn-side",1}
-                }
+                },
+                CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
             };
         }
         case crawlTask::WorkingMode::HOME_PAGE_FILTER: {
@@ -389,7 +403,8 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
                 DoWhileAction{false,5,
                     CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
                     ClickAction{ElementSelector::SelectMode::CLASS,"primary-btn roll-btn"}
-                }
+                },
+                CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
             };
         }
         default: return nullWorker();
@@ -521,7 +536,8 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                     return;
                 if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array())
                     for (const auto& video : videos)
-                        checkVideo(Video::fromJson(video));
+                        if(const auto& v = Video::fromJson(video); checkVideo(v))
+                            webAPI::keepVideo(v,groupName,this -> support().c_str());
             };
             forEachWhileData(crawlData) {
                 auto stringData = crawlData.dump();
@@ -534,8 +550,48 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                         if (!EmptyCrawlData(__data))
                             resolver(__data[CrawlData]);
             }
+            const auto& j = json[3];
+            if (j.is_object())
+                if (!EmptyCrawlData(j))
+                    resolver(j[CrawlData]);
             if (empty)
                 cppUtil::warn("浏览器爬取的数据都是空的！",crawlData);
+            return !empty;
+        }
+        case crawlTask::WorkingMode::CATEGORY : {
+            const auto& data = json[2];
+            if (!validWhileData(data))
+                return false;
+            bool empty = true;
+            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+                empty = false;
+                #define SEARCH_BILIBILI_VIDEOS_CATEGORY "archives"
+                if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS_CATEGORY))
+                    return;
+                const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_CATEGORY];
+                if (!videos.is_array())
+                    return;
+                for (const auto& video : videos)
+                    if(const auto& v = Video::fromJson(video); checkVideo(v))
+                        webAPI::keepVideo(v,groupName,this -> support().c_str());
+            };
+            forEachWhileData(data) {
+                auto stringData = data.dump();
+                const auto& _data = _crawlData[0];
+                if (_data.is_object()) {
+                    if (!EmptyCrawlData(_data))
+                        resolver(_data[CrawlData]);
+                }else if (_data.is_array())
+                    for (const auto& __data : _data)
+                        if (!EmptyCrawlData(__data))
+                            resolver(__data[CrawlData]);
+            }
+            const auto& j = json[3];
+            if (j.is_object())
+                if (!EmptyCrawlData(j))
+                    resolver(j[CrawlData]);
+            if (empty)
+                cppUtil::warn("浏览器爬取的数据都是空的！",data);
             return !empty;
         }
         case crawlTask::WorkingMode::TAG :
@@ -552,8 +608,10 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                 const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_SEARCH];
                 if (!videos.is_array())
                     return;
-                for (const auto& video : videos)
-                    checkVideo(Video::fromJson(video));
+                for (const auto& video : videos) {
+                    if(const auto& v = Video::fromJson(video); checkVideo(v))
+                        webAPI::keepVideo(v,groupName,this -> support().c_str());
+                }
             };
             forEachWhileData(data) {
                 auto stringData = data.dump();
@@ -566,6 +624,10 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                         if (!EmptyCrawlData(__data))
                             resolver(__data[CrawlData]);
             }
+            const auto& j = json[3];
+            if (j.is_object())
+                if (!EmptyCrawlData(j))
+                    resolver(j[CrawlData]);
             if (empty)
                 cppUtil::warn("浏览器爬取的数据都是空的！",data);
             return !empty;
@@ -586,7 +648,8 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                 for (const auto& video : videos) {
                     if (!isHomePageVideo(video))
                         continue;
-                    checkVideo(Video::fromJson(normalizeHomePageVideo(video)));
+                    if(const auto& v = Video::fromJson(video); checkVideo(v))
+                        webAPI::keepVideo(v,groupName,this -> support().c_str());
                 }
             };
             forEachWhileData(data) {
@@ -600,6 +663,10 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                         if (!EmptyCrawlData(__data))
                             resolver(__data[CrawlData]);
             }
+            const auto& j = json[3];
+            if (j.is_object())
+               if (!EmptyCrawlData(j))
+                   resolver(j[CrawlData]);
             if (empty)
                 cppUtil::warn("浏览器爬取的数据都是空的！",data);
             return !empty;

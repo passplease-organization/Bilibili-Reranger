@@ -30,11 +30,79 @@ string toReadableTime(long long publishTime){// TODO 时间解析有问题
 }
 
 namespace {
+    string formatDurationFromSeconds(const long long duration) {
+        const auto hours = duration / 3600;
+        const auto minutes = duration % 3600 / 60;
+        const auto seconds = duration % 60;
+
+        std::stringstream stream;
+        if (hours > 0) {
+            stream << hours << ":"
+                   << std::setw(2) << std::setfill('0') << minutes << ":";
+        }else {
+            stream << minutes << ":";
+        }
+        stream << std::setw(2) << std::setfill('0') << seconds;
+        return stream.str();
+    }
+
     bool hasAnyField(const Json& json,const initializer_list<const char*> fields) {
         for (const auto* field : fields)
             if (json.contains(field))
                 return true;
         return false;
+    }
+
+    bool missingOrNull(const Json& json, const char* field) {
+        return !json.contains(field) || json[field].is_null();
+    }
+
+    Json normalizeVideoJson(Json json) {
+        if (!json.is_object())
+            return json;
+
+        if (json.contains("owner") && json["owner"].is_object()) {
+            const auto& owner = json["owner"];
+            if (missingOrNull(json, "author") && owner.contains("name"))
+                json["author"] = owner["name"];
+            if (missingOrNull(json, "mid") && owner.contains("mid"))
+                json["mid"] = owner["mid"];
+        }
+
+        if (json.contains("author") && json["author"].is_object()) {
+            const auto& author = json["author"];
+            if (author.contains("name"))
+                json["author"] = author["name"];
+            if (missingOrNull(json, "mid") && author.contains("mid"))
+                json["mid"] = author["mid"];
+        }
+
+        if (missingOrNull(json, "pic") && json.contains("cover"))
+            json["pic"] = json["cover"];
+
+        if (missingOrNull(json, "description"))
+            json["description"] = "";
+
+        if (json.contains("stat") && json["stat"].is_object()) {
+            const auto& stat = json["stat"];
+            if (missingOrNull(json, "play") && stat.contains("view"))
+                json["play"] = stat["view"];
+            if (missingOrNull(json, "video_review") && stat.contains("danmaku"))
+                json["video_review"] = stat["danmaku"];
+        }
+
+        if (missingOrNull(json, "length") && json.contains("duration")) {
+            const auto& duration = json["duration"];
+            if (duration.is_number_integer() || duration.is_number_unsigned())
+                json["length"] = formatDurationFromSeconds(duration.get<long long>());
+            else if (duration.is_string())
+                json["length"] = duration;
+        }
+
+        if (missingOrNull(json, "arcurl") && json.contains("uri"))
+            json["arcurl"] = json["uri"];
+
+        return json;
     }
 
 #ifdef DEVELOP
@@ -63,7 +131,6 @@ namespace {
         requireField(json, "title", missing);
         requireField(json, "author", missing);
         requireField(json, "description", missing);
-        requireField(json, "mid", missing);
         requireAnyField(json, {"bvid", "arcurl"}, "bvid/arcurl", missing);
         requireAnyField(json, {"length", "duration"}, "length/duration", missing);
         requireField(json, "pic", missing);
@@ -86,9 +153,24 @@ namespace {
     }
 
     string getVideoDurationFromJson(const Json& json) {
-        if (json.contains("length"))
-            return json["length"].get<string>();
-        return json["duration"].get<string>();
+        if (json.contains("length")) {
+            const auto& length = json["length"];
+            if (length.is_string())
+                return length.get<string>();
+            if (length.is_number_integer() || length.is_number_unsigned())
+                return formatDurationFromSeconds(length.get<long long>());
+        }
+        if (json.contains("duration")) {
+            const auto& duration = json["duration"];
+            if (duration.is_string())
+                return duration.get<string>();
+            if (duration.is_number_integer() || duration.is_number_unsigned())
+                return formatDurationFromSeconds(duration.get<long long>());
+        }
+        string error("Invalid Json Format !!! Json :\n");
+        error += to_string(json);
+        cppUtil::throwError(error);
+        return "";
     }
 }
 
@@ -96,21 +178,21 @@ namespace webAPI{
     thread_local const Video* _nowVideo;
 
     Video::Video(const Json &json) {
-        this -> json = json;
+        this -> json = normalizeVideoJson(json);
 #ifdef DEVELOP
-        validateVideoJsonFields(json);
+        validateVideoJsonFields(this -> json);
 #endif
-        _publishTime = getPublishTimeFromJson(json);
-        _title = json["title"].get<std::string>();
-        _author = json["author"].get<std::string>();
-        _description = json["description"].get<std::string>();
-        _mid = json["mid"].get<long long>();
-        _url = getVideoURLFromJson(json);
-        _duration = getVideoDurationFromJson(json);
-        _image = getImageURLFromJson(json);
+        _publishTime = getPublishTimeFromJson(this -> json);
+        _title = this -> json["title"].get<std::string>();
+        _author = this -> json["author"].get<std::string>();
+        _description = this -> json["description"].get<std::string>();
+        _mid = json.contains("mid") ? this -> json["mid"].get<long long>() : WRONG_MID;
+        _url = getVideoURLFromJson(this -> json);
+        _duration = getVideoDurationFromJson(this -> json);
+        _image = getImageURLFromJson(this -> json);
         _string_publishTime = toReadableTime(publishTime());
-        _views = json["play"].get<unsigned int>();
-        _popups = json["video_review"].get<unsigned int>();
+        _views = this -> json["play"].get<unsigned int>();
+        _popups = this -> json["video_review"].get<unsigned int>();
         format();
     }
 

@@ -343,6 +343,25 @@ void test() {
             OUTPUT(SET_OUTPUT,SET_NO_SLASH);
         }
 
+        {
+            const Json videoJson = Json::parse(R"json({"av_feature":null,"business_info":null,"bvid":"BV1kaoEBhEpo","cid":37790092896,"dislike_switch":1,"dislike_switch_pc":1,"duration":2982,"enable_vt":0,"goto":"av","id":116460286645708,"is_followed":0,"is_stock":0,"ogv_info":null,"owner":{"face":"https://i0.hdslb.com/bfs/face/9a06bde169d709c448e4927376f6c0483a9b7dce.jpg","mid":3493130242362171,"name":"Minecraft辰天"},"pic":"http://i2.hdslb.com/bfs/archive/21030591bd5e91a2849c52fb031ddd013c1ce957.jpg","pic_4_3":"http://i0.hdslb.com/bfs/archive/7144a92d1d9f84c2b720608726d1dea17f0e3e2c.jpg","pos":0,"pubdate":1777043498,"rcmd_reason":{"reason_type":0},"room_info":null,"show_info":1,"stat":{"danmaku":837,"like":1663,"view":53679,"vt":0},"title":"【我的世界】挑战压缩木剑生存一口气带你看完！","track_id":"web_pegasus_0.router-web-pegasus-2479516-f6fct.1779002738942.483","uri":"https://www.bilibili.com/video/BV1kaoEBhEpo","vt_display":""})json");
+            const auto video = webAPI::Video::fromJson(videoJson);
+            if (string(video.author()) != "Minecraft辰天")
+                markFailed(error,"Video normalization failed: author");
+            if (string(video.description()) != "")
+                markFailed(error,"Video normalization failed: description");
+            if (video.mid() != 3493130242362171LL)
+                markFailed(error,"Video normalization failed: mid");
+            if (string(video.duration()) != "49:42")
+                markFailed(error,"Video normalization failed: duration");
+            if (video.views() != 53679U)
+                markFailed(error,"Video normalization failed: views");
+            if (video.popups() != 837U)
+                markFailed(error,"Video normalization failed: popups");
+            if (string(video.url()) != "https://www.bilibili.com/video/BV1kaoEBhEpo")
+                markFailed(error,"Video normalization failed: url");
+        }
+
 #if ALL_CONTAINER_ONLINE
         _say("Login status:");
         response = Post(

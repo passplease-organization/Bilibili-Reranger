@@ -260,6 +260,8 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
     int count = 0;
     try {
         const auto& handler = crawlInfo -> client -> handler();
+        if (handler == nullptr)
+            cppUtil::throwError("空Handler，客户端可能未初始化！");
         bool back = true;
         do{
             count++;
@@ -295,7 +297,8 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
             writeSession(session,data,!back);
             cppUtil::say("正式爬取已结束，接下来准备预爬取，当前状态：",back ? "成功" : "失败");
             cpr::Post(
-                cpr::Url{"localhost:" + to_string(config<int>(PORT)) + "/?" URL_PARAMS_CATEGORY "=" + crawlInfo -> target + "&" URL_PARAMS_CLIENT_ID "=" + crawlInfo -> clientId + "&" URL_PARAMS_PREPARED "=true"}
+                cpr::Url{"localhost:" + to_string(config<int>(PORT))},
+                cpr::Parameters{{URL_PARAMS_CATEGORY,crawlInfo -> target},{URL_PARAMS_PREPARED,"true"},{URL_PARAMS_CLIENT_ID,crawlInfo -> clientId}}
             );
             return back;
         }
@@ -377,9 +380,5 @@ bool webAPI::socialAPI::checkVideo(const Video & video) const {
     const char* groupName = group == nullptr ? "" : group -> name;
     if (duplicateVideo(video,groupName,this -> support().c_str()))
         return false;
-    if(roughCheckVideo() && finalCheckVideo()) {
-        webAPI::keepVideo(video,groupName,this -> support().c_str());
-        return true;
-    }
-    return false;
+    return roughCheckVideo() && finalCheckVideo();
 }

@@ -23,6 +23,7 @@ namespace crawlTask{
     enum struct WorkingMode {
         SEARCH,
         SUBSCRIBE,
+        CATEGORY,
         TAG,
         HOME_PAGE_FILTER
     };

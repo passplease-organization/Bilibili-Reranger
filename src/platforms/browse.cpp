@@ -251,9 +251,16 @@ Json DoWhileAction::_toJson() const {
     return json;
 }
 
+Json ScrollDownAction::_toJson() const {
+    Json json;
+    json[ScrollDownActionCount] = counts;
+    return json;
+}
+
 BrowseWorkingContext BrowseWorkingContext::EMPTY{};
 
 std::string UrlAction::_name = "UrlAction";
 std::string ClickAction::_name = "ClickAction";
 std::string CrawlAction::_name = "CrawlAction";
 std::string DoWhileAction::_name = "DoWhileAction";
+std::string ScrollDownAction::_name = "ScrollDownAction";

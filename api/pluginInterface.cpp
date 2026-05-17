@@ -64,6 +64,9 @@ const char* crawlTask::getName(WorkingMode mode){
         case WorkingMode::SUBSCRIBE: {
             return "关注列表匹配模式";
         }
+        case WorkingMode::CATEGORY: {
+            return "分类";
+        }
         case WorkingMode::TAG: {
             return "视频标签匹配模式";
         }
@@ -72,7 +75,6 @@ const char* crawlTask::getName(WorkingMode mode){
         }
         default: {
             cppUtil::throwError("Unknown WorkingMode Type !");
-            return "Error";
         }
     }
 }
@@ -90,6 +92,8 @@ WorkingMode crawlTask::byName(const char *name) {
         return WorkingMode::SEARCH;
     if(mode == "关注列表匹配模式")
         return WorkingMode::SUBSCRIBE;
+    if (mode == "分类")
+        return WorkingMode::CATEGORY;
     if(mode == "视频标签匹配模式")
         return WorkingMode::TAG;
     if(mode == "主页筛选")
@@ -100,8 +104,6 @@ WorkingMode crawlTask::byName(const char *name) {
 
 Nullable Group* crawlTask::getGroup(const char* groupName,const char* platform) noexcept{
     if (groupName == nullptr || platform == nullptr) {
-        if (groups.size() <= workingOn)
-            cppUtil::throwError("错误工作位点：",workingOn,"当前group大小仅为",groups.size());
         return groups[workingOn];
     }
     if (const auto& key = makeGroupKey(groupName,platform); groupIndex.contains(key))
@@ -245,8 +247,9 @@ Nullable Task *crawlTask::nextTask(bool move) {
 }
 
 Task *crawlTask::nowTask() noexcept(false){
-    auto group = getGroup();
-    if(group != nullptr){
+    if (!validIndex(workingIndex()))
+        return nullptr;
+    if(auto group = getGroup(); group != nullptr){
         return group -> nowTask();
     }
     //        throwError("Wrong working status !");

@@ -259,6 +259,28 @@ class DoWhileAction extends Worker {
     }
 }
 
+class ScrollDownAction extends Worker{
+    public readonly count: number;
+    public constructor(info: unknown) {
+        super(info);
+        type correct = {
+            count: number
+        };
+        this.count = (info as correct).count;
+    }
+
+    public async work(handler: Handler): Promise<WorkResult | WorkResult[]> {
+        handler.logger.info({count: this.count}, "页面滚动开始");
+        for (let i = 0; i < this.count; i++) {
+            await handler.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await handler.page.waitForTimeout(100);
+        }
+        handler.logger.info({count: this.count}, "页面滚动完成");
+        return {};
+    }
+
+}
+
 export default function serverInit(){
     registerWorker("UrlAction",{
         getWorker: info => new UrlAction(info)
@@ -271,5 +293,8 @@ export default function serverInit(){
     });
     registerWorker("DoWhileAction",{
         getWorker: info => new DoWhileAction(info)
+    });
+    registerWorker("ScrollDownAction",{
+        getWorker: info => new ScrollDownAction(info)
     });
 }
