@@ -4,7 +4,7 @@ import {
   FRONTEND_PLUGIN_SETTINGS_VERSION,
   inspectPluginDescribeResponse,
   parsePluginListResponse
-} from "@/pages/settings/pluginProtocol.ts";
+} from "@/component/utils/pluginProtocol.ts";
 
 describe("pluginProtocol", () => {
   it("parses backend plugin list envelope", () => {

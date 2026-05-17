@@ -5,7 +5,7 @@ import type {
   PluginFieldDefinition,
   PluginScalarValue,
   PluginStatusTone
-} from "@/pages/settings/pluginProtocol.ts";
+} from "@/component/utils/pluginProtocol.js";
 
 type PluginCardState = "loading" | "empty" | "unsupported" | "ready" | "error";
 

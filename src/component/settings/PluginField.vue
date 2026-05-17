@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed} from "vue";
-import type {PluginFieldDefinition, PluginScalarValue} from "@/pages/settings/pluginProtocol.ts";
+import type {PluginFieldDefinition, PluginScalarValue} from "@/component/utils/pluginProtocol.js";
 
 const props = defineProps<{
   field: PluginFieldDefinition;

@@ -12,7 +12,7 @@ import {
   type PluginFieldDefinition,
   type PluginScalarValue,
   type PluginStatusTone
-} from "@/pages/settings/pluginProtocol.ts";
+} from "@/component/utils/pluginProtocol.js";
 import {onMounted, reactive, ref} from "vue";
 
 type PluginCardState = "loading" | "empty" | "unsupported" | "ready" | "error";
