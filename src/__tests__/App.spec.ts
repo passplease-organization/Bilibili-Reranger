@@ -1,11 +1,44 @@
-import { describe, it, expect } from 'vitest'
+import {describe, expect, it, vi} from "vitest";
+import {mount} from "@vue/test-utils";
 
-import { mount } from '@vue/test-utils'
-import App from '../pages/App.vue'
+vi.mock("@/pages/settings/backendSetup.ts", () => ({
+  getValid: () => false,
+  initBackend: vi.fn(),
+  setup: vi.fn().mockResolvedValue({}),
+}));
 
-describe('App', () => {
-  it('mounts renders properly', () => {
-    const wrapper = mount(App)
-    expect(wrapper.text()).toContain('You did it!')
-  })
-})
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation(() => ({
+    matches: false,
+    media: "",
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+describe("App", () => {
+  it("renders primary navigation", async () => {
+    const {default: App} = await import("../pages/App.vue");
+    const wrapper = mount(App, {
+      global: {
+        stubs: {
+          "router-link": {
+            template: "<a><slot /></a>",
+          },
+          "router-view": {
+            template: "<div />",
+          },
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain("首页");
+    expect(wrapper.text()).toContain("登录");
+    expect(wrapper.text()).toContain("设置");
+  });
+});
