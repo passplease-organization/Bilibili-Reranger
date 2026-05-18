@@ -64,6 +64,9 @@ const char* crawlTask::getName(WorkingMode mode){
         case WorkingMode::SUBSCRIBE: {
             return "关注列表匹配模式";
         }
+        case WorkingMode::CATEGORY: {
+            return "分类";
+        }
         case WorkingMode::TAG: {
             return "视频标签匹配模式";
         }
@@ -72,7 +75,6 @@ const char* crawlTask::getName(WorkingMode mode){
         }
         default: {
             cppUtil::throwError("Unknown WorkingMode Type !");
-            return "Error";
         }
     }
 }
@@ -90,6 +92,8 @@ WorkingMode crawlTask::byName(const char *name) {
         return WorkingMode::SEARCH;
     if(mode == "关注列表匹配模式")
         return WorkingMode::SUBSCRIBE;
+    if (mode == "分类")
+        return WorkingMode::CATEGORY;
     if(mode == "视频标签匹配模式")
         return WorkingMode::TAG;
     if(mode == "主页筛选")
@@ -119,10 +123,8 @@ bool crawlTask::registerTask(const char* groupName,const char* platform,Task* ta
         group = &temp;
         registerGroup(group);
     }
-    if(group == nullptr) {
+    if(group == nullptr)
         cppUtil::throwError("Register task failed due to get group failed");
-        return false;
-    }
     return group -> registerTask(task);
 }
 
@@ -139,9 +141,9 @@ bool crawlTask::registerGroup(Group *group, const char *groupName,const char* pl
     if (resolvedName == nullptr || resolvedPlatform == nullptr)
         return false;
 #ifdef TEST
-    if (filterActive && resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS)){
+    if (filterActive && (resolvedName != groupFilter.first || (resolvedPlatform != groupFilter.second && groupFilter.second != ALL_PLATFORMS))){
 #else
-    if (filterActive && resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second) {
+    if (filterActive && (resolvedName != groupFilter.first || resolvedPlatform != groupFilter.second)) {
 #endif
         return true;
     }
@@ -245,8 +247,9 @@ Nullable Task *crawlTask::nextTask(bool move) {
 }
 
 Task *crawlTask::nowTask() noexcept(false){
-    auto group = getGroup();
-    if(group != nullptr){
+    if (!validIndex(workingIndex()))
+        return nullptr;
+    if(auto group = getGroup(); group != nullptr){
         return group -> nowTask();
     }
     //        throwError("Wrong working status !");

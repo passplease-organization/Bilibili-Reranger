@@ -104,7 +104,10 @@ int startWork() {
                 continue;
             }
             const auto& url = request.target();
-            boost::urls::url_view p = *boost::urls::parse_uri_reference(url);
+            auto&& u = boost::urls::parse_uri_reference(url);
+            boost::urls::url_view p;
+            if (u.has_value())
+                p = *u;
 
             std::string category,clientId;
             if (p.has_query())

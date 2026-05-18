@@ -327,4 +327,23 @@ namespace webAPI {
             return _name;
         }
     };
+
+    #define ScrollDownActionCount "count"
+    class ScrollDownAction : public BrowseAction {
+    private:
+        static std::string _name;
+
+    protected:
+        [[nodiscard]] Json _toJson() const override;
+
+    public:
+        const unsigned int counts;
+        explicit ScrollDownAction(const unsigned int& counts = 1) : BrowseAction(),counts(counts) {}
+
+        ~ScrollDownAction() override = default;
+
+        [[nodiscard]] const std::string &name() const override {
+            return _name;
+        }
+    };
 }

@@ -50,6 +50,8 @@ inline void initGroups(){
 
     a = new crawlTask::Task("主页筛选",25,crawlTask::WorkingMode::HOME_PAGE_FILTER);
     mainPage.registerTask(a);
+    a = new crawlTask::Task("knowledge",20,crawlTask::WorkingMode::CATEGORY);
+    mainPage.registerTask(a);
 }
 
 inline void exampleConfig(){

@@ -153,6 +153,22 @@ jobs:
           docker stop run-test
         continue-on-error: true
 
+      - name: Build SDK artifacts
+        uses: docker/build-push-action@v5
+        with:
+          context: ./
+          file: sdk.dockerfile
+          target: sdk-artifacts
+          push: false
+          outputs: type=local,dest=./sdk-output
+
+      - name: Upload SDK as workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: bilibili-reranger-sdk
+          path: ./sdk-output/
+          retention-days: 14
+
   Test-Docker-Browser:
     runs-on: ubuntu-22.04
     needs: Test-Code-Browser
