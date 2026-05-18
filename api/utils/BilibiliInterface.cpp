@@ -186,7 +186,7 @@ namespace webAPI{
         _title = this -> json["title"].get<std::string>();
         _author = this -> json["author"].get<std::string>();
         _description = this -> json["description"].get<std::string>();
-        _mid = json.contains("mid") ? this -> json["mid"].get<long long>() : WRONG_MID;
+        _mid = this -> json.contains("mid") ? this -> json["mid"].get<long long>() : WRONG_MID;
         _url = getVideoURLFromJson(this -> json);
         _duration = getVideoDurationFromJson(this -> json);
         _image = getImageURLFromJson(this -> json);
