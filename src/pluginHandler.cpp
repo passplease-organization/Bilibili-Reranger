@@ -4,6 +4,7 @@
 #include "utils/config.h"
 #include "exit.h"
 #include "webAPIs/browse.h"
+#include "webAPIs/frontend/PlatformFormater.h"
 
 #ifdef WIN32
     #include <minwindef.h>
@@ -115,6 +116,13 @@ int PluginHandler::dealRequest(boost::asio::ip::tcp::socket &socket,const Json& 
     return plugin(socket,data);
 }
 
+void PluginHandler::registerFormater(std::function<bool(const webAPI::formater::PlatformFormater&)> adder) {
+    auto plugin = (webAPI::formater::REGISTER_FORMATER) getFunction("registerFormater");
+    if (plugin == nullptr)
+        return;
+    plugin(adder);
+}
+
 const string &PluginHandler::getName() const {
     return this -> name;
 }
@@ -179,10 +187,24 @@ void PluginHandler::loadAll() {
 
 int PluginHandler::handleRequest(boost::asio::ip::tcp::socket &socket, const string &name, const Json& data) {
     for (const auto& plugin : *plugins) {
-        if (plugin->getName() == name)
+        if (plugin -> getName() == name)
             return plugin -> dealRequest(socket,data);
     }
     return success();
+}
+
+vector<webAPI::formater::PlatformFormater> PluginHandler::getFormater(const string& platform) {
+    auto formater = vector<webAPI::formater::PlatformFormater>();
+    auto adder = [&formater,&platform](const webAPI::formater::PlatformFormater& f) -> bool {
+        for (const auto& format : formater)
+            format.notSame(f);
+        if (f.platform == platform || platform.empty())
+            formater.push_back(f);
+        return true;
+    };
+    for(const auto& plugin : *plugins)
+        plugin -> registerFormater(adder);
+    return formater;
 }
 
 vector<string> *PluginHandler::searchPlugin(vector<string> *back) {

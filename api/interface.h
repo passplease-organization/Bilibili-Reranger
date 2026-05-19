@@ -66,9 +66,21 @@ typedef int (FUNCTION_CALLER *DEAL_REQUEST)(boost::asio::ip::tcp::socket& socket
 
 }
 
+namespace webAPI::formater {
+ class PlatformFormater;
+
+ /**
+  * Plugin register formater, for frontend asked format platform's user prefers
+  * @param adder may throw error (webAPI::formater::SameException), you may need try-catch
+  */
+ OPTIONAL void registerFormater(std::function<bool(const PlatformFormater&)> adder);
+ typedef void (FUNCTION_CALLER *REGISTER_FORMATER)(std::function<bool(const PlatformFormater&)> adder);
+}
+
 #define URL_PARAMS_CATEGORY "category"
 #define URL_PARAMS_PREPARED "prepared"
 #define BODY_PARAMS_PLATFORM "platform"
+#define BODY_PARAMS_NAME "name"
 //#define URL_PARAMS_USERNAME "username"
 //#define URL_PARAMS_PASSWORD "password"
 #define URL_PARAMS_CLIENT_ID "id"

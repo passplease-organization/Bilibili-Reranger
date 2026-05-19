@@ -1,6 +1,7 @@
 #include "requestHelper.h"
 #include <cpr/api.h>
 #include "utils/config.h"
+#include "webAPIs/frontend/PlatformFormater.h"
 
 #ifdef TEST
     #include "utils/BilibiliInterface.h"
@@ -301,6 +302,38 @@ int plugin(boost::asio::ip::tcp::socket& socket) {
     return back(sendMessage(socket,data.dump()));
 }
 
+int initMyAccount(boost::asio::ip::tcp::socket& socket) {
+    LOG(INIT_ACCOUNT, INIT_ACCOUNT_NO_SLASH);
+    REQUIRE_CLIENT(socket);
+    string platform;
+    if (BODY_CONTAIN(BODY_PARAMS_PLATFORM))
+        platform = INFO_BODY(BODY_PARAMS_PLATFORM).get<string>();
+    auto&& formater = PluginHandler::getFormater(platform);
+    if (!BODY_CONTAIN(BODY_PARAMS_NAME) || platform.empty())
+        return back(sendMessage(socket,Json(formater).dump()));
+    socket.close();
+    const auto& name = INFO_BODY(BODY_PARAMS_NAME).get<string>();
+    cppUtil::say("检测到工作参数，正式开始格式化当前客户端",platform,"平台推送视频，使用模板：",name);
+    for (const auto& f : formater) {
+        if (f == name) {
+            cppUtil::say("开始格式化");
+            auto worker = f.starter();
+            Json json = webAPI::getController().perform(worker);
+            int count = 0;
+            do {
+                cppUtil::say("已工作",count + 1,"次");
+                if (worker = f.judger(json);worker == webAPI::nullWorker())
+                    return success();
+                json = webAPI::getController().perform(worker);
+            }while (count++ <= config<int>(MAX_CRAWL_COUNT));
+            cppUtil::warn("工作超时！最大次数",config<int>(MAX_CRAWL_COUNT),"当前: ",count);
+            return failed();
+        }
+    }
+    cppUtil::warn("未找到匹配初始化项：",name);
+    return failed();
+}
+
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET))
         return get;
@@ -318,6 +351,8 @@ handler checkURL(const std::string& url) {
         return ::set;
     else if (url.starts_with(PLUGIN))
         return plugin;
+    else if (url.starts_with(INIT_ACCOUNT))
+        return initMyAccount;
     return nullptr;
 }
 

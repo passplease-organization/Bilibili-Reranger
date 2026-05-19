@@ -48,6 +48,8 @@ public:
 
     int dealRequest(boost::asio::ip::tcp::socket& socket,const Json& data);
 
+    void registerFormater(std::function<bool(const webAPI::formater::PlatformFormater&)> adder);
+
     [[nodiscard]] const string& getName() const;
 
     static void forEachPlugin(PluginStatus function(PluginHandler&));
@@ -74,6 +76,8 @@ public:
     static void loadAll();
 
     static int handleRequest(boost::asio::ip::tcp::socket& socket,const string& name,const Json& data);
+
+    static vector<webAPI::formater::PlatformFormater> getFormater(const string& platform);
 
 private:
     static vector<string>* searchPlugin(NotNull vector<string>* back);
