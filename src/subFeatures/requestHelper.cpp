@@ -345,14 +345,14 @@ handler checkURL(const std::string& url) {
         return key;
     else if (url.starts_with(TEST_ID))
         return testID;
+    else if (url.starts_with(INIT_ACCOUNT))
+        return initMyAccount;
     else if (url.starts_with(INIT))
         return init;
     else if (url.starts_with(SET))
         return ::set;
     else if (url.starts_with(PLUGIN))
         return plugin;
-    else if (url.starts_with(INIT_ACCOUNT))
-        return initMyAccount;
     return nullptr;
 }
 
