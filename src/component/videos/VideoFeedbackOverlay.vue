@@ -2,32 +2,74 @@
 import {computed, onBeforeUnmount, onMounted, watch} from "vue";
 import type {Video} from "@/component/videos/interfaces.ts";
 
+type Direction = "more" | "less";
+type Intent = Direction | "none";
+
 interface FeedbackTemplate {
+  id: string;
   label: string;
-  score: number;
-  tone: string;
+  description: string;
 }
 
 const props = defineProps<{
   open: boolean;
   submitting: boolean;
   video: Video | null;
-  score: number;
-  scoreInput: string;
   templates: FeedbackTemplate[];
+  overallIntent: Intent;
+  overallWeight: number;
+  overallWeightInput: string;
+  favorite: boolean;
+  dislike: boolean;
+  hideOnce: boolean;
+  authorIntent: Intent;
+  authorWeightInput: string;
+  tagWeightInput: string;
+  availableTags: string[];
+  selectedMoreTags: string[];
+  selectedLessTags: string[];
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "update:scoreInput", value: string): void;
-  (e: "apply-template", value: number): void;
+  (e: "reset"): void;
+  (e: "apply-template", value: string): void;
+  (e: "update:overallIntent", value: Intent): void;
+  (e: "update:overallWeightInput", value: string): void;
+  (e: "toggle:favorite"): void;
+  (e: "toggle:dislike"): void;
+  (e: "toggle:hideOnce"): void;
+  (e: "update:authorIntent", value: Intent): void;
+  (e: "update:authorWeightInput", value: string): void;
+  (e: "update:tagWeightInput", value: string): void;
+  (e: "toggle-tag", payload: { direction: Direction; value: string }): void;
   (e: "submit"): void;
 }>();
 
-const selectedTemplateLabel = computed(() => {
-  const current = props.templates.find((item) => item.score === props.score);
-  return current?.label ?? "自定义";
+const activeSummaryLabel = computed(() => {
+  if (props.favorite && props.overallIntent === "more") {
+    return "强烈喜欢";
+  }
+  if (props.dislike && props.overallIntent === "less") {
+    return "强烈厌恶";
+  }
+  if (props.hideOnce) {
+    return "仅隐藏本条";
+  }
+  if (props.overallIntent === "more") {
+    return "想看更多";
+  }
+  if (props.overallIntent === "less") {
+    return "想看更少";
+  }
+  return "待选择";
 });
+
+const selectedTagCount = computed(() =>
+  props.selectedMoreTags.length + props.selectedLessTags.length
+);
+
+const hasAuthorControl = computed(() => Boolean(props.video?.author));
 
 function handleBackdropClick(event: MouseEvent): void {
   if (event.target === event.currentTarget) {
@@ -87,14 +129,12 @@ onBeforeUnmount(() => {
           <div class="feedback-hero">
             <div class="feedback-copy">
               <h2 id="feedback-title" class="feedback-title">对这条视频做反馈</h2>
-              <p class="feedback-desc">
-                这次评分会直接发送给后端，平台名和视频原始数据会一并带回，用于后续推送调整。
-              </p>
+              <p class="feedback-desc">这次提交会把当前视频原始对象和你选择的整体、作者、标签倾向一起写入同一个 body，方便后端插件统一判断。</p>
             </div>
             <div class="feedback-score-badge">
-              <span>当前档位</span>
-              <strong>{{ selectedTemplateLabel }}</strong>
-              <em>{{ score > 0 ? "+" : "" }}{{ score }}</em>
+              <span>当前概览</span>
+              <strong>{{ activeSummaryLabel }}</strong>
+              <em>整体强度 {{ overallWeight }}</em>
             </div>
           </div>
 
@@ -107,65 +147,137 @@ onBeforeUnmount(() => {
           <div class="feedback-template-grid">
             <button
               v-for="item in templates"
-              :key="item.label"
+              :key="item.id"
               type="button"
               class="feedback-template"
-              :class="{ active: score === item.score }"
               :disabled="submitting"
-              @click="emit('apply-template', item.score)"
+              @click="emit('apply-template', item.id)"
             >
               <span class="feedback-template-label">{{ item.label }}</span>
-              <strong>{{ item.score > 0 ? "+" : "" }}{{ item.score }}</strong>
-              <small>{{ item.tone }}</small>
+              <small>{{ item.description }}</small>
             </button>
           </div>
 
           <div class="feedback-custom">
             <div class="feedback-custom-head">
-              <h3>自定义分值</h3>
-              <span>允许范围 -16 到 16</span>
+              <h3>整体倾向</h3>
+              <span>主表达：想看更多还是更少</span>
             </div>
+            <div class="feedback-segmented">
+              <button type="button" class="feedback-chip" :class="{ active: overallIntent === 'more' }" :disabled="submitting" @click="emit('update:overallIntent', overallIntent === 'more' ? 'none' : 'more')">更多这种视频</button>
+              <button type="button" class="feedback-chip" :class="{ active: overallIntent === 'less' }" :disabled="submitting" @click="emit('update:overallIntent', overallIntent === 'less' ? 'none' : 'less')">减少这种视频</button>
+            </div>
+            <p class="feedback-help">
+              数值越高，代表这次整体倾向越强。`1-4` 偏轻微，`5-10` 偏明确，`11-16` 偏强烈。
+            </p>
             <div class="feedback-custom-controls">
-              <input
-                class="feedback-range"
-                type="range"
-                min="-16"
-                max="16"
-                step="1"
-                :value="score"
-                :disabled="submitting"
-                @input="emit('update:scoreInput', ($event.target as HTMLInputElement).value)"
-              />
-              <input
-                class="feedback-number"
-                type="number"
-                min="-16"
-                max="16"
-                step="1"
-                :value="scoreInput"
-                :disabled="submitting"
-                @input="emit('update:scoreInput', ($event.target as HTMLInputElement).value)"
-              />
+              <input class="feedback-range" type="range" min="1" max="16" step="1" :value="overallWeight" :disabled="submitting" @input="emit('update:overallWeightInput', ($event.target as HTMLInputElement).value)" />
+              <input class="feedback-number" type="number" min="1" max="16" step="1" :value="overallWeightInput" :disabled="submitting" @input="emit('update:overallWeightInput', ($event.target as HTMLInputElement).value)" />
+            </div>
+            <div class="feedback-strength-legend">
+              <span>轻微</span>
+              <span>明确</span>
+              <span>强烈</span>
             </div>
           </div>
 
+          <div class="feedback-custom">
+            <div class="feedback-custom-head">
+              <h3>附加信号</h3>
+              <span>这些字段会和整体倾向一起提交</span>
+            </div>
+            <div class="feedback-segmented">
+              <button type="button" class="feedback-chip" :class="{ active: favorite }" :disabled="submitting" @click="emit('toggle:favorite')">标记喜爱</button>
+              <button type="button" class="feedback-chip" :class="{ active: dislike }" :disabled="submitting" @click="emit('toggle:dislike')">标记厌恶</button>
+              <button type="button" class="feedback-chip" :class="{ active: hideOnce }" :disabled="submitting" @click="emit('toggle:hideOnce')">仅隐藏这条</button>
+            </div>
+          </div>
+
+          <div v-if="hasAuthorControl" class="feedback-custom">
+            <div class="feedback-custom-head">
+              <h3>作者倾向</h3>
+              <span>{{ video?.author }}</span>
+            </div>
+            <div class="feedback-segmented">
+              <button type="button" class="feedback-chip" :class="{ active: authorIntent === 'more' }" :disabled="submitting" @click="emit('update:authorIntent', authorIntent === 'more' ? 'none' : 'more')">多推这个作者</button>
+              <button type="button" class="feedback-chip" :class="{ active: authorIntent === 'less' }" :disabled="submitting" @click="emit('update:authorIntent', authorIntent === 'less' ? 'none' : 'less')">减少这个作者</button>
+            </div>
+            <p class="feedback-help">
+              这里控制的是“以后遇到这个作者时”的倾向强弱，不只影响当前这条。数值越高，作者偏好修正越明显。
+            </p>
+            <div class="feedback-custom-controls">
+              <input class="feedback-range" type="range" min="1" max="16" step="1" :value="authorWeightInput" :disabled="submitting" @input="emit('update:authorWeightInput', ($event.target as HTMLInputElement).value)" />
+              <input class="feedback-number" type="number" min="1" max="16" step="1" :value="authorWeightInput" :disabled="submitting" @input="emit('update:authorWeightInput', ($event.target as HTMLInputElement).value)" />
+            </div>
+            <div class="feedback-strength-legend">
+              <span>轻微</span>
+              <span>明确</span>
+              <span>强烈</span>
+            </div>
+          </div>
+
+          <div class="feedback-custom">
+            <div class="feedback-custom-head">
+              <h3>标签倾向</h3>
+              <span>{{ availableTags.length ? `已选 ${selectedTagCount} 个标签` : "当前视频没有可用标签" }}</span>
+            </div>
+            <div v-if="availableTags.length" class="feedback-tag-layout">
+              <div>
+                <div class="feedback-tag-head">增加这些标签</div>
+                <div class="feedback-chip-grid">
+                  <button
+                    v-for="tag in availableTags"
+                    :key="`more-${tag}`"
+                    type="button"
+                    class="feedback-chip"
+                    :class="{ active: selectedMoreTags.includes(tag) }"
+                    :disabled="submitting || selectedLessTags.includes(tag)"
+                    @click="emit('toggle-tag', { direction: 'more', value: tag })"
+                  >
+                    {{ tag }}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div class="feedback-tag-head">减少这些标签</div>
+                <div class="feedback-chip-grid">
+                  <button
+                    v-for="tag in availableTags"
+                    :key="`less-${tag}`"
+                    type="button"
+                    class="feedback-chip"
+                    :class="{ active: selectedLessTags.includes(tag) }"
+                    :disabled="submitting || selectedMoreTags.includes(tag)"
+                    @click="emit('toggle-tag', { direction: 'less', value: tag })"
+                  >
+                    {{ tag }}
+                  </button>
+                </div>
+              </div>
+              <p class="feedback-help">
+                标签强度表示这些被选中的标签在后续推荐判断中的权重。数值越高，插件越应该把它们当作明确信号。
+              </p>
+              <div class="feedback-custom-controls">
+                <input class="feedback-range" type="range" min="1" max="16" step="1" :value="tagWeightInput" :disabled="submitting" @input="emit('update:tagWeightInput', ($event.target as HTMLInputElement).value)" />
+                <input class="feedback-number" type="number" min="1" max="16" step="1" :value="tagWeightInput" :disabled="submitting" @input="emit('update:tagWeightInput', ($event.target as HTMLInputElement).value)" />
+              </div>
+              <div class="feedback-strength-legend">
+                <span>轻微</span>
+                <span>明确</span>
+                <span>强烈</span>
+              </div>
+              <div class="feedback-inline-field">
+                <span class="feedback-tag-head">标签强度</span>
+                <span class="feedback-inline-value">{{ tagWeightInput }}</span>
+              </div>
+            </div>
+            <p v-else class="feedback-empty">后端若后续补充 `tags`、`keywords` 或 `category`，这里会自动出现更多可选标签。</p>
+          </div>
+
           <div class="feedback-actions">
-            <button
-              type="button"
-              class="feedback-action feedback-action-secondary"
-              :disabled="submitting"
-              @click="emit('close')"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              class="feedback-action feedback-action-primary"
-              :disabled="submitting"
-              @click="emit('submit')"
-            >
-              {{ submitting ? "提交中..." : "提交反馈" }}
-            </button>
+            <button type="button" class="feedback-action feedback-action-secondary" :disabled="submitting" @click="emit('reset')">重置选择</button>
+            <button type="button" class="feedback-action feedback-action-secondary" :disabled="submitting" @click="emit('close')">取消</button>
+            <button type="button" class="feedback-action feedback-action-primary" :disabled="submitting" @click="emit('submit')">{{ submitting ? "提交中..." : "提交反馈" }}</button>
           </div>
         </section>
       </div>
@@ -234,7 +346,8 @@ onBeforeUnmount(() => {
 
 .feedback-close,
 .feedback-action,
-.feedback-template {
+.feedback-template,
+.feedback-chip {
   border: none;
   font: inherit;
   cursor: pointer;
@@ -282,7 +395,6 @@ onBeforeUnmount(() => {
 .feedback-score-badge em,
 .feedback-video-summary p,
 .feedback-video-summary span,
-.feedback-template small,
 .feedback-custom-head span {
   color: var(--dark-font-color);
 }
@@ -342,6 +454,7 @@ onBeforeUnmount(() => {
     inset 0 0 0 1px color-mix(in srgb, var(--surface-border) 90%, transparent),
     var(--surface-shadow-soft);
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  color: var(--font-color);
 }
 
 .feedback-template:hover {
@@ -359,11 +472,12 @@ onBeforeUnmount(() => {
 .feedback-template-label {
   font-size: 17px;
   font-weight: 600;
+  color: var(--font-color);
 }
 
-.feedback-template strong {
-  font-size: 26px;
-  letter-spacing: -0.04em;
+.feedback-template small {
+  color: color-mix(in srgb, var(--font-color) 78%, var(--dark-font-color));
+  line-height: 1.6;
 }
 
 .feedback-custom {
@@ -373,11 +487,80 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-border) 90%, transparent);
 }
 
+.feedback-custom + .feedback-custom {
+  margin-top: 18px;
+}
+
+.feedback-segmented,
+.feedback-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.feedback-segmented {
+  margin-top: 18px;
+}
+
+.feedback-chip-grid {
+  margin-top: 12px;
+}
+
+.feedback-chip {
+  padding: 11px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--font-color) 4%, transparent);
+  color: var(--font-color);
+  transition: transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.feedback-chip.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--focus-color), #fb7299);
+}
+
+.feedback-inline-field {
+  margin-top: 18px;
+  max-width: 160px;
+}
+
+.feedback-inline-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 76px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--surface-elevated);
+  box-shadow: var(--surface-shadow-soft);
+  color: var(--font-color);
+  font-family: var(--mono-font), monospace;
+}
+
 .feedback-custom-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: 16px;
   margin-top: 18px;
+}
+
+.feedback-help {
+  margin: 16px 0 0;
+  color: var(--dark-font-color);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.feedback-strength-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--dark-font-color);
+  font-size: 12px;
+  font-family: var(--mono-font), monospace;
 }
 
 .feedback-range,
@@ -398,6 +581,30 @@ onBeforeUnmount(() => {
   box-shadow: var(--surface-shadow-soft);
   color: var(--font-color);
   font: inherit;
+  appearance: textfield;
+}
+
+.feedback-number::-webkit-outer-spin-button,
+.feedback-number::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.feedback-tag-layout {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.feedback-tag-head {
+  color: var(--dark-font-color);
+  font-size: 13px;
+}
+
+.feedback-empty {
+  margin: 18px 0 0;
+  color: var(--dark-font-color);
+  line-height: 1.7;
 }
 
 .feedback-actions {
