@@ -1,5 +1,7 @@
 #include "../utils/BilibiliInterface.h"
 
+#include <ctime>
+#include <iomanip>
 #include <initializer_list>
 #include <regex>
 #include <cpr/api.h>
@@ -105,6 +107,12 @@ namespace {
         return json;
     }
 
+    bool isFeedbackVideoJson(const Json& json) {
+        return json.is_object() && hasAnyField(json, {
+            "videoTime", "videoURL", "views", "popups"
+        });
+    }
+
 #ifdef DEVELOP
     void addMissingField(string& missing,const string& field) {
         if (!missing.empty())
@@ -140,6 +148,23 @@ namespace {
         if (!missing.empty())
             cppUtil::throwError("Invalid Bilibili video json. Missing fields: ", missing, ". Now json content: ", json.dump());
     }
+
+    void validateFeedbackVideoJsonFields(const Json& json) {
+        if (!json.is_object())
+            cppUtil::throwError("Invalid feedback video json. Expected object, now json content: ", json.dump());
+
+        string missing;
+        requireField(json, "title", missing);
+        requireField(json, "author", missing);
+        requireField(json, "url", missing);
+        requireField(json, "videoTime", missing);
+        requireField(json, "videoURL", missing);
+        requireField(json, "views", missing);
+        requireField(json, "popups", missing);
+
+        if (!missing.empty())
+            cppUtil::throwError("Invalid feedback video json. Missing fields: ", missing, ". Now json content: ", json.dump());
+    }
 #endif
 
     long long getPublishTimeFromJson(const Json& json) {
@@ -172,12 +197,61 @@ namespace {
         cppUtil::throwError(error);
         return "";
     }
+
+    string getFeedbackPublishTimeStringFromJson(const Json& json) {
+        if (!json.contains("publishTime") || json["publishTime"].is_null())
+            return "";
+        if (json["publishTime"].is_string())
+            return json["publishTime"].get<string>();
+        if (json["publishTime"].is_number_integer() || json["publishTime"].is_number_unsigned())
+            return toReadableTime(json["publishTime"].get<long long>());
+        return json["publishTime"].dump();
+    }
+
+    long long getFeedbackPublishTimeFromJson(const Json& json) {
+        if (!json.contains("publishTime") || json["publishTime"].is_null())
+            return -1;
+        if (json["publishTime"].is_number_integer() || json["publishTime"].is_number_unsigned())
+            return json["publishTime"].get<long long>();
+        if (!json["publishTime"].is_string())
+            return -1;
+
+        const auto value = json["publishTime"].get<string>();
+        std::tm time{};
+        std::istringstream stream(value);
+        stream >> std::get_time(&time, "%Y-%m-%d");
+        if (stream.fail())
+            return -1;
+        return static_cast<long long>(std::mktime(&time));
+    }
 }
 
 namespace webAPI{
     thread_local const Video* _nowVideo;
 
-    Video::Video(const Json &json) {
+    Video::Video(const Json &json): Video(json, JsonSource::Raw) {}
+
+    Video::Video(const Json &json, const JsonSource source) {
+        if (source == JsonSource::Feedback) {
+            this -> json = json;
+#ifdef DEVELOP
+            validateFeedbackVideoJsonFields(this -> json);
+#endif
+            _publishTime = getFeedbackPublishTimeFromJson(this -> json);
+            _title = this -> json["title"].get<std::string>();
+            _author = this -> json["author"].get<std::string>();
+            _description = this -> json.value("description", std::string());
+            _mid = WRONG_MID;
+            _url = this -> json["url"].get<std::string>();
+            _duration = this -> json["videoTime"].get<std::string>();
+            _image = this -> json["videoURL"].get<std::string>();
+            _string_publishTime = getFeedbackPublishTimeStringFromJson(this -> json);
+            _views = this -> json["views"].get<unsigned int>();
+            _popups = this -> json["popups"].get<unsigned int>();
+            format();
+            return;
+        }
+
         this -> json = normalizeVideoJson(json);
 #ifdef DEVELOP
         validateVideoJsonFields(this -> json);
@@ -202,6 +276,16 @@ namespace webAPI{
 
     Video Video::fromJson(const Json &json) {
         return Video{json};
+    }
+
+    Video Video::fromFeedbackJson(const Json &json) {
+        return Video{json, JsonSource::Feedback};
+    }
+
+    Video Video::fromCompatibleJson(const Json &json) {
+        if (isFeedbackVideoJson(json))
+            return fromFeedbackJson(json);
+        return fromJson(json);
     }
 
     dataStore::Data Video::toData(const webAPI::Video &video) {
