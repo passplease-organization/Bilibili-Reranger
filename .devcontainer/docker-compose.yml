@@ -24,7 +24,7 @@ services:
     domainname: backend
     volumes:
       - ./backend_config:/bilibili-backend/config
-      - ./backend_plugin:/bilibili-backend/plugins
+      #- ./backend_plugin:/bilibili-backend/plugins
     environment:
       DB_NAME: ${POSTGRES_DB:-postgres}
       DB_USER: ${POSTGRES_USER:-noname}

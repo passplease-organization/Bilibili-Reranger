@@ -1,15 +1,103 @@
 <script setup lang="ts">
-import {onMounted, ref, type Ref} from "vue";
-import {fetchBackend, getValid} from "@/pages/settings/backendSetup.ts";
+import {computed, onMounted, ref, type Ref} from "vue";
+import {fetchBackend, getValid, isAbortError} from "@/pages/settings/backendSetup.ts";
 import router from "@/router";
 import {showPopup} from "@/component/utils/screen.ts";
 import {nowPlatform} from "@/component/settings/settings.ts";
-import type {Video, VideoJson} from "@/component/videos/interfaces.ts";
+import type {RawVideoPayload, Video, VideoJson} from "@/component/videos/interfaces.ts";
 import VideoCard from "@/component/videos/VideoCard.vue";
+import VideoFeedbackOverlay from "@/component/videos/VideoFeedbackOverlay.vue";
+
+interface FeedbackTemplate {
+  label: string;
+  score: number;
+  tone: string;
+}
+
+const feedbackTemplates: FeedbackTemplate[] = [
+  { label: "厌恶", score: -12, tone: "尽量减少类似推送" },
+  { label: "讨厌", score: -6, tone: "明显偏负面反馈" },
+  { label: "可以", score: 3, tone: "轻微正向保留" },
+  { label: "喜爱", score: 12, tone: "希望明显增加类似内容" },
+];
+const defaultFeedbackScore = 3;
+
+function readString(source: RawVideoPayload, key: string): string {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function readNumber(source: RawVideoPayload, key: string): number {
+  const value = source[key];
+  return typeof value === "number" ? value : 0;
+}
+
+function mapVideo(raw: unknown): Video | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const source = raw as RawVideoPayload;
+  const url = readString(source, "url");
+  const title = readString(source, "title");
+  if (!url || !title) {
+    return null;
+  }
+  return {
+    author: readString(source, "author"),
+    description: readString(source, "description"),
+    popups: readNumber(source, "popups"),
+    publishTime: readString(source, "publishTime"),
+    title,
+    url,
+    videoTime: readString(source, "videoTime"),
+    videoURL: readString(source, "videoURL"),
+    views: readNumber(source, "views"),
+    raw: {...source},
+  };
+}
+
+function normalizeVideos(source: unknown, category: string | null): Video[] {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return [];
+  }
+  const json = source as VideoJson;
+  const records = category
+    ? json[category] ?? []
+    : Object.values(json).flat();
+  return records.map(mapVideo).filter((item): item is Video => item !== null);
+}
 
 const categories: Ref<string[] | null> = ref(null);
 const categoriesLoading = ref(false);
 const videosLoading = ref(false);
+const activeFeedbackVideo: Ref<Video | null> = ref(null);
+const feedbackScoreInput = ref(String(defaultFeedbackScore));
+const feedbackSubmitting = ref(false);
+
+const feedbackScore = computed(() => {
+  const value = Number(feedbackScoreInput.value);
+  if (!Number.isFinite(value)) {
+    return defaultFeedbackScore;
+  }
+  return Math.max(-16, Math.min(16, Math.trunc(value)));
+});
+
+function openFeedback(video: Video): void {
+  activeFeedbackVideo.value = video;
+  feedbackScoreInput.value = String(defaultFeedbackScore);
+}
+
+function closeFeedback(): void {
+  if (feedbackSubmitting.value) {
+    return;
+  }
+  activeFeedbackVideo.value = null;
+}
+
+function applyFeedbackTemplate(score: number): void {
+  feedbackScoreInput.value = String(score);
+}
+
 onMounted(async () => {
   if(!getValid()){
     await router.push("/login");
@@ -39,12 +127,10 @@ async function getVideos(category: string | null){
     const response = await fetchBackend(category ? `/?category=${category}` : '/');
     if(response.ok || response.status == 500)
       try{
-        const json = await response.json() as VideoJson | null;
-        if(json){
-          if(category)
-            videos.value = json[category] || [];
-          else
-            videos.value = Object.values(json).flat();
+        const json = await response.json() as unknown;
+        const normalized = normalizeVideos(json, category);
+        if(normalized.length || (json && typeof json === "object")){
+          videos.value = normalized;
           showPopup(`获取视频成功`);
           return;
         }
@@ -55,6 +141,59 @@ async function getVideos(category: string | null){
   showPopup(`获取${category ?? "全部"}视频失败，请检查！`, {
     type: "error",
   });
+}
+
+async function submitFeedback(): Promise<void> {
+  const video = activeFeedbackVideo.value;
+  if (!video || feedbackSubmitting.value) {
+    return;
+  }
+  if (!nowPlatform.value) {
+    showPopup("当前没有工作平台，无法提交反馈", {
+      type: "error",
+      durationMs: 3200,
+    });
+    return;
+  }
+  feedbackSubmitting.value = true;
+  const score = feedbackScore.value;
+  feedbackScoreInput.value = String(score);
+  try {
+    const response = await fetchBackend("/feedback", {
+      method: "POST",
+      body: JSON.stringify({
+        platform: nowPlatform.value,
+        video: video.raw,
+        score,
+      }),
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      showPopup(message || "提交反馈失败", {
+        type: "error",
+        durationMs: 3600,
+      });
+      return;
+    }
+    showPopup(`已提交「${video.title}」反馈：${score > 0 ? "+" : ""}${score}`, {
+      type: "success",
+      durationMs: 3200,
+    });
+    activeFeedbackVideo.value = null;
+  } catch (error) {
+    if (isAbortError(error)) {
+      showPopup("反馈请求已取消", {
+        type: "info",
+      });
+      return;
+    }
+    showPopup(error instanceof Error ? error.message : "反馈请求异常", {
+      type: "error",
+      durationMs: 3600,
+    });
+  } finally {
+    feedbackSubmitting.value = false;
+  }
 }
 </script>
 
@@ -106,9 +245,23 @@ async function getVideos(category: string | null){
           v-for="video in videos"
           :key="video.url"
           :video="video"
+          :feedback-disabled="feedbackSubmitting && activeFeedbackVideo?.url === video.url"
+          @feedback="openFeedback"
         />
       </div>
     </div>
+    <VideoFeedbackOverlay
+      :open="activeFeedbackVideo !== null"
+      :submitting="feedbackSubmitting"
+      :video="activeFeedbackVideo"
+      :score="feedbackScore"
+      :score-input="feedbackScoreInput"
+      :templates="feedbackTemplates"
+      @close="closeFeedback"
+      @apply-template="applyFeedbackTemplate"
+      @update:score-input="feedbackScoreInput = $event"
+      @submit="submitFeedback"
+    />
   </div>
 </template>
 

@@ -1,3 +1,7 @@
+export interface RawVideoPayload {
+  [key: string]: unknown;
+}
+
 export interface Video {
   author: string;
   description: string;
@@ -8,8 +12,9 @@ export interface Video {
   videoTime: string;
   videoURL: string;
   views: number;
+  raw: RawVideoPayload;
 }
 
 export interface VideoJson {
-  [category: string]: Video[]
+  [category: string]: RawVideoPayload[]
 }

@@ -48,6 +48,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/set-my-videos/': RouteRecordInfo<
+      '/set-my-videos/',
+      '/set-my-videos',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings/': RouteRecordInfo<
       '/settings/',
       '/settings',
@@ -83,6 +90,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/login/index.vue': {
       routes:
         | '/login/'
+      views:
+        | never
+    }
+    'src/pages/set-my-videos/index.vue': {
+      routes:
+        | '/set-my-videos/'
       views:
         | never
     }
