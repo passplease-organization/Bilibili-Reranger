@@ -123,6 +123,13 @@ void PluginHandler::registerFormater(std::function<bool(const webAPI::formater::
     plugin(adder);
 }
 
+void PluginHandler::feedBack(const webAPI::formater::FeedBack &feedback) {
+    auto plugin = (FEED_BACK) getFunction("feedback");
+    if (plugin == nullptr)
+        return;
+    plugin(feedback);
+}
+
 const string &PluginHandler::getName() const {
     return this -> name;
 }

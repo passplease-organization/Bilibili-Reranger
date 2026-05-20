@@ -3,6 +3,8 @@
 #include "../browse.h"
 #include <functional>
 
+#include "../../utils/BilibiliInterface.h"
+
 namespace webAPI::formater {
     class SameException : public std::exception {
     public:
@@ -42,4 +44,19 @@ namespace webAPI::formater {
     };
 
     API void to_json(Json& json,const PlatformFormater& formater);
+
+    extern "C" {
+    struct FeedBack {
+        string name;
+        const char* _name;
+        webAPI::Video video;
+        int score;
+
+        #define MAX_SCORE 16
+        FeedBack(const char* name,webAPI::Video video,const int& score):name(name),_name{this -> name.c_str()},video(std::move(video)),score(clamp(score,-MAX_SCORE,MAX_SCORE)) {}
+        explicit FeedBack(const Json& json);
+
+        ~FeedBack() = default;
+    };
+    }
 }

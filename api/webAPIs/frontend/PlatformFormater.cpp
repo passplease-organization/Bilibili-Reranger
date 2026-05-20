@@ -17,4 +17,6 @@ namespace webAPI::formater {
         json["description"] = formater.description;
         json[BODY_PARAMS_PLATFORM] = formater.platform;
     }
+
+    FeedBack::FeedBack(const Json &json): FeedBack(json[BODY_PARAMS_NAME].get<string>().c_str(),webAPI::Video::fromJson(json[BODY_PARAMS_VIDEO]),json[BODY_PARAMS_SCORE].get<int>()) {}
 }

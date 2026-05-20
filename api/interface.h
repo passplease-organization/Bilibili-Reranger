@@ -2,6 +2,8 @@
 #include "pluginInterface.h"
 #include <boost/asio/ip/tcp.hpp>
 
+#include "webAPIs/frontend/PlatformFormater.h"
+
 #define REQUIRED
 #define OPTIONAL
 
@@ -45,6 +47,7 @@ OPTIONAL [[deprecated]] const char* getURL();
 typedef const char* (FUNCTION_CALLER *GETURL)();
 
 namespace webAPI {
+ class Video;
  class BrowseWorker;
 }
 OPTIONAL webAPI::BrowseWorker getWorker();
@@ -64,6 +67,13 @@ typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
 OPTIONAL int dealRequest(boost::asio::ip::tcp::socket& socket,const Json& data);
 typedef int (FUNCTION_CALLER *DEAL_REQUEST)(boost::asio::ip::tcp::socket& socket,const Json& data);
 
+/**
+ * Rely on client feedback change video feeds
+ * @param feedback Client feedback
+ */
+OPTIONAL void feedback(const webAPI::formater::FeedBack& feedback);
+typedef void (FUNCTION_CALLER *FEED_BACK)(const webAPI::formater::FeedBack& feedback);
+
 }
 
 namespace webAPI::formater {
@@ -81,6 +91,8 @@ namespace webAPI::formater {
 #define URL_PARAMS_PREPARED "prepared"
 #define BODY_PARAMS_PLATFORM "platform"
 #define BODY_PARAMS_NAME "name"
+#define BODY_PARAMS_VIDEO "video"
+#define BODY_PARAMS_SCORE "score"
 //#define URL_PARAMS_USERNAME "username"
 //#define URL_PARAMS_PASSWORD "password"
 #define URL_PARAMS_CLIENT_ID "id"

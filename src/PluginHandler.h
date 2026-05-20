@@ -50,6 +50,8 @@ public:
 
     void registerFormater(std::function<bool(const webAPI::formater::PlatformFormater&)> adder);
 
+    void feedBack(const webAPI::formater::FeedBack& feedback);
+
     [[nodiscard]] const string& getName() const;
 
     static void forEachPlugin(PluginStatus function(PluginHandler&));
@@ -78,6 +80,11 @@ public:
     static int handleRequest(boost::asio::ip::tcp::socket& socket,const string& name,const Json& data);
 
     static vector<webAPI::formater::PlatformFormater> getFormater(const string& platform);
+
+    static void allFeedBack(const webAPI::formater::FeedBack& feedback) {
+        for(const auto& plugin : *plugins)
+            plugin -> feedBack(feedback);
+    }
 
 private:
     static vector<string>* searchPlugin(NotNull vector<string>* back);

@@ -15,6 +15,7 @@
 #include "../PluginHandler.h"
 #include "webAPIs/browse.h"
 #include "webAPIs/socialAPI.h"
+#include "utils/BilibiliInterface.h"
 
 #define LOG(URL,NAME) \
     cppUtil::say("Accept URL: " URL);\
@@ -334,6 +335,26 @@ int initMyAccount(boost::asio::ip::tcp::socket& socket) {
     return failed();
 }
 
+int feedback(boost::asio::ip::tcp::socket& socket) {
+    LOG(FEEDBACK,FEEDBACK_NO_SLASH)
+    REQUIRE_CLIENT(socket);
+    socket.close();
+    if (!BODY_CONTAIN(BODY_PARAMS_PLATFORM) || !BODY_CONTAIN(BODY_PARAMS_VIDEO) || !BODY_CONTAIN(BODY_PARAMS_SCORE)) {
+        #ifdef DEVELOP
+            cppUtil::warn("当前请求内容为",crawlInfo -> body,"格式不准确！");
+        #else
+            cppUtil::warn("请求格式不准确，需要包含" BODY_PARAMS_PLATFORM "、" BODY_PARAMS_VIDEO "和" BODY_PARAMS_SCORE "字段");
+        #endif
+        return failed();
+    }
+    if (const auto& platform = INFO_BODY(BODY_PARAMS_PLATFORM).get<string>();crawlInfo -> client -> handler() == nullptr || platform != crawlInfo -> client -> handler() -> support()) {
+        cppUtil::warn("平台不正确！传入平台：",platform);
+        return failed();
+    }
+    PluginHandler::allFeedBack(webAPI::formater::FeedBack{crawlInfo -> body});
+    return success();
+}
+
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET))
         return get;
@@ -353,6 +374,8 @@ handler checkURL(const std::string& url) {
         return ::set;
     else if (url.starts_with(PLUGIN))
         return plugin;
+    else if (url.starts_with(FEEDBACK))
+        return feedback;
     return nullptr;
 }
 
