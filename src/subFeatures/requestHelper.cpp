@@ -312,7 +312,7 @@ int initMyAccount(boost::asio::ip::tcp::socket& socket) {
     auto&& formater = PluginHandler::getFormater(platform);
     if (!BODY_CONTAIN(BODY_PARAMS_NAME) || platform.empty())
         return back(sendMessage(socket,Json(formater).dump()));
-    socket.close();
+    sendMessage(socket,"开始工作");
     const auto& name = INFO_BODY(BODY_PARAMS_NAME).get<string>();
     cppUtil::say("检测到工作参数，正式开始格式化当前客户端",platform,"平台推送视频，使用模板：",name);
     for (const auto& f : formater) {
@@ -338,7 +338,7 @@ int initMyAccount(boost::asio::ip::tcp::socket& socket) {
 int feedback(boost::asio::ip::tcp::socket& socket) {
     LOG(FEEDBACK,FEEDBACK_NO_SLASH)
     REQUIRE_CLIENT(socket);
-    socket.close();
+    sendMessage(socket,"开始工作");
     if (!BODY_CONTAIN(BODY_PARAMS_PLATFORM) || !BODY_CONTAIN(BODY_PARAMS_VIDEO) || !BODY_CONTAIN(BODY_PARAMS_SCORE)) {
         #ifdef DEVELOP
             cppUtil::warn("当前请求内容为",crawlInfo -> body,"格式不准确！");
