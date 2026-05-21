@@ -23,39 +23,18 @@ export interface VideoJson {
   [category: string]: RawVideoPayload[]
 }
 
-export interface FeedbackWeightedValue {
-  value: string;
-  weight: number;
-  label?: string;
-}
-
 export interface FeedbackRequest {
   platform: string;
   video: RawVideoPayload;
-  score?: number;
+  score: number;
   overall?: {
-    more?: number;
-    less?: number;
-    favorite?: boolean;
-    dislike?: boolean;
-    hideOnce?: boolean;
+    value: number;
+    score: number;
+    once: boolean;
   };
   author?: {
     value: string;
-    label?: string;
-    more?: number;
-    less?: number;
+    score: number;
   };
-  tags?: {
-    more?: FeedbackWeightedValue[];
-    less?: FeedbackWeightedValue[];
-  };
-  category?: {
-    more?: FeedbackWeightedValue[];
-    less?: FeedbackWeightedValue[];
-  };
-  keywords?: {
-    more?: FeedbackWeightedValue[];
-    less?: FeedbackWeightedValue[];
-  };
+  tags?: string[];
 }

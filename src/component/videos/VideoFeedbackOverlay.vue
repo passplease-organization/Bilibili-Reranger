@@ -129,7 +129,7 @@ onBeforeUnmount(() => {
           <div class="feedback-hero">
             <div class="feedback-copy">
               <h2 id="feedback-title" class="feedback-title">对这条视频做反馈</h2>
-              <p class="feedback-desc">这次提交会把当前视频原始对象和你选择的整体、作者、标签倾向一起写入同一个 body，方便后端插件统一判断。</p>
+              <p class="feedback-desc">这次提交会把当前视频原始对象、总分、作者倾向、整体总结和标签名单一起写进同一个 body，方便后端插件直接判断。</p>
             </div>
             <div class="feedback-score-badge">
               <span>当前概览</span>
@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <p class="feedback-help">
-                标签强度表示这些被选中的标签在后续推荐判断中的权重。数值越高，插件越应该把它们当作明确信号。
+                当前后端会直接接收标签字符串数组。这里的“增加/减少”选择会保留在标签文本里一起发出，标签强度则主要体现在总分和整体倾向上。
               </p>
               <div class="feedback-custom-controls">
                 <input class="feedback-range" type="range" min="1" max="16" step="1" :value="tagWeightInput" :disabled="submitting" @input="emit('update:tagWeightInput', ($event.target as HTMLInputElement).value)" />

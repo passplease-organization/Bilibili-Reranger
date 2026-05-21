@@ -147,7 +147,7 @@ const availableTags = computed(() => {
   }
   return uniq([...video.tags, ...video.keywords, ...(video.category ? [video.category] : [])]);
 });
-const derivedLegacyScore = computed(() => {
+const derivedScore = computed(() => {
   let score = 0;
   if (overallIntent.value === "more") {
     score = overallWeight.value;
@@ -159,6 +159,16 @@ const derivedLegacyScore = computed(() => {
   }
   if (dislike.value) {
     score = Math.min(score, -12);
+  }
+  if (score === 0 && authorIntent.value === "more") {
+    score = authorWeight.value;
+  } else if (score === 0 && authorIntent.value === "less") {
+    score = -authorWeight.value;
+  }
+  if (score === 0 && selectedMoreTags.value.length !== selectedLessTags.value.length) {
+    score = selectedMoreTags.value.length > selectedLessTags.value.length
+      ? tagWeight.value
+      : -tagWeight.value;
   }
   return Math.max(-16, Math.min(16, score));
 });
@@ -325,83 +335,57 @@ async function submitFeedback(): Promise<void> {
     return;
   }
   feedbackSubmitting.value = true;
+  const score = derivedScore.value;
   const payload: FeedbackRequest = {
     platform: nowPlatform.value,
     video: video.raw,
+    score,
   };
-  const overall: NonNullable<FeedbackRequest["overall"]> = {};
+  const overallScore = overallIntent.value === "more"
+    ? overallWeight.value
+    : overallIntent.value === "less"
+      ? -overallWeight.value
+      : 0;
   if (overallIntent.value === "more") {
-    overall.more = overallWeight.value;
+    payload.overall = {
+      value: overallWeight.value,
+      score: overallWeight.value,
+      once: hideOnce.value,
+    };
   } else if (overallIntent.value === "less") {
-    overall.less = overallWeight.value;
-  }
-  if (favorite.value) {
-    overall.favorite = true;
-  }
-  if (dislike.value) {
-    overall.dislike = true;
-  }
-  if (hideOnce.value) {
-    overall.hideOnce = true;
-  }
-  if (Object.keys(overall).length > 0) {
-    payload.overall = overall;
+    payload.overall = {
+      value: -overallWeight.value,
+      score: -overallWeight.value,
+      once: hideOnce.value,
+    };
+  } else if (hideOnce.value) {
+    payload.overall = {
+      value: score,
+      score,
+      once: true,
+    };
   }
   if (authorIntent.value !== "none" && video.author) {
     payload.author = {
-      value: video.authorId || video.author,
-      label: video.author,
-      ...(authorIntent.value === "more"
-        ? { more: authorWeight.value }
-        : { less: authorWeight.value }),
+      value: video.author,
+      score: authorIntent.value === "more" ? authorWeight.value : -authorWeight.value,
     };
   }
-  if (selectedMoreTags.value.length || selectedLessTags.value.length) {
-    payload.tags = {};
-    if (selectedMoreTags.value.length) {
-      payload.tags.more = selectedMoreTags.value.map((value) => ({
-        value,
-        label: value,
-        weight: tagWeight.value,
-      }));
-    }
-    if (selectedLessTags.value.length) {
-      payload.tags.less = selectedLessTags.value.map((value) => ({
-        value,
-        label: value,
-        weight: tagWeight.value,
-      }));
-    }
+  const mergedTags = uniq([
+    ...selectedMoreTags.value.map((value) => `more:${value}`),
+    ...selectedLessTags.value.map((value) => `less:${value}`),
+  ]);
+  if (mergedTags.length) {
+    payload.tags = mergedTags;
   }
-  if (video.category) {
-    payload.category = {};
-    if (selectedMoreTags.value.includes(video.category)) {
-      payload.category.more = [{ value: video.category, label: video.category, weight: tagWeight.value }];
-    }
-    if (selectedLessTags.value.includes(video.category)) {
-      payload.category.less = [{ value: video.category, label: video.category, weight: tagWeight.value }];
-    }
-    if (!payload.category.more?.length && !payload.category.less?.length) {
-      delete payload.category;
-    }
-  }
-  if (video.keywords.length) {
-    const moreKeywords = selectedMoreTags.value.filter((value) => video.keywords.includes(value));
-    const lessKeywords = selectedLessTags.value.filter((value) => video.keywords.includes(value));
-    if (moreKeywords.length || lessKeywords.length) {
-      payload.keywords = {};
-      if (moreKeywords.length) {
-        payload.keywords.more = moreKeywords.map((value) => ({ value, label: value, weight: tagWeight.value }));
-      }
-      if (lessKeywords.length) {
-        payload.keywords.less = lessKeywords.map((value) => ({ value, label: value, weight: tagWeight.value }));
-      }
-    }
-  }
-  if (derivedLegacyScore.value !== 0) {
-    payload.score = derivedLegacyScore.value;
-  }
-  if (!payload.overall && !payload.author && !payload.tags && !payload.category && !payload.keywords) {
+  if (
+    score === 0 &&
+    !favorite.value &&
+    !dislike.value &&
+    !payload.overall &&
+    !payload.author &&
+    !payload.tags?.length
+  ) {
     showPopup("至少选择一项反馈后再提交", {
       type: "info",
       durationMs: 2800,
