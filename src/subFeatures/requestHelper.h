@@ -22,6 +22,10 @@ typedef int (FUNCTION_CALLER *handler)(boost::asio::ip::tcp::socket& socket);
 #define GET "/" GET_NO_SLASH
 #define PLUGIN_NO_SLASH "plugin"
 #define PLUGIN "/" PLUGIN_NO_SLASH
+#define INIT_ACCOUNT_NO_SLASH "init-my-account"
+#define INIT_ACCOUNT "/" INIT_ACCOUNT_NO_SLASH
+#define FEEDBACK_NO_SLASH "feedback"
+#define FEEDBACK "/" FEEDBACK_NO_SLASH
 
 #define NEED_NORMAL_HANDLE -1
 handler checkURL(const std::string& url);

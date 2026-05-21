@@ -40,11 +40,22 @@ namespace webAPI {
         unsigned int _views;
         unsigned int _popups;
 
+        enum class JsonSource {
+            Raw,
+            Feedback
+        };
+
         explicit Video(const Json& json);
+
+        explicit Video(const Json& json, JsonSource source);
     public:
         API static Video fromData(const dataStore::Data &data);
 
         API static Video fromJson(const Json& json);
+
+        API static Video fromFeedbackJson(const Json& json);
+
+        API static Video fromCompatibleJson(const Json& json);
 
         API static dataStore::Data toData(const Video &video);
 
@@ -104,6 +115,19 @@ namespace webAPI {
     API bool duplicateVideo(const Video& video,const char* label,const char* platform = nullptr);
 }
 
+}
+
+namespace nlohmann {
+    template <>
+    struct adl_serializer<webAPI::Video> {
+        static webAPI::Video from_json(const json& json) {
+            return webAPI::Video::fromCompatibleJson(json);
+        }
+
+        static void to_json(json& json,const webAPI::Video& video) {
+            video.write_necessary(json);
+        }
+    };
 }
 
 namespace webAPI{

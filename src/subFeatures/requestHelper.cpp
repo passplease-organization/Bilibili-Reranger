@@ -1,6 +1,7 @@
 #include "requestHelper.h"
 #include <cpr/api.h>
 #include "utils/config.h"
+#include "webAPIs/frontend/PlatformFormater.h"
 
 #ifdef TEST
     #include "utils/BilibiliInterface.h"
@@ -14,6 +15,7 @@
 #include "../PluginHandler.h"
 #include "webAPIs/browse.h"
 #include "webAPIs/socialAPI.h"
+#include "utils/BilibiliInterface.h"
 
 #define LOG(URL,NAME) \
     cppUtil::say("Accept URL: " URL);\
@@ -301,6 +303,58 @@ int plugin(boost::asio::ip::tcp::socket& socket) {
     return back(sendMessage(socket,data.dump()));
 }
 
+int initMyAccount(boost::asio::ip::tcp::socket& socket) {
+    LOG(INIT_ACCOUNT, INIT_ACCOUNT_NO_SLASH);
+    REQUIRE_CLIENT(socket);
+    string platform;
+    if (BODY_CONTAIN(BODY_PARAMS_PLATFORM))
+        platform = INFO_BODY(BODY_PARAMS_PLATFORM).get<string>();
+    auto&& formater = PluginHandler::getFormater(platform);
+    if (!BODY_CONTAIN(BODY_PARAMS_NAME) || platform.empty())
+        return back(sendMessage(socket,Json(formater).dump()));
+    sendMessage(socket,"开始工作");
+    const auto& name = INFO_BODY(BODY_PARAMS_NAME).get<string>();
+    cppUtil::say("检测到工作参数，正式开始格式化当前客户端",platform,"平台推送视频，使用模板：",name);
+    for (const auto& f : formater) {
+        if (f == name) {
+            cppUtil::say("开始格式化");
+            auto worker = f.starter();
+            Json json = webAPI::getController().perform(worker);
+            int count = 0;
+            do {
+                cppUtil::say("已工作",count + 1,"次");
+                if (worker = f.judger(json);worker == webAPI::nullWorker())
+                    return success();
+                json = webAPI::getController().perform(worker);
+            }while (count++ <= config<int>(MAX_CRAWL_COUNT));
+            cppUtil::warn("工作超时！最大次数",config<int>(MAX_CRAWL_COUNT),"当前: ",count);
+            return failed();
+        }
+    }
+    cppUtil::warn("未找到匹配初始化项：",name);
+    return failed();
+}
+
+int feedback(boost::asio::ip::tcp::socket& socket) {
+    LOG(FEEDBACK,FEEDBACK_NO_SLASH)
+    REQUIRE_CLIENT(socket);
+    sendMessage(socket,"开始工作");
+    if (!BODY_CONTAIN(BODY_PARAMS_PLATFORM) || !BODY_CONTAIN(BODY_PARAMS_VIDEO) || !BODY_CONTAIN(BODY_PARAMS_SCORE)) {
+        #ifdef DEVELOP
+            cppUtil::warn("当前请求内容为",crawlInfo -> body,"格式不准确！");
+        #else
+            cppUtil::warn("请求格式不准确，需要包含" BODY_PARAMS_PLATFORM "、" BODY_PARAMS_VIDEO "和" BODY_PARAMS_SCORE "字段");
+        #endif
+        return failed();
+    }
+    if (const auto& platform = INFO_BODY(BODY_PARAMS_PLATFORM).get<string>();crawlInfo -> client -> handler() == nullptr || platform != crawlInfo -> client -> handler() -> support()) {
+        cppUtil::warn("平台不正确！传入平台：",platform);
+        return failed();
+    }
+    PluginHandler::allFeedBack(webAPI::formater::FeedBack{crawlInfo -> body});
+    return success();
+}
+
 handler checkURL(const std::string& url) {
     if (url.starts_with(GET))
         return get;
@@ -312,12 +366,16 @@ handler checkURL(const std::string& url) {
         return key;
     else if (url.starts_with(TEST_ID))
         return testID;
+    else if (url.starts_with(INIT_ACCOUNT))
+        return initMyAccount;
     else if (url.starts_with(INIT))
         return init;
     else if (url.starts_with(SET))
         return ::set;
     else if (url.starts_with(PLUGIN))
         return plugin;
+    else if (url.starts_with(FEEDBACK))
+        return feedback;
     return nullptr;
 }
 

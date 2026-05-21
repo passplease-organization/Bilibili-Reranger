@@ -362,6 +362,35 @@ void test() {
                 markFailed(error,"Video normalization failed: url");
         }
 
+        {
+            const Json videoJson = Json::parse(R"json({"author":"和谐号舰长","description":"","popups":213,"publishTime":"2026-05-01","title":"新版本的物理系统有多逆天？什么叫把一切生物当球踢？","url":"https://www.bilibili.com/video/BV1G69UBZEZh","videoTime":"4:4","videoURL":"https://i1.hdslb.com/bfs/archive/c796ed3a3c570f6667912f1de30de5954b61bf7f.jpg","views":98239})json");
+            Json feedbackJson;
+            feedbackJson[BODY_PARAMS_PLATFORM] = BILIBILI;
+            feedbackJson[BODY_PARAMS_SCORE] = 3;
+            feedbackJson[BODY_PARAMS_VIDEO] = videoJson;
+            const webAPI::formater::FeedBack feedback(feedbackJson);
+            if (feedback.score != 3)
+                markFailed(error,"Feedback json failed: score");
+            if (string(feedback.video.author()) != "和谐号舰长")
+                markFailed(error,"Feedback video json failed: author");
+            if (string(feedback.video.description()) != "")
+                markFailed(error,"Feedback video json failed: description");
+            if (string(feedback.video.string_PublishTime()) != "2026-05-01")
+                markFailed(error,"Feedback video json failed: publishTime");
+            if (string(feedback.video.duration()) != "4:4")
+                markFailed(error,"Feedback video json failed: videoTime");
+            if (feedback.video.views() != 98239U)
+                markFailed(error,"Feedback video json failed: views");
+            if (feedback.video.popups() != 213U)
+                markFailed(error,"Feedback video json failed: popups");
+            if (string(feedback.video.url()) != "https://www.bilibili.com/video/BV1G69UBZEZh")
+                markFailed(error,"Feedback video json failed: url");
+
+            const Json serializedVideo = feedback.video;
+            if (serializedVideo["videoURL"] != videoJson["videoURL"])
+                markFailed(error,"Feedback video json serialization failed: videoURL");
+        }
+
 #if ALL_CONTAINER_ONLINE
         _say("Login status:");
         response = Post(
