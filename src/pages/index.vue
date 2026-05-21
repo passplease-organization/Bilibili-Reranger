@@ -1,15 +1,282 @@
 <script setup lang="ts">
-import {onMounted, ref, type Ref} from "vue";
-import {fetchBackend, getValid} from "@/pages/settings/backendSetup.ts";
+import {computed, onMounted, ref, type Ref} from "vue";
+import {fetchBackend, getValid, isAbortError} from "@/pages/settings/backendSetup.ts";
 import router from "@/router";
 import {showPopup} from "@/component/utils/screen.ts";
 import {nowPlatform} from "@/component/settings/settings.ts";
-import type {Video, VideoJson} from "@/component/videos/interfaces.ts";
+import type {FeedbackRequest, RawVideoPayload, Video, VideoJson} from "@/component/videos/interfaces.ts";
 import VideoCard from "@/component/videos/VideoCard.vue";
+import VideoFeedbackOverlay from "@/component/videos/VideoFeedbackOverlay.vue";
+
+type Direction = "more" | "less";
+type Intent = Direction | "none";
+
+interface FeedbackTemplate {
+  id: string;
+  label: string;
+  description: string;
+}
+
+const feedbackTemplates: FeedbackTemplate[] = [
+  { id: "more-video", label: "多推这种视频", description: "整体增加当前视频类似内容" },
+  { id: "less-video", label: "减少这种视频", description: "整体压低当前视频类似内容" },
+  { id: "love-video-author", label: "喜欢这条和作者", description: "同时提升当前视频整体与当前作者" },
+  { id: "reduce-video-author", label: "减少这条和作者", description: "同时压低当前视频整体与当前作者" },
+  { id: "boost-tags", label: "增加当前标签", description: "把当前视频已知标签整体设为正向" },
+  { id: "suppress-tags", label: "减少当前标签", description: "把当前视频已知标签整体设为负向" },
+  { id: "hide-once", label: "仅隐藏本条", description: "不改整体偏好，只隐藏这条视频" },
+  { id: "strong-like", label: "强烈喜欢", description: "喜爱 + 整体加强 + 作者加强" },
+  { id: "strong-dislike", label: "强烈厌恶", description: "厌恶 + 整体减弱 + 作者减弱" },
+];
+const defaultOverallWeight = 8;
+const defaultAuthorWeight = 6;
+const defaultTagWeight = 8;
+
+function readString(source: RawVideoPayload, key: string): string {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const result = new Set<string>();
+  for (const item of value) {
+    if (typeof item === "string" && item.trim()) {
+      result.add(item.trim());
+      continue;
+    }
+    if (item && typeof item === "object") {
+      for (const key of ["label", "name", "value", "text", "title"]) {
+        const nested = (item as RawVideoPayload)[key];
+        if (typeof nested === "string" && nested.trim()) {
+          result.add(nested.trim());
+          break;
+        }
+      }
+    }
+  }
+  return Array.from(result);
+}
+
+function readNumber(source: RawVideoPayload, key: string): number {
+  const value = source[key];
+  return typeof value === "number" ? value : 0;
+}
+
+function normalizeWeightInput(raw: string, fallback: number): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(16, Math.trunc(value)));
+}
+
+function uniq(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function mapVideo(raw: unknown): Video | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const source = raw as RawVideoPayload;
+  const url = readString(source, "url");
+  const title = readString(source, "title");
+  if (!url || !title) {
+    return null;
+  }
+  const tags = uniq([
+    ...readStringArray(source.tags),
+    ...readStringArray(source.tag),
+  ]);
+  const keywords = uniq(readStringArray(source.keywords));
+  return {
+    author: readString(source, "author"),
+    authorId: readString(source, "authorId") || readString(source, "mid") || readString(source, "uid"),
+    category: readString(source, "category"),
+    description: readString(source, "description"),
+    keywords,
+    popups: readNumber(source, "popups"),
+    publishTime: readString(source, "publishTime"),
+    tags,
+    title,
+    url,
+    videoTime: readString(source, "videoTime"),
+    videoURL: readString(source, "videoURL"),
+    views: readNumber(source, "views"),
+    raw: {...source},
+  };
+}
+
+function normalizeVideos(source: unknown, category: string | null): Video[] {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return [];
+  }
+  const json = source as VideoJson;
+  const records = category
+    ? json[category] ?? []
+    : Object.values(json).flat();
+  return records.map(mapVideo).filter((item): item is Video => item !== null);
+}
 
 const categories: Ref<string[] | null> = ref(null);
 const categoriesLoading = ref(false);
 const videosLoading = ref(false);
+const activeFeedbackVideo: Ref<Video | null> = ref(null);
+const feedbackSubmitting = ref(false);
+const overallIntent = ref<Intent>("none");
+const overallWeightInput = ref(String(defaultOverallWeight));
+const favorite = ref(false);
+const dislike = ref(false);
+const hideOnce = ref(false);
+const authorIntent = ref<Intent>("none");
+const authorWeightInput = ref(String(defaultAuthorWeight));
+const tagWeightInput = ref(String(defaultTagWeight));
+const selectedMoreTags = ref<string[]>([]);
+const selectedLessTags = ref<string[]>([]);
+
+const overallWeight = computed(() => normalizeWeightInput(overallWeightInput.value, defaultOverallWeight));
+const authorWeight = computed(() => normalizeWeightInput(authorWeightInput.value, defaultAuthorWeight));
+const tagWeight = computed(() => normalizeWeightInput(tagWeightInput.value, defaultTagWeight));
+const availableTags = computed(() => {
+  const video = activeFeedbackVideo.value;
+  if (!video) {
+    return [];
+  }
+  return uniq([...video.tags, ...video.keywords, ...(video.category ? [video.category] : [])]);
+});
+const derivedScore = computed(() => {
+  let score = 0;
+  if (overallIntent.value === "more") {
+    score = overallWeight.value;
+  } else if (overallIntent.value === "less") {
+    score = -overallWeight.value;
+  }
+  if (favorite.value) {
+    score = Math.max(score, 12);
+  }
+  if (dislike.value) {
+    score = Math.min(score, -12);
+  }
+  if (score === 0 && authorIntent.value === "more") {
+    score = authorWeight.value;
+  } else if (score === 0 && authorIntent.value === "less") {
+    score = -authorWeight.value;
+  }
+  if (score === 0 && selectedMoreTags.value.length !== selectedLessTags.value.length) {
+    score = selectedMoreTags.value.length > selectedLessTags.value.length
+      ? tagWeight.value
+      : -tagWeight.value;
+  }
+  return Math.max(-16, Math.min(16, score));
+});
+
+function resetFeedbackDraft(): void {
+  overallIntent.value = "none";
+  overallWeightInput.value = String(defaultOverallWeight);
+  favorite.value = false;
+  dislike.value = false;
+  hideOnce.value = false;
+  authorIntent.value = "none";
+  authorWeightInput.value = String(defaultAuthorWeight);
+  tagWeightInput.value = String(defaultTagWeight);
+  selectedMoreTags.value = [];
+  selectedLessTags.value = [];
+}
+
+function openFeedback(video: Video): void {
+  activeFeedbackVideo.value = video;
+  resetFeedbackDraft();
+}
+
+function closeFeedback(): void {
+  if (feedbackSubmitting.value) {
+    return;
+  }
+  activeFeedbackVideo.value = null;
+  resetFeedbackDraft();
+}
+
+function toggleTag(direction: Direction, value: string): void {
+  const source = direction === "more" ? selectedMoreTags : selectedLessTags;
+  const opposite = direction === "more" ? selectedLessTags : selectedMoreTags;
+  opposite.value = opposite.value.filter((item) => item !== value);
+  source.value = source.value.includes(value)
+    ? source.value.filter((item) => item !== value)
+    : [...source.value, value];
+}
+
+function applyFeedbackTemplate(templateId: string): void {
+  const video = activeFeedbackVideo.value;
+  if (!video) {
+    return;
+  }
+  resetFeedbackDraft();
+  switch (templateId) {
+    case "more-video":
+      overallIntent.value = "more";
+      overallWeightInput.value = "8";
+      break;
+    case "less-video":
+      overallIntent.value = "less";
+      overallWeightInput.value = "8";
+      break;
+    case "love-video-author":
+      overallIntent.value = "more";
+      overallWeightInput.value = "8";
+      if (video.author) {
+        authorIntent.value = "more";
+        authorWeightInput.value = "6";
+      }
+      break;
+    case "reduce-video-author":
+      overallIntent.value = "less";
+      overallWeightInput.value = "8";
+      if (video.author) {
+        authorIntent.value = "less";
+        authorWeightInput.value = "8";
+      }
+      break;
+    case "boost-tags":
+      selectedMoreTags.value = [...availableTags.value];
+      tagWeightInput.value = "8";
+      break;
+    case "suppress-tags":
+      selectedLessTags.value = [...availableTags.value];
+      tagWeightInput.value = "8";
+      break;
+    case "hide-once":
+      hideOnce.value = true;
+      break;
+    case "strong-like":
+      overallIntent.value = "more";
+      overallWeightInput.value = "12";
+      favorite.value = true;
+      if (video.author) {
+        authorIntent.value = "more";
+        authorWeightInput.value = "8";
+      }
+      break;
+    case "strong-dislike":
+      overallIntent.value = "less";
+      overallWeightInput.value = "12";
+      dislike.value = true;
+      if (video.author) {
+        authorIntent.value = "less";
+        authorWeightInput.value = "8";
+      }
+      if (availableTags.value.length) {
+        selectedLessTags.value = [...availableTags.value];
+        tagWeightInput.value = "10";
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 onMounted(async () => {
   if(!getValid()){
     await router.push("/login");
@@ -39,12 +306,10 @@ async function getVideos(category: string | null){
     const response = await fetchBackend(category ? `/?category=${category}` : '/');
     if(response.ok || response.status == 500)
       try{
-        const json = await response.json() as VideoJson | null;
-        if(json){
-          if(category)
-            videos.value = json[category] || [];
-          else
-            videos.value = Object.values(json).flat();
+        const json = await response.json() as unknown;
+        const normalized = normalizeVideos(json, category);
+        if(normalized.length || (json && typeof json === "object")){
+          videos.value = normalized;
           showPopup(`获取视频成功`);
           return;
         }
@@ -55,6 +320,112 @@ async function getVideos(category: string | null){
   showPopup(`获取${category ?? "全部"}视频失败，请检查！`, {
     type: "error",
   });
+}
+
+async function submitFeedback(): Promise<void> {
+  const video = activeFeedbackVideo.value;
+  if (!video || feedbackSubmitting.value) {
+    return;
+  }
+  if (!nowPlatform.value) {
+    showPopup("当前没有工作平台，无法提交反馈", {
+      type: "error",
+      durationMs: 3200,
+    });
+    return;
+  }
+  feedbackSubmitting.value = true;
+  const score = derivedScore.value;
+  const payload: FeedbackRequest = {
+    platform: nowPlatform.value,
+    video: video.raw,
+    score,
+  };
+  const overallScore = overallIntent.value === "more"
+    ? overallWeight.value
+    : overallIntent.value === "less"
+      ? -overallWeight.value
+      : 0;
+  if (overallIntent.value === "more") {
+    payload.overall = {
+      value: overallWeight.value,
+      score: overallWeight.value,
+      once: hideOnce.value,
+    };
+  } else if (overallIntent.value === "less") {
+    payload.overall = {
+      value: -overallWeight.value,
+      score: -overallWeight.value,
+      once: hideOnce.value,
+    };
+  } else if (hideOnce.value) {
+    payload.overall = {
+      value: score,
+      score,
+      once: true,
+    };
+  }
+  if (authorIntent.value !== "none" && video.author) {
+    payload.author = {
+      value: video.author,
+      score: authorIntent.value === "more" ? authorWeight.value : -authorWeight.value,
+    };
+  }
+  const mergedTags = uniq([
+    ...selectedMoreTags.value.map((value) => `more:${value}`),
+    ...selectedLessTags.value.map((value) => `less:${value}`),
+  ]);
+  if (mergedTags.length) {
+    payload.tags = mergedTags;
+  }
+  if (
+    score === 0 &&
+    !favorite.value &&
+    !dislike.value &&
+    !payload.overall &&
+    !payload.author &&
+    !payload.tags?.length
+  ) {
+    showPopup("至少选择一项反馈后再提交", {
+      type: "info",
+      durationMs: 2800,
+    });
+    feedbackSubmitting.value = false;
+    return;
+  }
+  try {
+    const response = await fetchBackend("/feedback", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      showPopup(message || "提交反馈失败", {
+        type: "error",
+        durationMs: 3600,
+      });
+      return;
+    }
+    showPopup(`已提交「${video.title}」反馈，请求体已包含整体、作者和标签倾向`, {
+      type: "success",
+      durationMs: 3200,
+    });
+    activeFeedbackVideo.value = null;
+    resetFeedbackDraft();
+  } catch (error) {
+    if (isAbortError(error)) {
+      showPopup("反馈请求已取消", {
+        type: "info",
+      });
+      return;
+    }
+    showPopup(error instanceof Error ? error.message : "反馈请求异常", {
+      type: "error",
+      durationMs: 3600,
+    });
+  } finally {
+    feedbackSubmitting.value = false;
+  }
 }
 </script>
 
@@ -106,9 +477,42 @@ async function getVideos(category: string | null){
           v-for="video in videos"
           :key="video.url"
           :video="video"
+          :feedback-disabled="feedbackSubmitting && activeFeedbackVideo?.url === video.url"
+          @feedback="openFeedback"
         />
       </div>
     </div>
+    <VideoFeedbackOverlay
+      :open="activeFeedbackVideo !== null"
+      :submitting="feedbackSubmitting"
+      :video="activeFeedbackVideo"
+      :templates="feedbackTemplates"
+      :overall-intent="overallIntent"
+      :overall-weight="overallWeight"
+      :overall-weight-input="overallWeightInput"
+      :favorite="favorite"
+      :dislike="dislike"
+      :hide-once="hideOnce"
+      :author-intent="authorIntent"
+      :author-weight-input="authorWeightInput"
+      :tag-weight-input="tagWeightInput"
+      :available-tags="availableTags"
+      :selected-more-tags="selectedMoreTags"
+      :selected-less-tags="selectedLessTags"
+      @close="closeFeedback"
+      @apply-template="applyFeedbackTemplate"
+      @reset="resetFeedbackDraft"
+      @update:overall-intent="overallIntent = $event"
+      @update:overall-weight-input="overallWeightInput = $event"
+      @toggle:favorite="favorite = !favorite"
+      @toggle:dislike="dislike = !dislike"
+      @toggle:hide-once="hideOnce = !hideOnce"
+      @update:author-intent="authorIntent = $event"
+      @update:author-weight-input="authorWeightInput = $event"
+      @update:tag-weight-input="tagWeightInput = $event"
+      @toggle-tag="toggleTag($event.direction, $event.value)"
+      @submit="submitFeedback"
+    />
   </div>
 </template>
 

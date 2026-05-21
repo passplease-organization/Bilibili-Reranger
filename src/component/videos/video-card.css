@@ -2,10 +2,9 @@
   --video-card-bg: var(--surface-color);
   --video-card-meta: var(--dark-font-color);
   --video-card-cover-bg: var(--surface-muted);
-  display: block;
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  color: inherit;
-  text-decoration: none;
   border-radius: 12px;
   overflow: hidden;
   background: var(--video-card-bg);
@@ -19,6 +18,13 @@
     0 0 0 1px color-mix(in srgb, var(--focus-color) 18%, transparent),
     rgba(0,0,0,0.08) 0 18px 28px -22px,
     rgba(255,255,255,0.04) 0 1px 0 inset;
+}
+
+.video-card-link {
+  display: block;
+  flex: 1 1 auto;
+  color: inherit;
+  text-decoration: none;
 }
 
 .video-cover-wrapper {
@@ -90,6 +96,57 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.video-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.video-action-link,
+.video-feedback-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.video-action-link {
+  color: var(--dark-font-color);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--font-color) 4%, transparent);
+}
+
+.video-action-link:hover {
+  color: var(--font-color);
+}
+
+.video-feedback-button {
+  margin-left: auto;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, var(--focus-color), #fb7299);
+  box-shadow: 0 14px 24px -20px rgba(0,114,245,0.58);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.video-feedback-button:hover {
+  transform: translateY(-1px);
+}
+
+.video-feedback-button:disabled {
+  cursor: wait;
+  opacity: 0.76;
+  transform: none;
 }
 
 html.dark .video-card {

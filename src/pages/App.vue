@@ -39,6 +39,7 @@ onMounted(async () => {
         <nav class="primary-nav">
           <router-link to="/">首页</router-link>
           <router-link to="/login">登录</router-link>
+          <router-link to="/set-my-videos">偏好设置</router-link>
         </nav>
       </div>
       <div class="end-header">
