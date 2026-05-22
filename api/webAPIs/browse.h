@@ -144,7 +144,7 @@ namespace webAPI {
         void operator delete[](void* ptr) = delete;
 
         bool operator ==(const BrowseWorker& worker) const {
-            return (context == worker.context || *context == *worker.context) && actions == worker.actions;
+            return (context == worker.context || context != nullptr && worker.context != nullptr && *context == *worker.context) && actions == worker.actions;
         }
 
         BrowseWorker& operator =(const BrowseWorker& other) {
@@ -153,7 +153,7 @@ namespace webAPI {
             return *this;
         }
 
-        [[nodiscard]] bool valid() const;
+        API [[nodiscard]] bool valid() const;
     };
 
     API const BrowseWorker& nullWorker();

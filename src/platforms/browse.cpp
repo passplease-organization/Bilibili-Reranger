@@ -9,18 +9,6 @@
 
 using namespace webAPI;
 
-bool BrowseWorker::valid() const {
-    return context != nullptr;
-}
-
-BrowseWorker NullWorker(nullptr);
-
-const BrowseWorker &webAPI::nullWorker() {
-    return NullWorker;
-}
-
-BrowseController BrowseController::controller("");
-
 BrowseController::BrowseController(const std::string& ip) : browseIP(new cpr::Url(ip)){}
 
 BrowseController::BrowseController(BrowseController &&other) noexcept
