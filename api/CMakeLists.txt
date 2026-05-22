@@ -36,6 +36,7 @@ add_library(${PROJECT_NAME} SHARED
         utils/configUtil.cpp
         webAPIs/frontend/PlatformFormater.cpp
         webAPIs/frontend/PlatformFormater.h
+        webAPIs/browse.cpp
 )
 add_library(BiliBiliRerangerAPI::API ALIAS ${PROJECT_NAME})
 
