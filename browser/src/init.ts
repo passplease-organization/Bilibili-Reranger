@@ -281,6 +281,22 @@ class ScrollDownAction extends Worker{
 
 }
 
+class WaitAction extends Worker{
+    public readonly millisecond: number;
+    public constructor(info: unknown) {
+        super(info);
+        type correct = {
+            milliseconds: number
+        }
+        this.millisecond = (info as correct).milliseconds;
+    }
+
+    public async worker(handler: Handler): Promise<WorkResult | WorkResult[]> {
+        handler.logger.info(`等待${this.millisecond}毫秒后再工作`);
+        await new Promise(resolve => setTimeout(resolve,this.millisecond));
+    }
+}
+
 export default function serverInit(){
     registerWorker("UrlAction",{
         getWorker: info => new UrlAction(info)

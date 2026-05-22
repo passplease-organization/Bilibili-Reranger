@@ -257,6 +257,12 @@ Json ScrollDownAction::_toJson() const {
     return json;
 }
 
+Json WaitAction::_toJson() const {
+    Json json;
+    json["milliseconds"] = milliseconds;
+    return json;
+}
+
 BrowseWorkingContext BrowseWorkingContext::EMPTY{};
 
 std::string UrlAction::_name = "UrlAction";
@@ -264,3 +270,4 @@ std::string ClickAction::_name = "ClickAction";
 std::string CrawlAction::_name = "CrawlAction";
 std::string DoWhileAction::_name = "DoWhileAction";
 std::string ScrollDownAction::_name = "ScrollDownAction";
+std::string WaitAction::_name = "WaitAction";
