@@ -310,8 +310,10 @@ int initMyAccount(boost::asio::ip::tcp::socket& socket) {
     if (BODY_CONTAIN(BODY_PARAMS_PLATFORM))
         platform = INFO_BODY(BODY_PARAMS_PLATFORM).get<string>();
     auto&& formater = PluginHandler::getFormater(platform);
-    if (!BODY_CONTAIN(BODY_PARAMS_NAME) || platform.empty())
+    if (!BODY_CONTAIN(BODY_PARAMS_NAME) || platform.empty()) {
+        cppUtil::say("获取全部可用格式化");
         return back(sendMessage(socket,Json(formater).dump()));
+    }
     sendMessage(socket,"开始工作");
     const auto& name = INFO_BODY(BODY_PARAMS_NAME).get<string>();
     cppUtil::say("检测到工作参数，正式开始格式化当前客户端",platform,"平台推送视频，使用模板：",name);

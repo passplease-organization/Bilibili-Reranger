@@ -156,7 +156,7 @@ namespace webAPI {
         [[nodiscard]] bool valid() const;
     };
 
-    const BrowseWorker& nullWorker();
+    API const BrowseWorker& nullWorker();
 
     #define CLIENT_ID "clientID"
     #define PLATFORM "platform"
@@ -341,6 +341,25 @@ namespace webAPI {
         explicit ScrollDownAction(const unsigned int& counts = 1) : BrowseAction(),counts(counts) {}
 
         ~ScrollDownAction() override = default;
+
+        [[nodiscard]] const std::string &name() const override {
+            return _name;
+        }
+    };
+
+    class WaitAction : public BrowseAction {
+    private:
+        static std::string _name;
+
+    protected:
+        [[nodiscard]] Json _toJson() const override;
+
+    public:
+        const unsigned int milliseconds;
+
+        explicit WaitAction(const unsigned int& milliseconds) : BrowseAction(),milliseconds(milliseconds) {}
+
+        ~WaitAction() override = default;
 
         [[nodiscard]] const std::string &name() const override {
             return _name;
