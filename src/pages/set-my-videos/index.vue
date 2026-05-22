@@ -88,12 +88,16 @@ async function runTemplate(): Promise<void> {
     }
 
     const response = await fetchBackend(
-      `/init-my-account?platform=${encodeURIComponent(template.platform)}&name=${encodeURIComponent(template.name)}`,
+      `/init-my-account`,
       {
         loading: {
           title: "正在提交偏好任务",
           detail: "后端已开始执行你的账号偏好调整任务。工作模式通常不会返回正文。",
         },
+        body: JSON.stringify({
+          platform: template.platform,
+          name: template.name,
+        })
       }
     );
     if (!response.ok) {
@@ -212,7 +216,7 @@ onMounted(async () => {
 
           <p class="summary-tip">
             执行时会先请求 `/set?platform={{ selectedTemplate.platform }}`，成功后再请求
-            `/init-my-account?platform={{ selectedTemplate.platform }}&name={{ selectedTemplate.name }}`。
+            `/init-my-account`执行操作。
           </p>
 
           <button
