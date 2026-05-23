@@ -119,7 +119,7 @@ namespace webAPI {
     #define ActionsFlag "workers"
     class BrowseWorker {
     public:
-        BrowseWorkingContext* const& context;
+        BrowseWorkingContext* const context;
         std::vector<std::shared_ptr<BrowseAction>> actions;
 
         template<class... Action>
@@ -148,7 +148,9 @@ namespace webAPI {
         }
 
         BrowseWorker& operator =(const BrowseWorker& other) {
-            if (other.context != nullptr)
+            if (this == &other)
+                return *this;
+            if (context != nullptr && other.context != nullptr)
                 *context = *other.context;
             actions = other.actions;
             return *this;

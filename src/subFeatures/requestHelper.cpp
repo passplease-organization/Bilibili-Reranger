@@ -325,7 +325,7 @@ int initMyAccount(boost::asio::ip::tcp::socket& socket) {
             int count = 0;
             do {
                 cppUtil::say("已工作",count + 1,"次");
-                if (worker = f.judger(json);worker == webAPI::nullWorker())
+                if (worker = std::move(f.judger(json));worker == webAPI::nullWorker())
                     return success();
                 json = webAPI::getController().perform(worker);
             }while (count++ <= config<int>(MAX_CRAWL_COUNT));
