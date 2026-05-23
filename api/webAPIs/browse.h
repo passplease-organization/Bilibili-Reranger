@@ -148,7 +148,8 @@ namespace webAPI {
         }
 
         BrowseWorker& operator =(const BrowseWorker& other) {
-            *context = *other.context;
+            if (other.context != nullptr)
+                *context = *other.context;
             actions = other.actions;
             return *this;
         }
