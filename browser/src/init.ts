@@ -291,9 +291,10 @@ class WaitAction extends Worker{
         this.millisecond = (info as correct).milliseconds;
     }
 
-    public async worker(handler: Handler): Promise<WorkResult | WorkResult[]> {
+    public async work(handler: Handler): Promise<WorkResult | WorkResult[]> {
         handler.logger.info(`等待${this.millisecond}毫秒后再工作`);
         await new Promise(resolve => setTimeout(resolve,this.millisecond));
+        return {};
     }
 }
 
@@ -312,5 +313,8 @@ export default function serverInit(){
     });
     registerWorker("ScrollDownAction",{
         getWorker: info => new ScrollDownAction(info)
+    });
+    registerWorker("WaitAction",{
+        getWorker: info => new WaitAction(info)
     });
 }
