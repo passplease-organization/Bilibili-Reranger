@@ -86,7 +86,7 @@ namespace webAPI {
 
     class BrowseAction {
     protected:
-        [[nodiscard]] virtual Json _toJson() const = 0;
+        API [[nodiscard]] virtual Json _toJson() const = 0;
     public:
         enum struct BrowseDataMode {
             DOM,
@@ -95,10 +95,10 @@ namespace webAPI {
             NODATA
         };
 
-        BrowseAction() = default;
-        virtual ~BrowseAction() = 0;
+        API BrowseAction() = default;
+        API virtual ~BrowseAction() = 0;
 
-        bool virtual operator==(const BrowseAction &) const = default;
+        API bool virtual operator==(const BrowseAction &) const = default;
 
         [[nodiscard]] Json toJson() const;
         #define ACTION_FLAG "type"
@@ -113,13 +113,13 @@ namespace webAPI {
             }
         }
 
-        [[nodiscard]] virtual const std::string& name() const = 0;
+        API [[nodiscard]] virtual const std::string& name() const = 0;
     };
 
     #define ActionsFlag "workers"
     class BrowseWorker {
     public:
-        BrowseWorkingContext* const& context;
+        BrowseWorkingContext* context;
         std::vector<std::shared_ptr<BrowseAction>> actions;
 
         template<class... Action>
@@ -148,9 +148,41 @@ namespace webAPI {
         }
 
         BrowseWorker& operator =(const BrowseWorker& other) {
-            *context = *other.context;
+            if (this == &other)
+                return *this;
+            if (other.context == nullptr) {
+                if (context != nullptr) {
+                    delete context;
+                    context = nullptr;
+                }
+            }else {
+                if (context == nullptr)
+                    context = new BrowseWorkingContext();
+                *context = *other.context;
+            }
             actions = other.actions;
             return *this;
+        }
+
+        BrowseWorker& operator=(BrowseWorker&& other) noexcept {
+            context = other.context;
+            other.context = nullptr;
+            actions = std::move(other.actions);
+            return *this;
+        }
+
+        BrowseWorker(const BrowseWorker& other) noexcept {
+            if (other.context == nullptr) {
+                context = nullptr;
+            }else {
+                context = new BrowseWorkingContext(*other.context);
+            }
+        }
+
+        BrowseWorker(BrowseWorker&& other) noexcept {
+            context = other.context;
+            other.context = nullptr;
+            actions = std::move(other.actions);
         }
 
         API [[nodiscard]] bool valid() const;
@@ -208,16 +240,16 @@ namespace webAPI {
 
     class UrlAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
         std::string url;
     protected:
-        [[nodiscard]] Json _toJson() const override;
+        API [[nodiscard]] Json _toJson() const override;
     public:
-        explicit UrlAction(std::string url) : BrowseAction(), url(std::move(url)) {}
+        API explicit UrlAction(std::string url) : BrowseAction(), url(std::move(url)) {}
 
-        ~UrlAction() override = default;
+        API ~UrlAction() override = default;
 
-        bool operator==(const UrlAction &other) const = default;
+        API bool operator==(const UrlAction &other) const = default;
 
         [[nodiscard]] const std::string &name() const override {
             return _name;
@@ -226,7 +258,7 @@ namespace webAPI {
 
     class ClickAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
     protected:
         ElementSelector selector;
 
@@ -234,15 +266,15 @@ namespace webAPI {
             return selector.toJson();
         }
     public:
-        explicit ClickAction(ElementSelector selector) : BrowseAction(), selector(std::move(selector)) {}
+        API explicit ClickAction(ElementSelector selector) : BrowseAction(), selector(std::move(selector)) {}
 
         template<class... Args>
             requires std::constructible_from<ElementSelector,Args ...>
-        explicit ClickAction(Args&& ... args) : BrowseAction(), selector(std::forward<Args>(args)...) {}
+        API explicit ClickAction(Args&& ... args) : BrowseAction(), selector(std::forward<Args>(args)...) {}
 
-        ~ClickAction() override = default;
+        API ~ClickAction() override = default;
 
-        bool operator==(const ClickAction &other) const = default;
+        API bool operator==(const ClickAction &other) const = default;
 
         [[nodiscard]] const std::string& name() const override{
             return _name;
@@ -253,11 +285,11 @@ namespace webAPI {
     #define EmptyCrawlData(data) !data.contains(CrawlData)
     class CrawlAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
     protected:
         Json description;
 
-        [[nodiscard]] Json _toJson() const override {
+        API [[nodiscard]] Json _toJson() const override {
             return description;
         }
     public:
@@ -267,7 +299,7 @@ namespace webAPI {
             requires std::convertible_to<WorkingData,Json> &&
                 (!std::same_as<std::decay_t<WorkingData>,const char*>) &&
                 (!std::same_as<std::decay_t<WorkingData>,std::string>)
-        CrawlAction(const BrowseDataMode mode,WorkingData&& description):
+        API CrawlAction(const BrowseDataMode mode,WorkingData&& description):
             BrowseAction(),description(Json(std::forward<WorkingData>(description))) {
             if (!validDescription(mode,this -> description)) {
                 warn("Description: ",false);
@@ -275,10 +307,10 @@ namespace webAPI {
                 throwError("Invalid description of information gathering instuction !");
             }
         }
-        ~CrawlAction() override = default;
+        API ~CrawlAction() override = default;
 
-        static bool validDescription(const BrowseDataMode& mode,const Json& json);
-        static Json easyDescribe(const BrowseDataMode& mode,const std::string& description);
+        API static bool validDescription(const BrowseDataMode& mode,const Json& json);
+        API static Json easyDescribe(const BrowseDataMode& mode,const std::string& description);
 
         [[nodiscard]] const std::string& name() const override{
             return _name;
@@ -293,7 +325,7 @@ namespace webAPI {
     #define DoWhileAllActions ActionsFlag
     class DoWhileAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
     protected:
         /**
          * @value true means do until succeed
@@ -303,10 +335,10 @@ namespace webAPI {
         int maxCount;
         std::vector<std::shared_ptr<BrowseAction>> actions;
 
-        [[nodiscard]] Json _toJson() const override;
+        API [[nodiscard]] Json _toJson() const override;
     public:
         template<class... Action>
-        explicit DoWhileAction(const bool& failOrSucceeded,const int& maxCount = INT32_MAX,Action&& ... actions) :
+        API explicit DoWhileAction(const bool& failOrSucceeded,const int& maxCount = INT32_MAX,Action&& ... actions) :
             BrowseAction(),failOrSucceeded(failOrSucceeded),maxCount(maxCount) {
             static_assert(((std::is_base_of_v<BrowseAction,std::decay_t<Action>> || std::convertible_to<std::shared_ptr<BrowseAction>,std::decay_t<Action>>) && ...),"Not right class type, which should be base of BrowseAction");
             this -> actions.reserve(sizeof...(Action));
@@ -321,7 +353,7 @@ namespace webAPI {
             (add(actions), ...);
         }
 
-        ~DoWhileAction() override = default;
+        API ~DoWhileAction() override = default;
 
         [[nodiscard]] const std::string &name() const override {
             return _name;
@@ -331,16 +363,16 @@ namespace webAPI {
     #define ScrollDownActionCount "count"
     class ScrollDownAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
 
     protected:
         [[nodiscard]] Json _toJson() const override;
 
     public:
         const unsigned int counts;
-        explicit ScrollDownAction(const unsigned int& counts = 1) : BrowseAction(),counts(counts) {}
+        API explicit ScrollDownAction(const unsigned int& counts = 1) : BrowseAction(),counts(counts) {}
 
-        ~ScrollDownAction() override = default;
+        API ~ScrollDownAction() override = default;
 
         [[nodiscard]] const std::string &name() const override {
             return _name;
@@ -349,17 +381,17 @@ namespace webAPI {
 
     class WaitAction : public BrowseAction {
     private:
-        static std::string _name;
+        API static std::string _name;
 
     protected:
-        [[nodiscard]] Json _toJson() const override;
+        API [[nodiscard]] Json _toJson() const override;
 
     public:
         const unsigned int milliseconds;
 
-        explicit WaitAction(const unsigned int& milliseconds) : BrowseAction(),milliseconds(milliseconds) {}
+        API explicit WaitAction(const unsigned int& milliseconds) : BrowseAction(),milliseconds(milliseconds) {}
 
-        ~WaitAction() override = default;
+        API ~WaitAction() override = default;
 
         [[nodiscard]] const std::string &name() const override {
             return _name;

@@ -3,6 +3,7 @@ project(BiliBili_Reranger)
 
 set(CMAKE_CXX_STANDARD 23)
 set(DCMAKE_VERBOSE_MAKEFILE ON)# 输出构建日志
+include(GNUInstallDirs)
 set(OUTPUT_PATH "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_PATH})
 
@@ -119,3 +120,18 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test")
             COMMENT "copying crawled data for test ..."
     )
 endif ()
+
+install(
+        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/BiliBili_Reranger/backend/src
+        FILES_MATCHING
+            PATTERN "*.h"
+            PATTERN "*.cpp"
+)
+
+install(
+        FILES
+            ${CMAKE_CURRENT_SOURCE_DIR}/README.md
+            ${CMAKE_CURRENT_SOURCE_DIR}/README_en.md
+        DESTINATION ${CMAKE_INSTALL_DOCDIR}
+)
