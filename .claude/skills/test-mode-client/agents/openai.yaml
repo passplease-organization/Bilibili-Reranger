@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Mode Client"
+  short_description: "Simulate backend Test-mode requests with a persistent client id."
+  default_prompt: "Use this skill to initialize a persistent backend Test-mode client and call backend request endpoints."
