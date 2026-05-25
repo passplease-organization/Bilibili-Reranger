@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nm -D /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(nm -C -D /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(nm -C /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(nm -C -D /opt/bilibili-reranger-sdk/debug/lib/libBiliBili_Reranger_API.so)",
+      "Bash(readelf -d /opt/bilibili-reranger-sdk/debug/lib/libBiliBili_Reranger_API.so)",
+      "Bash(nm -C /opt/bilibili-reranger-sdk/debug/lib/libBiliBili_Reranger_API.so)",
+      "Bash(objdump -t /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(nm -a /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(readelf -s /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(readelf -W -s /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(cmake --version)",
+      "Bash(cmake *)",
+      "Bash(nm -D cmake-build-debug/libVIDEO_PLUGIN.so)",
+      "Bash(grep -E \"^workers$|^worker\")",
+      "Bash(objdump -d /opt/bilibili-reranger-backend/debug/libBiliBili_Reranger_API.so)",
+      "Bash(nm -C /opt/bilibili-reranger-backend/debug/BiliBili_Reranger)",
+      "Bash(objdump *)",
+      "Bash(grep -E \"^workers$|^context$|^clientID$|^platform$|^plugin$|^type$|^info$\")",
+      "Bash(grep -E \"^workers$|^context$|^type$|^info$|^clientID$\")",
+      "Read(//var/run/**)",
+      "Read(//proc/1/**)",
+      "Bash(apt list *)",
+      "Bash(nm -C cmake-build-debug/libVIDEO_PLUGIN.so)",
+      "Bash(nm -u cmake-build-debug/libVIDEO_PLUGIN.so)"
+    ]
+  }
+}
