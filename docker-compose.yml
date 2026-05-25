@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./config:/bilibili-backend/config
-#      - ./plugin:/bilibili-backend/plugin
+#      - ./plugin:/bilibili-backend/plugins
     depends_on:
       postgres:
         condition: service_healthy
