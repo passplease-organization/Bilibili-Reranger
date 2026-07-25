@@ -34,7 +34,7 @@ void readConfig() {
     #elifdef __linux__
         _setConfig(WAIT_TIME,10,"相邻两次爬取的间隔时间，单位：秒");
     #endif
-        _setConfig(MAX_CRAWL_COUNT,25,"每次后台请求爬取次数上限");
+        _setConfig(MAX_CRAWL_COUNT,25,"每次后台请求爬取次数上限，用于初始化账户的时候");
         _setConfig(MAX_AI_TOKENS,20000,"每次AI请求最大token开销");
         _setConfig(PORT,23223,"监听端口");
         _setConfig(TIMEOUT,300000,"每个请求处理限时，单位毫秒");
@@ -50,6 +50,11 @@ void readConfig() {
         _setConfig(POSTGRES_ENCRYPT_KEY,webAPI::SimpleESA::randomKey(),"数据写入数据库使用加密秘钥");
     #endif
         _setConfig(BROWSER_WORK_MAX_TIME,120,"Browser为每一次请求视频工作最大时长，单位：秒。若为负值则不限时");
+    #ifdef DEVELOP
+        _setConfig(SCHEDULE_CRAWL_INTERNAL,1,"固定爬取数据间隔的均值，用于分割静默状态时程序爬取的速度，单位是分钟，只能是整数");
+    #else
+        _setConfig(SCHEDULE_CRAWL_INTERNAL,5,"固定爬取数据间隔的均值，用于分割静默状态时程序爬取的速度，单位是分钟，只能是整数");
+    #endif
         cppUtil::saveConfig(path,config);
         defaultConfigs = config;
     }

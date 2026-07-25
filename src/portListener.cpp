@@ -73,6 +73,7 @@ int startWork() {
     webAPI::registerBilibili();
     webAPI::Client::initAndDataBase();
     PluginHandler::loadAll();
+    webAPI::schedules::startScheduleThread();
     cppUtil::say("Listening thread start");
     try {
         boost::asio::io_context io;
@@ -81,13 +82,14 @@ int startWork() {
         acceptor.set_option(boost::asio::socket_base::reuse_address(true));
         acceptor.set_option(boost::asio::ip::v6_only(false));
         acceptor.bind(ip::tcp::endpoint(ip::tcp::v6(), config<int>(PORT)));
-        acceptor.listen();        long long id = 1;
+        acceptor.listen();
+        long long id = 1;
         const bool details = config<bool>(DETAILS);
     #ifdef TEST
         startTestThread();
         while (!testFinished){
     #else
-        while(true) {
+        while(webAPI::schedules::isScheduleThreadRunning()) {
     #endif
             ip::tcp::socket socket(io);
             acceptor.accept(socket);
@@ -147,9 +149,11 @@ int startWork() {
         }
     }catch (std::exception& e) {
         cppUtil::warn("Listening to port encountered an error:");
+        webAPI::schedules::stopScheduleThread();
         cppUtil::throwError(e.what());
         return 1;
     }
+    webAPI::schedules::stopScheduleThread();
     return 0;
 }
 

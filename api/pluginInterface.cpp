@@ -103,6 +103,8 @@ WorkingMode crawlTask::byName(const char *name) {
 }
 
 Nullable Group* crawlTask::getGroup(const char* groupName,const char* platform) noexcept{
+    if (groups.empty())
+        return nullptr;
     if (groupName == nullptr || platform == nullptr) {
         return groups[workingOn];
     }

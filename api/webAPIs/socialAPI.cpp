@@ -11,12 +11,44 @@
 #include "postgres.h"
 #include "../utils/config.h"
 #include "../utils/Util.h"
+#include "../utils/BilibiliInterface.h"
 #include "../develop/flags.h"
 #include "browse.h"
 
 using namespace webAPI;
 
 extern ::webAPI::postgres dataBase;
+
+namespace {
+    webAPI::PreCrawlTaskKey preCrawlTaskKey(const crawlTask::Task& task) {
+        return {
+            task.keyword == nullptr ? "" : task.keyword,
+            static_cast<int>(task.mode),
+            task.publishedDay
+        };
+    }
+
+    Json preCrawlTaskJson(const crawlTask::Task& task) {
+        Json json;
+        crawlTask::task_to_data(json, &task);
+        json["publishedDay"] = task.publishedDay;
+        json["working_mode_id"] = static_cast<int>(task.mode);
+        return json;
+    }
+
+    string preCrawlVideoKey(const webAPI::Video& video) {
+        if (const string url = video.url(); !url.empty())
+            return url;
+        if (video.mid() != WRONG_MID)
+            return to_string(video.mid());
+        return string(video.title()) + "\n" + video.author();
+    }
+
+    string preCrawlPlatform(const webAPI::Client& client) {
+        const auto* handler = client.handler();
+        return handler == nullptr ? "" : handler->support();
+    }
+}
 
 webAPI::socialAPI::socialAPI(std::shared_ptr<const std::atomic<bool>>& stop):
 stop(stop),context(nullptr){}
@@ -375,7 +407,9 @@ Client::Client(Client &&other) noexcept
 : esa(std::move(other.esa)),
 handlers(std::move(other.handlers)),
 ID(std::move(other.ID)),
-_handler(other._handler){}
+_handler(other._handler) {
+    other._handler = nullptr;
+}
 
 Client::Client(const ::webAPI::ClientRow& data,const bool& rawKey)
 : esa(data.esa_key_enc,rawKey),
@@ -448,6 +482,188 @@ const string &Client::getID() const {
 
 std::string Client::ESAKey(const std::string &adminKey) const {
     return esa.getKey(adminKey);
+}
+
+bool Client::storeVideo(const Video &video,const crawlTask::Task& task) {
+    auto& videos = preCrawlVideos[task];
+    const auto key = preCrawlVideoKey(video);
+    for (const auto& old : videos) {
+        if (preCrawlVideoKey(old) == key)
+            return true;
+    }
+    videos.push_back(video);
+    return true;
+}
+
+void Client::nextPreCrawl() {
+    preCrawlVideos.clear();
+    if (!dataBase.purgeExpiredPreCrawlVideos())
+        cppUtil::warn("清理过期预爬取视频失败");
+}
+
+void Client::syncPreCrawlDataBase() {
+    const auto platform = preCrawlPlatform(*this);
+    if (platform.empty()) {
+        return;
+    }
+
+    vector<::webAPI::PreCrawlVideoRow> rows;
+    for (const auto& [task, videos] : preCrawlVideos) {
+        const auto key = preCrawlTaskKey(task);
+        const auto task_json = preCrawlTaskJson(task).dump();
+        if (config<bool>(DETAILS))
+            cppUtil::say(task.keyword,"任务存入",videos.size(),"个视频");
+        for (const auto& video : videos) {
+            Json video_json;
+            video.write_all(video_json);
+            rows.push_back({
+                ID,
+                platform,
+                key,
+                task.videoCount,
+                task_json,
+                preCrawlVideoKey(video),
+                video_json.dump(),
+                ""
+            });
+        }
+    }
+
+    if (dataBase.upsertPreCrawlVideos(ID, platform, rows)) {
+        preCrawlVideos.clear();
+    }
+}
+
+bool Client::crawlEnough(crawlTask::Task const* const& task) const {
+    if (task == nullptr) {
+        return true;
+    }
+
+    const auto target_count = static_cast<std::size_t>(task->videoCount);
+    const auto staged_count = preCrawlVideos.contains(*task) ? preCrawlVideos.at(*task).size() : 0;
+    if (staged_count >= target_count) {
+        return true;
+    }
+
+    const auto platform = preCrawlPlatform(*this);
+    if (platform.empty()) {
+        return false;
+    }
+
+    std::size_t stored_count = 0;
+    const auto key = preCrawlTaskKey(*task);
+    if (!dataBase.countPreCrawlVideos(ID, platform, key, stored_count)) {
+        return false;
+    }
+    return staged_count + stored_count >= target_count;
+}
+
+vector<Video> Client::getVideos(crawlTask::Task const* const& task,unsigned int offset) const {
+    const auto platform = preCrawlPlatform(*this);
+    cppUtil::say("获取现有视频");
+    if (platform.empty() || task == nullptr) {
+        return {};
+    }
+
+    const int target_count = task->videoCount;
+    const int BATCH_SIZE = target_count > 100 ? target_count : 100;
+
+    vector<Video> new_videos;
+    vector<Video> old_videos;
+
+    while (static_cast<int>(new_videos.size()) < target_count) {
+            vector<::webAPI::PreCrawlVideoRow> rows;
+            if (!dataBase.listPreCrawlVideos(ID, platform, task, rows, BATCH_SIZE, offset)) {
+                break;
+            }
+            if (rows.empty()) {
+                break;
+            }
+
+            for (const auto& row : rows) {
+                try {
+                    auto video = Video::fromCompatibleJson(
+                        Json::parse(row.video_json),
+                        static_cast<unsigned short int>(row.recommend_count)
+                    );
+                    if (row.recommend_count == 0)
+                        new_videos.push_back(std::move(video));
+                    else
+                        old_videos.push_back(std::move(video));
+                } catch (const std::exception& e) {
+                    cppUtil::warn("预爬取视频数据解析失败，已跳过。客户端ID: ", ID,
+                                  ", platform: ", platform,
+                                  ", video_key: ", row.video_key,
+                                  ", error: ", e.what());
+                }
+
+                if (static_cast<int>(new_videos.size()) >= target_count) {
+                    break;
+                }
+            }
+
+            if (static_cast<int>(new_videos.size()) >= target_count) {
+                break;
+            }
+            offset += BATCH_SIZE;
+        }
+
+    // 组装结果：留约 5% 的坑位给老视频，其余填新视频
+    const int old_max = target_count > 20 ? target_count / 20 : 1;
+    const int new_max = target_count - old_max;
+
+    vector<Video> result;
+    result.reserve(target_count);
+    std::size_t consumed_new_count = 0;
+
+    // 先取新视频，留出 old_max 个坑
+    for (auto& v : new_videos) {
+        if (static_cast<int>(result.size()) >= new_max) break;
+        result.push_back(std::move(v));
+        consumed_new_count++;
+    }
+
+    // 用老视频填剩下的坑（~5%）
+    for (auto& v : old_videos) {
+        if (static_cast<int>(result.size()) >= target_count) break;
+        result.push_back(std::move(v));
+    }
+
+    // 还不够（新视频或老视频不够）→ 新视频继续填
+    if (static_cast<int>(result.size()) < target_count) {
+        for (auto it = new_videos.begin() + static_cast<std::ptrdiff_t>(consumed_new_count);
+             it != new_videos.end(); ++it) {
+            if (static_cast<int>(result.size()) >= target_count) break;
+            result.push_back(std::move(*it));
+        }
+    }
+
+    if (static_cast<int>(result.size()) < target_count) {
+        while (static_cast<int>(result.size()) < target_count) {
+            vector<::webAPI::PreCrawlVideoRow> rows;
+            if (!dataBase.listPreCrawlVideos(ID, platform, task, rows, BATCH_SIZE, offset)) break;
+            if (rows.empty()) break;
+
+            for (const auto& row : rows) {
+                try {
+                    result.push_back(Video::fromCompatibleJson(
+                        Json::parse(row.video_json),
+                        static_cast<unsigned short int>(row.recommend_count)
+                    ));
+                } catch (const std::exception& e) {
+                    cppUtil::warn("预爬取视频数据解析失败，已跳过。客户端ID: ", ID,
+                                  ", platform: ", platform,
+                                  ", video_key: ", row.video_key,
+                                  ", error: ", e.what());
+                }
+                if (static_cast<int>(result.size()) >= target_count) break;
+            }
+            offset += BATCH_SIZE;
+        }
+    }
+
+    cppUtil::say("共获取到", result.size(), "个储备视频");
+    return result;
 }
 
 std::string SimpleESA::getKey(const std::string &adminKey) const {
@@ -561,6 +777,21 @@ public:
         return nullptr;
     }
 
+    void removeClient(const string& id) {
+        for (unsigned int i = 0; i < size(); i++) {
+            if (keys[i] != id)
+                continue;
+            for (unsigned int j = i; j + 1 < size(); j++) {
+                keys[j] = keys[j + 1];
+                values[j] = values[j + 1];
+            }
+            _size--;
+            if (i == 0)
+                hasAdmin = false;
+            return;
+        }
+    }
+
 private:
     bool hasAdmin = false;
 };
@@ -572,9 +803,6 @@ auto client_mutex = std::mutex();
 bool initialized = false;
 
 void reInit(){
-    #ifdef DEVELOP
-        cppUtil::warn("初始化失败，重初始化");
-    #endif
     client_mutex.lock();
     if (initialized && clients != nullptr)
         delete clients;
@@ -633,6 +861,32 @@ void Client::initAndDataBase(){
         reInit();
 }
 
+void Client::syncWithDatabase() {
+    if (!dataBase.purgeExpiredClients()) {
+        cppUtil::warn("清理过期客户端失败");
+        return;
+    }
+
+    vector<string> clientIds;
+    {
+        LOCK
+        if (clients == nullptr)
+            return;
+        for (const auto& client : clients -> allValues()) {
+            if (client != nullptr)
+                clientIds.push_back(client -> getID());
+        }
+    }
+
+    for (const auto& id : clientIds) {
+        if (dataBase.clientActive(id))
+            continue;
+        LOCK
+        if (clients != nullptr)
+            clients -> removeClient(id);
+    }
+}
+
 void Client::init() {
     if (initialized)
         return;
@@ -651,6 +905,10 @@ Client* webAPI::client(const std::string& ID){
     return (*clients)[ID];
 }
 
+vector<Client *> Client::allClients() {
+    return clients -> allValues();
+}
+
 bool webAPI::storeClient(Client* client){
     if (client == nullptr)
         return false;
@@ -660,8 +918,7 @@ bool webAPI::storeClient(Client* client){
     if (clients == nullptr || clients -> contains(client -> getID())) {
         return false;
     }
-    clients -> put(client -> getID(),client);
-    return clients -> contains(client -> getID()) && dataBase.upsertClient(client -> getID(),client -> esa.getKey(config<string>(ADMIN_CLIENT_KEY)));
+    return dataBase.upsertClient(client -> getID(),client -> esa.getKey(config<string>(ADMIN_CLIENT_KEY))) && (clients -> put(client -> getID(),client),clients -> contains(client -> getID()));
 }
 
 std::string webAPI::createAndStoreClient(const std::string &key) {

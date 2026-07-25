@@ -5,7 +5,6 @@
 #include <string>
 #include <curl/curl.h>
 #include <sodium.h>
-#include "../develop/flags.h"
 
 #include "../utils/config.h"
 #include "../interface.h"
@@ -131,7 +130,7 @@ namespace webAPI {
             return false;
         }
 
-        API virtual bool dealJson(const Json& json, const crawlTask::Task* task) const = 0;
+        API virtual bool dealJson(const Json& json, const crawlTask::Task* task, Client* const& client) const = 0;
 
         API [[deprecated,nodiscard]] virtual bool refreshSubscribers(CrawlerHelper& helper, bool force) const {
             return false;
@@ -200,6 +199,8 @@ namespace webAPI {
 
         SimpleESA esa;
 
+        unordered_map<crawlTask::Task,vector<Video>> preCrawlVideos = {};
+
     protected:
         socialAPI* _handler;
         vector<socialAPI*> handlers;
@@ -208,6 +209,10 @@ namespace webAPI {
         API static void init();
 
         API static void initAndDataBase();
+
+        API static void syncWithDatabase();
+
+        static vector<Client*> allClients();
 
         API explicit Client(const std::string& key);
 
@@ -268,6 +273,19 @@ namespace webAPI {
         API [[nodiscard]] bool getData(const string& category,Json& data) const {
             return _handler != nullptr && _handler -> getData(category,data);
         }
+
+        /**
+        * Clear data, prepare for next pre-crawl
+        */
+        API void nextPreCrawl();
+
+        API void syncPreCrawlDataBase();
+
+        API [[nodiscard]] bool crawlEnough(Nullable crawlTask::Task const* const& task) const;
+
+        API bool storeVideo(const Video& video,const crawlTask::Task& task);
+
+        API [[nodiscard]] vector<Video> getVideos(crawlTask::Task const* const& task,unsigned int offset = 0) const;
     };
 
     API Nullable Client* client(const std::string& ID);

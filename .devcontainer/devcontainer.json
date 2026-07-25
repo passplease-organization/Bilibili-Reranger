@@ -4,6 +4,10 @@
   "name": "C++",
   "dockerComposeFile": "docker-compose.yml",
   "service": "backend",
+  "remoteEnv": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8"
+  },
   //  "build": {
 //    "dockerfile": "Dockerfile"
 //  },
@@ -28,6 +32,8 @@
     "jetbrains" : {
       "backend" : "CLion",
       "settings": {
+        "com.intellij:app:HttpConfigurable.proxy_exceptions": "localhost,127.0.0.1",
+        "com.intellij:app:HttpConfigurable.pac_url": "",
         "com.intellij:app:BaseRefactoringSettings.rename_search_in_comments_for_file": false,
         "com.intellij:app:GeneralSettings.autoSaveIfInactive": true,
         "com.intellij:app:GeneralSettings.inactiveTimeout": 60,

@@ -218,6 +218,14 @@ public:
     API [[nodiscard]] virtual pair<key,value> first() const {
         return std::pair<key,value>(keys[0],values[0]);
     }
+
+    API [[nodiscard]] vector<key> allKeys() const {
+        return vector<key>(keys,keys + _size);
+    }
+
+    API [[nodiscard]] vector<value> allValues() const {
+        return vector<value>(values,values + _size);
+    }
 };
 
 namespace webAPI {

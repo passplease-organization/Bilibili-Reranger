@@ -24,6 +24,7 @@
 #define MAX_CLIENT "max_client_count"
 #define ADMIN_CLIENT_KEY "admin_client_key"
 #define POSTGRES_SSL_MODE "postgres_connection_mode"
+#define SCHEDULE_CRAWL_INTERNAL "schedule_crawl_internal"
 #ifndef DEVELOP
     #define POSTGRES_ENCRYPT_KEY "postgres_encrypt_key"
 #endif

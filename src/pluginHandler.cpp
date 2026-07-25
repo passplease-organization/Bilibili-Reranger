@@ -74,18 +74,18 @@ PluginStatus PluginHandler::registerGroups() {
     return PluginStatus::SUCCESS;
 }
 
-VideoStatus PluginHandler::roughJudge() {
+VideoStatus PluginHandler::roughJudge(const webAPI::Video& video) {
     auto plugin = (ROUGH_JUDGE) getFunction("roughJudge");
     if(plugin == nullptr)
         return VideoStatus::UNKNOWN;
-    return plugin();
+    return plugin(video);
 }
 
-VideoStatus PluginHandler::judge() {
+VideoStatus PluginHandler::judge(const webAPI::Video& video) {
     auto plugin = (JUDGE) getFunction("judge");
     if(plugin == nullptr)
         return VideoStatus::UNKNOWN;
-    return plugin();
+    return plugin(video);
 }
 
 string PluginHandler::getURL() {
@@ -130,6 +130,16 @@ void PluginHandler::feedBack(const webAPI::formater::FeedBack &feedback) {
     plugin(feedback);
 }
 
+bool PluginHandler::registerScheduleTasks() {
+    auto plugin = (ScheduleCrawl) getFunction("scheduleCrawl");
+    if(plugin == nullptr)
+        return true;
+    for (const auto& t : plugin())
+        if (!webAPI::schedules::registerScheduleTask(t))
+            return false;
+    return true;
+}
+
 const string &PluginHandler::getName() const {
     return this -> name;
 }
@@ -152,7 +162,7 @@ void PluginHandler::forEachPlugin(PluginStatus function(PluginHandler &)) {
     }
 }
 
-bool PluginHandler::checkVideo(VideoStatus function(PluginHandler &)) {
+bool PluginHandler::checkVideo(const std::function<VideoStatus(PluginHandler &)> &function) {
     if(!plugins -> empty()) {
         for(const auto & plugin : *plugins){
             switch(function(*plugin)){
@@ -243,15 +253,15 @@ const vector<string>* PluginHandler::pluginNames = PluginHandler::searchPlugin(n
 
 vector<PluginHandler*>* PluginHandler::plugins = new vector<PluginHandler*>();
 
-bool roughCheckVideo() {
-    return PluginHandler::checkVideo([](PluginHandler& handler) -> VideoStatus{
-        return handler.roughJudge();
+bool roughCheckVideo(const webAPI::Video& video) {
+    return PluginHandler::checkVideo([&video](PluginHandler& handler) -> VideoStatus{
+        return handler.roughJudge(video);
     });
 }
 
-bool finalCheckVideo() {
-    return PluginHandler::checkVideo([](PluginHandler& handler) -> VideoStatus{
-        return handler.judge();
+bool finalCheckVideo(const webAPI::Video& video) {
+    return PluginHandler::checkVideo([&video](PluginHandler& handler) -> VideoStatus{
+        return handler.judge(video);
     });
 }
 

@@ -2,6 +2,7 @@
 #include "pluginInterface.h"
 #include <boost/asio/ip/tcp.hpp>
 
+#include "utils/schedules.h"
 #include "webAPIs/frontend/PlatformFormater.h"
 
 #define REQUIRED
@@ -29,14 +30,14 @@ OPTIONAL typedef void (FUNCTION_CALLER *REGISTER)();
 /**
  * Rough judge whether program need to crawl more data , keep it in website or skip this video
  * */
-OPTIONAL VideoStatus roughJudge();
-typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)();
+OPTIONAL VideoStatus roughJudge(const webAPI::Video& video);
+typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)(const webAPI::Video& video);
 
 /**
  * Judge keep or throw this video away
  * */
-OPTIONAL VideoStatus judge();
-typedef VideoStatus (FUNCTION_CALLER *JUDGE)();
+OPTIONAL VideoStatus judge(const webAPI::Video& video);
+typedef VideoStatus (FUNCTION_CALLER *JUDGE)(const webAPI::Video& video);
 
 /**
  * Now deprecated
@@ -74,6 +75,12 @@ typedef int (FUNCTION_CALLER *DEAL_REQUEST)(boost::asio::ip::tcp::socket& socket
 OPTIONAL void feedback(const webAPI::formater::FeedBack& feedback);
 typedef void (FUNCTION_CALLER *FEED_BACK)(const webAPI::formater::FeedBack& feedback);
 
+/**
+ * Register the schedule crawl task
+ * @return The tasks those will be triggered by main thread on time, which use the empty time and collect videos
+ */
+OPTIONAL vector<webAPI::schedules::ScheduleTask> scheduleCrawl();
+typedef vector<webAPI::schedules::ScheduleTask> (FUNCTION_CALLER *ScheduleCrawl)();
 }
 
 namespace webAPI::formater {
@@ -83,12 +90,11 @@ namespace webAPI::formater {
   * Plugin register formater, for frontend asked format platform's user prefers
   * @param adder may throw error (webAPI::formater::SameException), you may need try-catch
   */
- OPTIONAL void registerFormater(std::function<bool(const PlatformFormater&)> adder);
+ extern "C" OPTIONAL void registerFormater(std::function<bool(const PlatformFormater&)> adder);
  typedef void (FUNCTION_CALLER *REGISTER_FORMATER)(std::function<bool(const PlatformFormater&)> adder);
 }
 
 #define URL_PARAMS_CATEGORY "category"
-#define URL_PARAMS_PREPARED "prepared"
 #define BODY_PARAMS_PLATFORM "platform"
 #define BODY_PARAMS_NAME "name"
 #define BODY_PARAMS_VIDEO "video"

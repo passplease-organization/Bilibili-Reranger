@@ -23,7 +23,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @playwright/cli
-RUN npm install -g typescript @types/node @google/gemini-cli @openai/codex @qwen-code/qwen-code@latest
+RUN npm install -g typescript @types/node @google/gemini-cli @openai/codex @anthropic-ai/claude-code
 
 RUN mkdir -p /crawler/logs && chmod 777 /crawler/logs
 

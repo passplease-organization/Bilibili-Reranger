@@ -8,7 +8,7 @@
 
 #include "../pluginInterface.h"
 
-string toReadableTime(long long publishTime){// TODO 时间解析有问题
+string toReadableTime(long long publishTime){
     const auto pubTime = static_cast<std::time_t>(publishTime);
     const std::time_t current = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const double seconds = std::difftime(current,pubTime);
@@ -288,6 +288,12 @@ namespace webAPI{
         return fromJson(json);
     }
 
+    Video Video::fromCompatibleJson(const Json &json, unsigned short int recommendTimes) {
+        Video video = fromCompatibleJson(json);
+        video._recommendTimes = recommendTimes;
+        return video;
+    }
+
     dataStore::Data Video::toData(const webAPI::Video &video) {
         return video.json;
     }
@@ -317,59 +323,6 @@ namespace webAPI{
         cppUtil::throwError(error);
         return "";
     }
-
-    long long const& Video::publishTime() const{
-        return _publishTime;
-    }
-
-    const char* Video::author() const{
-        return _author.c_str();
-    }
-
-    const char* Video::description() const{
-        return _description.c_str();
-    }
-
-    long long const& Video::mid() const{
-        return _mid;
-    }
-
-    dataStore::Data Video::getData() const {
-        return toData(*this);
-    }
-
-    Json const& Video::getJson() const{
-        return json;
-    }
-
-    const char* Video::title() const{
-        return _title.c_str();
-    }
-
-    const char* Video::url() const {
-        return _url.c_str();
-    }
-
-    const char* Video::duration() const {
-        return _duration.c_str();
-    }
-
-    const char* Video::image() const {
-        return _image.c_str();
-    }
-
-    const char* Video::string_PublishTime() const {
-        return _string_publishTime.c_str();
-    }
-
-    unsigned int const &Video::views() const {
-        return _views;
-    }
-
-    unsigned int const &Video::popups() const {
-        return _popups;
-    }
-
 
     void Video::write_necessary(Json& json) const{
         json["title"] = _title;
@@ -406,45 +359,45 @@ namespace webAPI{
         _title = regex_replace(_title,regex("<em[^>]*>|</em>"),"");
     }
 
-    void setVideo(Nullable const Video* video){
+    [[deprecated]] void setVideo(Nullable const Video* video){
         _nowVideo = video;
     }
 
-    const Video* nowVideo(){
+    [[deprecated]] const Video* nowVideo(){
         return _nowVideo;
     }
 
-    void clearVideo(){
+    [[deprecated]] void clearVideo(){
         setVideo(nullptr);
     }
 
-    thread_local map<pair<string,string>,vector<Video>> videos = map<pair<string,string>,vector<Video>>();
+    [[deprecated]] thread_local map<pair<string,string>,vector<Video>> _videos = map<pair<string,string>,vector<Video>>();
 
     void keepVideo(const Video& video,const char* label,const char* platform){
         string name(label == nullptr ? "" : label);
         string plat(platform == nullptr ? "" : platform);
-        videos[{name,plat}].emplace_back(video);
+        _videos[{name,plat}].emplace_back(video);
     }
 
-    map<pair<string,string>,vector<Video>> getVideos(){
-        return videos;
+    [[deprecated]] map<pair<string,string>,vector<Video>> _getVideos(){
+        return _videos;
     }
 
-    bool enoughVideo(const char* label,const char* platform){
+    [[deprecated]] bool enoughVideo(const char* label,const char* platform){
         string name(label == nullptr ? crawlTask::getGroup() -> name : label);
         string plat(platform == nullptr ? crawlTask::getGroup() -> platform : platform);
-        return videos[{name,plat}].size() >= crawlTask::nowTask() -> videoCount;
+        return _videos[{name,plat}].size() >= crawlTask::nowTask() -> videoCount;
     }
 
-    bool duplicateVideo(const Video& video,const char* label,const char* platform) {
-        return std::ranges::any_of(videos[{label,platform}],[video](const auto& oldVideo) {
+    [[deprecated]] bool duplicateVideo(const Video& video,const char* label,const char* platform) {
+        return std::ranges::any_of(_videos[{label,platform}],[video](const auto& oldVideo) {
             return oldVideo == video;
         });
     }
 
-    void saveVideos(){
+    [[deprecated]] void saveVideos(){
         Json json;
-        for(const auto& group : getVideos())
+        for(const auto& group : _getVideos())
             for(int i = 0;i < group.second.size();i++) {
                 group.second[i].write_necessary(json[group.first.second][group.first.first][i]);
                 #ifdef DEVELOP
@@ -455,5 +408,39 @@ namespace webAPI{
             saveToFile(OUTPUT_NAME,OUTPUT_PATH);
             storeJson(OUTPUT_NAME,OUTPUT_PATH, nullptr, true);
         }else cppUtil::throwError("Save Output file failed !");
+    }
+
+    thread_local vector<Video>* videos = nullptr;
+
+    static string name;
+
+    void setVideosName(const string &_name) {
+        name = _name;
+        videos = new vector<Video>();
+    }
+
+    void rememberVideos(const vector<Video>& videos_) {
+        if (videos == nullptr)
+            return;
+        videos -> insert(videos -> end(),videos_.begin(), videos_.end());
+    }
+
+    void rememberVideo(const Video& video) {
+        if (videos == nullptr)
+            return;
+        videos -> push_back(video);
+    }
+
+    const vector<Video>& getVideos() {
+        return *videos;
+    }
+
+    Json getVideoJson() {
+        Json json;
+        for(int i = 0;i < getVideos().size();i++)
+            getVideos()[i].write_necessary(json[i]);
+        Json j;
+        j[name] = json;
+        return j;
     }
 }
