@@ -67,7 +67,7 @@ namespace webAPI{
         BrowseWorker getWorker(const crawlTask::Task *task) const override;
 
         [[deprecated]] bool dealJson(CrawlerHelper& helper, const Json& json, const crawlTask::Task* task) const override;
-        bool dealJson(const Json &json, const crawlTask::Task *task) const override;
+        bool dealJson(const Json &json, const crawlTask::Task *task, Client *const&client) const override;
 
         [[deprecated]] bool refreshSubscribers(CrawlerHelper& helper, bool force) const override;
 

@@ -48,6 +48,18 @@ namespace crawlTask{
         Task(const char* keyword,unsigned int videoCount,WorkingMode mode = WorkingMode::SEARCH,int publishedDay = -1);
         ~Task();
 
+        bool operator==(const Task &other) const {
+            return string(keyword) == string(other.keyword) && mode == other.mode && publishedDay == other.publishedDay;
+        }
+
+        Task(const Task &other):keyword(nullptr),mode(other.mode),videoCount(other.videoCount),publishedDay(other.publishedDay) {
+            if (other.keyword) {
+                const auto temp = new char[std::strlen(other.keyword) + 1];
+                std::strcpy(temp, other.keyword);
+                keyword = temp;
+            }
+        }
+
         API [[nodiscard]] const unsigned int& workCount() const {
             return _workCount;
         }
@@ -131,4 +143,16 @@ namespace crawlTask {
     API void GroupFilter(NotNull const string& target,NotNull const string& platform);
 
     API const vector<Group*>& getAllGroups();
+}
+
+namespace std {
+    template <> // To guarteen Task can be used in unordered map
+    struct hash<crawlTask::Task> {
+        size_t operator()(const crawlTask::Task& task) const noexcept {
+            size_t h1 = hash<string>()(task.keyword ? task.keyword : "");
+            size_t h2 = hash<int>()(static_cast<int>(task.mode));
+            size_t h3 = hash<int>()(task.publishedDay);
+            return h1 ^ (h2 << 1) ^ (h3 << 2);
+        }
+    };
 }

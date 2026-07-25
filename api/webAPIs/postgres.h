@@ -3,13 +3,17 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstddef>
 #include <pqxx/pqxx>
 
 #include "browse.h"
 
 // All done by Codex
 
+namespace crawlTask { struct Task; }
+
 namespace webAPI {
+    class Video;
     class socialAPI;
     class SimpleESA;
 
@@ -45,6 +49,24 @@ namespace webAPI {
         std::string updated_at;
     };
 
+    struct PreCrawlTaskKey {
+        std::string keyword;
+        int mode = 0;
+        int published_day = 0;
+    };
+
+    struct PreCrawlVideoRow {
+        std::string client_id;
+        std::string platform;
+        PreCrawlTaskKey task;
+        int task_video_count = 0;
+        std::string task_json;
+        std::string video_key;
+        std::string video_json;
+        std::string crawled_at;
+        int recommend_count = 0;
+    };
+
     class postgres {
     public:
         explicit postgres(DbConfig config);
@@ -62,7 +84,8 @@ namespace webAPI {
         [[nodiscard]] bool ensureSchema() const;
 
         [[nodiscard]] bool upsertClient(const std::string& client_id, const std::string& esa_key_enc) const;
-        [[nodiscard]] bool updateClientLastSeen(const std::string& client_id) const;
+        bool updateClientLastSeen(const std::string& client_id) const;
+        [[nodiscard]] bool clientActive(const std::string& client_id) const;
         [[nodiscard]] bool deleteClient(const std::string& client_id) const;
         [[nodiscard]] bool updateClientDeleteStrategy() const;
 
@@ -74,6 +97,23 @@ namespace webAPI {
         [[nodiscard]] bool upsertHandler(const HandlerRow& row) const;
         [[nodiscard]] bool deleteHandler(const std::string& client_id, const std::string& platform) const;
         bool listClientHandlers(const std::string& client_id, std::vector<HandlerRow>& out) const;
+
+        [[nodiscard]] bool upsertPreCrawlVideos(const std::string& client_id, const std::string& platform,
+                                                const std::vector<PreCrawlVideoRow>& videos) const;
+        bool listPreCrawlVideos(const std::string& client_id, const std::string& platform,
+                                const crawlTask::Task* task, std::vector<PreCrawlVideoRow>& out,
+                                int limit = 0, int offset = 0) const;
+        bool countPreCrawlVideos(const std::string& client_id, const std::string& platform,
+                                 const PreCrawlTaskKey& task, std::size_t& out) const;
+
+        [[nodiscard]] bool incrementBatchRecommendCount(const std::string& client_id,
+                                                         const std::vector<Video>& videos) const;
+
+        [[nodiscard]] bool deletePreCrawlVideo(const std::string& client_id,
+                                                const Video& video) const;
+
+        [[nodiscard]] bool purgeExpiredPreCrawlVideos() const;
+        [[nodiscard]] bool purgeExpiredClients() const;
 
         bool clientsInit(std::vector<ClientRow>& clients, std::vector<HandlerRow>& handlers) const;
 

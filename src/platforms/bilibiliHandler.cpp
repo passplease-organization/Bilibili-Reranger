@@ -515,18 +515,16 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
     }*/
 }
 
-bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) const {
+bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Client *const& client) const {
     if (!validWorkerData(json))
         return false;
-    const auto* group = crawlTask::getGroup();
-    const char* groupName = group == nullptr ? "" : group -> name;
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE : {
             const auto& crawlData = json[2];
             if (!validWhileData(crawlData))
                 return false;
             bool empty = true;
-            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+            auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
                 #define SEARCH_BILIBILI_VIDEOS_SUB "vlist"
                 if (!containsData(data) || !containsList(data))
@@ -537,7 +535,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                 if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array())
                     for (const auto& video : videos)
                         if(const auto& v = Video::fromJson(video); checkVideo(v))
-                            webAPI::keepVideo(v,groupName,this -> support().c_str());
+                            client -> storeVideo(v,*task);
             };
             forEachWhileData(crawlData) {
                 auto stringData = crawlData.dump();
@@ -563,7 +561,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             if (!validWhileData(data))
                 return false;
             bool empty = true;
-            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+            auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
                 #define SEARCH_BILIBILI_VIDEOS_CATEGORY "archives"
                 if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS_CATEGORY))
@@ -573,7 +571,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                     return;
                 for (const auto& video : videos)
                     if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        webAPI::keepVideo(v,groupName,this -> support().c_str());
+                        client -> storeVideo(v,*task);
             };
             forEachWhileData(data) {
                 auto stringData = data.dump();
@@ -600,7 +598,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             if (!validWhileData(data))
                 return false;
             bool empty = true;
-            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+            auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
                 #define SEARCH_BILIBILI_VIDEOS_SEARCH "result"
                 if (!containsData(data) || !getDataFromJson(data).contains(SEARCH_BILIBILI_VIDEOS_SEARCH))
@@ -610,7 +608,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                     return;
                 for (const auto& video : videos) {
                     if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        webAPI::keepVideo(v,groupName,this -> support().c_str());
+                        client -> storeVideo(v,*task);
                 }
             };
             forEachWhileData(data) {
@@ -637,7 +635,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
             if (!validWhileData(data))
                 return false;
             bool empty = true;
-            auto resolver = [this,&empty,&groupName](const Json& data) -> void {
+            auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
                 #define HOME_BILIBILI_VIDEOS_SEARCH "item"
                 if (!containsData(data) || !getDataFromJson(data).contains(HOME_BILIBILI_VIDEOS_SEARCH))
@@ -649,7 +647,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task) co
                     if (!isHomePageVideo(video))
                         continue;
                     if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        webAPI::keepVideo(v,groupName,this -> support().c_str());
+                        client -> storeVideo(v,*task);
                 }
             };
             forEachWhileData(data) {

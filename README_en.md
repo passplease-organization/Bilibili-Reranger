@@ -18,6 +18,13 @@ This is the backend code for the whole project. The architecture is implemented 
 Most functionality is implemented through plugins. The main program is only a framework that handles miscellaneous work, while plugins decide whether specific videos should be kept or filtered out. The actual crawling is not performed by the C++ code either; it is done by another container running **BrowserManager**. The C++ code is mainly responsible for interacting with **BrowserManager**.
 > Before January 28, 2026, this was implemented by reverse-engineering Bilibili. Later, the [reference project](https://github.com/SocialSisterYi/bilibili-API-collect) received a legal notice, and because compatibility with other platforms was also needed, the architecture was changed to the current one.
 
+#### Current Workflow
+Starting from version 3.0, frontend requests and real platform crawling are handled separately. When the frontend requests the root route with a `category`, the backend does not immediately ask **BrowserManager** to search the platform. Instead, it reads prepared videos from the PostgreSQL pre-crawl candidate pool, then lets plugins run the final filtering and response logic. This prevents user refreshes or strict plugin filters from being amplified directly into real-time Bilibili search traffic.
+
+The candidate pool is filled by a background schedule thread. On startup, the backend loads schedule tasks registered by plugins through `scheduleCrawl()`, iterates over clients that already have a platform handler, and runs them using the average interval configured by `schedule_crawl_internal`. The actual sleep time is multiplied by a random 0.8 to 1.2 factor so tasks do not all run at a fixed exact time. Each scheduled task calls `crawlAndStore()`, builds a `BrowseWorker` through the platform handler, sends it to **BrowserManager**, and continues until `Client::crawlEnough()` reports that the task has enough candidate videos.
+
+Pre-crawled results are stored in `client_precrawl_videos` (`develop_client_precrawl_videos` in development builds). Rows are deduplicated by client, platform, task keyword, task mode, publish-time range, and video key. Candidate videos expire after 3 days by default. When a user request returns videos, their `recommend_count` is incremented; fresh videos are preferred, and videos are deleted after being recommended 5 times. In production, the main data flow is therefore: the background worker fills the candidate pool at a controlled pace, while frontend requests only consume local candidates. The `prepared` parameter is no longer the primary preloading mechanism starting from version 3.0.
+
 ### **BrowserManager** Architecture
 #### Work Sent by the Backend
 At this point, each client handler corresponds to one backend browser. The mapping is stored in the database, so the related data is persisted long term. When writing a new handler, however, you only need to submit `workers`; the rest is already wrapped in `api/webAPIs/browse.cpp`.
@@ -115,7 +122,7 @@ root router crawling parameters (for other URL paths):
 |-----------|--------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
 | category  | Type of work for this request                    | Must be used with `/set`; only works for the current platform                                                             |
 | id        | Value used by the backend to identify the client | Required by default for all requests except `/key`<br/>encryption applies to the whole body, not individual JSON fields   |
-| prepared  | weather is the preload triggered by program      | with no message back，data stored in RAM and use for speed up in next request; no need for value, just search for this tag |
+| prepared  | Whether the request is the old automatic preload triggered by the program | No response body is expected; data used to be stored in memory for the next request. Deprecated since version 3.0 |
 
 ### Request Flow
 First connect to `/key` to obtain the public key, then exchange the symmetric key and store `id`. Next, connect to `/login` to open the login browser, then call `/init` to store login state and initialize the backend. After that, use `category` to obtain videos from different categories.

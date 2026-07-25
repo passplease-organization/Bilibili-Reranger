@@ -1,5 +1,6 @@
 #include "testCode.h"
 
+#ifdef TEST
 #include "utils/Util.h"
 #include "../../api/utils/config.h"
 #include <cpr/cpr.h>
@@ -8,6 +9,7 @@
 #include "utils/BilibiliInterface.h"
 #include "webAPIs/socialAPI.h"
 #include "webAPIs/platforms.h"
+#include "utils/schedules.h"
 
 using namespace cpr;
 
@@ -61,7 +63,7 @@ void startTestThread() {
 #define INIT_OUTPUT OUTPUT_DIRECTORY INIT ".json"
 #define SET_OUTPUT OUTPUT_DIRECTORY SET ".json"
 #define MATH "math"
-#define MATH_OUTPUT OUTPUT_DIRECTORY "/" MATH ".json"
+#define SCHEDULE_OUTPUT OUTPUT_DIRECTORY "/scheduled_crawl.json"
 #define DEBUG "test"
 
 namespace {
@@ -489,23 +491,21 @@ void test() {
             OUTPUT(INIT_OUTPUT,INIT_NO_SLASH);
         }
 
-        _say("Crawl( will fail ):");
-        response = Post(
-            Url{localhost},
-            Parameters{
-                {URL_PARAMS_CLIENT_ID,id},
-                {URL_PARAMS_CATEGORY,MATH}
-            },
-            ConnectTimeout{CONNECTION_TIMEOUT},
-            Timeout{config<int>(TIMEOUT)}
-        );
-        _say("Crawl response: ");
-        _say(response.text);
-        if (response.status_code == 0)
-            markFailed(error,"Crawl request failed with no HTTP response");
-        if (response.text.empty())
-            markFailed(error,"Crawl returned empty response");
-        OUTPUT(MATH_OUTPUT,MATH);
+        _say("Waiting for scheduled crawl:");
+        if (!webAPI::schedules::waitForClientCrawl(120000))
+            markFailed(error,"Scheduled crawl did not finish in time");
+
+        response = POST_PARAMS_ID(localhost);
+        expectStatusCode(response,200,error,"Read scheduled crawl result");
+        const string scheduledData = decryptIfNeeded(response.text,&esa);
+        if (scheduledData.empty()) {
+            markFailed(error,"Scheduled crawl result is empty");
+        } else {
+            json = parseJsonChecked(scheduledData,error,"Scheduled crawl result");
+            if (json.is_discarded())
+                markFailed(error,"Scheduled crawl result is invalid json");
+            OUTPUT(SCHEDULE_OUTPUT,"scheduled_crawl");
+        }
     }catch (std::exception &e) {
         testFinished = true;
         cppUtil::warn("Crashed !");
@@ -518,3 +518,4 @@ void test() {
     testFinished = true;
     POST_PARAMS_ID(localhost);// To let main thread get out from listening port
 }
+#endif

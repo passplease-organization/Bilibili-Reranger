@@ -1,7 +1,7 @@
 #include <regex>
 #include <iostream>
 #include "Crawler.h"
-#include "../api/utils/config.h"
+#include "utils/config.h"
 #include "bilibiliAPIs.h"
 #include "utils/BilibiliInterface.h"
 #include "webAPIs/crawler.h"
@@ -11,7 +11,7 @@
 #include "subFeatures/requestHelper.h"
 #include "webAPIs/postgres.h"
 #include "webAPIs/browse.h"
-#include "../api/PortListener.h"
+#include "PortListener.h"
 #include <boost/asio.hpp>
 #include <utility>
 #include <cpr/api.h>
@@ -241,73 +241,50 @@ webAPI::postgres dataBase(postgresConfig);
 string browseManagerUrl;
 [[deprecated]] string user_agent;
 
-bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket,bool& prepared){
-    Json data;
-    if (!prepared) {
-        if (crawlInfo -> client -> getData(crawlInfo -> target,data)) {
-            sendMessage(socket,data.dump());
-            cppUtil::say("已加载预爬取数据，接下来更改为预爬取模式");
-            prepared = true;
-        }
-    }
-    cppUtil::say("启动爬取，当前模式：",prepared ? "预爬取" : "正式爬取","模式");
-    string session;
-    if (!prepared) {
-        session = getSession();
-        sendSession(socket,session);
-    }
-    const int max_count = config<int>(MAX_CRAWL_COUNT);
-    int count = 0;
+bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::ip::tcp::socket& socket){
+    cppUtil::say("清点现有视频，输出视频");
+    const string& session = getSession();
+    sendSession(socket,session);
     try {
         const auto& handler = crawlInfo -> client -> handler();
         if (handler == nullptr)
             cppUtil::throwError("空Handler，客户端可能未初始化！");
-        bool back = true;
-        do{
-            count++;
-
-    #if SLEEP_CRAWL
-            cppUtil::say("爬取等待...");
-        #ifdef WIN32
-            Sleep(config<int>(WAIT_TIME));
-        #elifdef __linux__
-            sleep(config<int>(WAIT_TIME));
-        #endif
-    #endif
+        webAPI::setVideosName(getGroup() -> name);
+        do {
             const auto& task = crawlTask::nowTask();
-            back &= handler -> dealJson(webAPI::getController().perform(handler -> getWorker(task)),task);
-            if (task)
-                task -> workOnce();
-            if (webAPI::enoughVideo()) {
-                if (crawlTask::nextTask(false) != nullptr)
-                    crawlTask::nextTask(true);
-                else break;
+            vector<webAPI::Video> result;
+            for (int i = 0;result.size() < task -> videoCount;i += task -> videoCount) {
+                const auto& videos = crawlInfo -> client -> getVideos(task,i);
+                if (videos.empty())
+                    break;
+                for (const auto& v : videos)
+                    if (finalCheckVideo(v))
+                        result.push_back(v);
             }
-        }while(!cancel -> load() && back && count < max_count);
-
-        if (handler -> getWorker(crawlTask::nowTask()) != webAPI::nullWorker())
-            cppUtil::warn("爬取视频工作未全部完成");
-        data = webAPI::getVideoJson();
-        if (prepared) {
-            if (back)
-                back = crawlInfo -> client -> storeData(crawlInfo -> target,data);
-            cppUtil::say("预爬取完成，当前准备",back ? "成功" : "失败");
-            return back;
-        }else {
-            writeSession(session,data,!back);
-            cppUtil::say("正式爬取已结束，接下来准备预爬取，当前状态：",back ? "成功" : "失败");
-            cpr::Post(
-                cpr::Url{"localhost:" + to_string(config<int>(PORT))},
-                cpr::Parameters{{URL_PARAMS_CATEGORY,crawlInfo -> target},{URL_PARAMS_PREPARED,"true"},{URL_PARAMS_CLIENT_ID,crawlInfo -> clientId}}
-            );
-            return back;
-        }
+            webAPI::rememberVideos(result);
+            nextTask(true);
+        }while (nowTask() != nullptr && !cancel -> load());
+        const bool& back = (nowTask() == nullptr) & dataBase.incrementBatchRecommendCount(crawlInfo -> clientId,webAPI::getVideos());
+        writeSession(session,webAPI::getVideoJson(),!back);
+        return back;
     }catch(const std::exception& e) {
         cppUtil::warn("爬取失败，遇到错误！",e.what());
-        if (!prepared)
-            writeSession(session,Json(),true);
+        writeSession(session,Json(),true);
         return false;
     }
+}
+
+bool crawlAndStore(const crawlTask::Group& group,webAPI::Client* const& client) {
+    if (client == nullptr || client -> handler() == nullptr)
+        return false;
+    for (const auto& task : group.tasks) {
+        while (!client -> crawlEnough(task)) {
+            if (!client -> handler() -> dealJson(webAPI::getController().perform(client -> handler() -> getWorker(task)),task,client))
+                return false;
+            task -> workOnce();
+        }
+    }
+    return true;
 }
 
 string getURL(const crawlTask::Task* task){
@@ -375,10 +352,10 @@ bool checkEnv(){
 }
 
 bool webAPI::socialAPI::checkVideo(const Video & video) const {
-    webAPI::setVideo(&video);
-    const auto* group = crawlTask::getGroup();
-    const char* groupName = group == nullptr ? "" : group -> name;
-    if (duplicateVideo(video,groupName,this -> support().c_str()))
-        return false;
-    return roughCheckVideo() && finalCheckVideo();
+    // webAPI::setVideo(&video);
+    // const auto* group = crawlTask::getGroup();
+    // const char* groupName = group == nullptr ? "" : group -> name;
+    // if (duplicateVideo(video,groupName,this -> support().c_str()))
+    //     return false;
+    return roughCheckVideo(video) && finalCheckVideo(video);
 }

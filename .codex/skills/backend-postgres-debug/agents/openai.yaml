@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend Postgres Debug"
+  short_description: "Inspect this backend's Postgres schema and crawler data state."
+  default_prompt: "Check the backend Postgres database state and explain why crawler videos are not being stored."

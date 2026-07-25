@@ -36,9 +36,9 @@ public:
 
     PluginStatus registerGroups();
 
-    VideoStatus roughJudge();
+    VideoStatus roughJudge(const webAPI::Video& video);
 
-    VideoStatus judge();
+    VideoStatus judge(const webAPI::Video& video);
 
     [[deprecated]] string getURL();
 
@@ -51,6 +51,8 @@ public:
     void registerFormater(std::function<bool(const webAPI::formater::PlatformFormater&)> adder);
 
     void feedBack(const webAPI::formater::FeedBack& feedback);
+
+    bool registerScheduleTasks();
 
     [[nodiscard]] const string& getName() const;
 
@@ -73,7 +75,7 @@ public:
         return value;
     }
 
-    static bool checkVideo(VideoStatus function(PluginHandler&));
+    static bool checkVideo(const std::function<VideoStatus(PluginHandler &)> &function);
 
     static void loadAll();
 
@@ -86,13 +88,20 @@ public:
             plugin -> feedBack(feedback);
     }
 
+    static bool registerAllScheduleTasks() noexcept(false){
+        for(const auto& plugin : *plugins)
+            if (!plugin -> registerScheduleTasks())
+                webAPI::schedules::throwRegisterError();
+        return true;
+    }
+
 private:
     static vector<string>* searchPlugin(NotNull vector<string>* back);
 };
 
-bool roughCheckVideo();
+bool roughCheckVideo(const webAPI::Video& video);
 
-bool finalCheckVideo();
+bool finalCheckVideo(const webAPI::Video& video);
 
 bool pluginDealJson(string& tempData);
 

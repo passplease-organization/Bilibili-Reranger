@@ -17,7 +17,9 @@ services:
     domainname: backend
     volumes:
       - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/home/vscode/.codex/auth.json
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/root/.codex/auth.json
       - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
       - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
       - ./session/claude:/root/.claude
@@ -31,6 +33,8 @@ services:
       DB_PORT: ${POSTGRES_PORT:-5432}
       DB_HOST: ${POSTGRES_HOST:-postgres}
       DB_DELETE: ${POSTGRES_DELETE:-false}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
 
   postgres:
     image: postgres:18
@@ -53,6 +57,8 @@ services:
     shm_size: '1gb'
     volumes:
       - ../browser:/crawler
+      - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/home/vscode/.codex/auth.json
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/root/.codex/auth.json
       - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
-      - ./session/qwen:/root/.qwen
