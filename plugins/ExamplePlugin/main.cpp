@@ -58,11 +58,12 @@ void registerGroups(){
     cppUtil::warn("空配置文件！请填写配置文件！文件：" CONFIG_PATH ".json");
 }
 
-VideoStatus roughJudge(){
+VideoStatus roughJudge(const webAPI::Video& video){
     return VideoStatus::UNKNOWN;
 }
 
-VideoStatus judge(){
+VideoStatus judge(const webAPI::Video& video,unsigned short& score){
+    score = 50;
     return VideoStatus::UNKNOWN;
 }
 

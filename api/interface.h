@@ -45,6 +45,9 @@ typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)(const webAPI::Video& video);
  * @param score how values are of videos, must have value if judged to be kept, max is 100, min is 0, normal should be 50
  * @return if we should keep this video
  */
+#define MAX_VIDEO_SCORE 100
+#define NORMAL_VIDEO_SCORE 50
+#define MIN_VIDEO_SCORE 0
 OPTIONAL VideoStatus judge(const webAPI::Video& video,unsigned short& score);
 typedef VideoStatus (FUNCTION_CALLER *JUDGE)(const webAPI::Video& video,unsigned short& score);
 

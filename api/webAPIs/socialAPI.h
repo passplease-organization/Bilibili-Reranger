@@ -199,7 +199,7 @@ namespace webAPI {
 
         SimpleESA esa;
 
-        unordered_map<crawlTask::Task,vector<Video>> preCrawlVideos = {};
+        unordered_map<crawlTask::Task,vector<pair<Video,unsigned short>>> preCrawlVideos = {};
 
     protected:
         socialAPI* _handler;

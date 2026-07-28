@@ -487,11 +487,15 @@ std::string Client::ESAKey(const std::string &adminKey) const {
 bool Client::storeVideo(const Video &video,const crawlTask::Task& task,const unsigned short& score) {
     auto& videos = preCrawlVideos[task];
     const auto key = preCrawlVideoKey(video);
-    for (const auto& old : videos) {
-        if (preCrawlVideoKey(old) == key)
+    const auto stored_score = score > 100 ? 100 : score;
+    for (auto& old : videos) {
+        if (preCrawlVideoKey(old.first) == key) {
+            if (old.second < stored_score)
+                old.second = stored_score;
             return true;
+        }
     }
-    videos.push_back(video);
+    videos.emplace_back(video, stored_score);
     return true;
 }
 
@@ -513,7 +517,7 @@ void Client::syncPreCrawlDataBase() {
         const auto task_json = preCrawlTaskJson(task).dump();
         if (config<bool>(DETAILS))
             cppUtil::say(task.keyword,"任务存入",videos.size(),"个视频");
-        for (const auto& video : videos) {
+        for (const auto& [video, score] : videos) {
             Json video_json;
             video.write_all(video_json);
             rows.push_back({
@@ -524,7 +528,9 @@ void Client::syncPreCrawlDataBase() {
                 task_json,
                 preCrawlVideoKey(video),
                 video_json.dump(),
-                ""
+                "",
+                0,
+                score
             });
         }
     }

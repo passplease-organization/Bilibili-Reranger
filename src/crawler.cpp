@@ -257,9 +257,11 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
                 const auto& videos = crawlInfo -> client -> getVideos(task,i);
                 if (videos.empty())
                     break;
-                for (const auto& v : videos)
-                    if (finalCheckVideo(v))
+                for (const auto& v : videos) {
+                    unsigned short score = 0;
+                    if (finalCheckVideo(v, score))
                         result.push_back(v);
+                }
             }
             webAPI::rememberVideos(result);
             nextTask(true);

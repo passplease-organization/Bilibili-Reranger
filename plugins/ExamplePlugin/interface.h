@@ -7,14 +7,18 @@
     #define EXPORT __attribute__((visibility("default")))
 #endif
 
+namespace webAPI {
+    class Video;
+}
+
 extern "C" {
 EXPORT PluginStatus load();
 
 EXPORT void registerGroups();
 
-EXPORT VideoStatus roughJudge();
+EXPORT VideoStatus roughJudge(const webAPI::Video& video);
 
-EXPORT VideoStatus judge();
+EXPORT VideoStatus judge(const webAPI::Video& video,unsigned short& score);
 
 #ifdef DEVELOP
 EXPORT const char* getURL();
