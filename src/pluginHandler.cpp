@@ -66,6 +66,12 @@ PluginStatus PluginHandler::load() {
     return value;
 }
 
+void PluginHandler::unload() {
+    cppUtil::say("正在卸载插件",getName());
+    if(const auto plugin = (UNLOAD) getFunction("unload");plugin != nullptr)
+        plugin();
+}
+
 PluginStatus PluginHandler::registerGroups() {
     auto plugin = (REGISTER) getFunction("registerGroups");
     if(plugin == nullptr)
@@ -81,11 +87,11 @@ VideoStatus PluginHandler::roughJudge(const webAPI::Video& video) {
     return plugin(video);
 }
 
-VideoStatus PluginHandler::judge(const webAPI::Video& video) {
+VideoStatus PluginHandler::judge(const webAPI::Video& video,unsigned short& score) {
     auto plugin = (JUDGE) getFunction("judge");
     if(plugin == nullptr)
         return VideoStatus::UNKNOWN;
-    return plugin(video);
+    return plugin(video,score);
 }
 
 string PluginHandler::getURL() {
@@ -259,9 +265,9 @@ bool roughCheckVideo(const webAPI::Video& video) {
     });
 }
 
-bool finalCheckVideo(const webAPI::Video& video) {
-    return PluginHandler::checkVideo([&video](PluginHandler& handler) -> VideoStatus{
-        return handler.judge(video);
+bool finalCheckVideo(const webAPI::Video& video,unsigned short& score) {
+    return PluginHandler::checkVideo([&video,&score](PluginHandler& handler) -> VideoStatus{
+        return handler.judge(video,score);
     });
 }
 

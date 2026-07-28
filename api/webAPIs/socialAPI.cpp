@@ -484,7 +484,7 @@ std::string Client::ESAKey(const std::string &adminKey) const {
     return esa.getKey(adminKey);
 }
 
-bool Client::storeVideo(const Video &video,const crawlTask::Task& task) {
+bool Client::storeVideo(const Video &video,const crawlTask::Task& task,const unsigned short& score) {
     auto& videos = preCrawlVideos[task];
     const auto key = preCrawlVideoKey(video);
     for (const auto& old : videos) {

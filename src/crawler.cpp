@@ -351,11 +351,11 @@ bool checkEnv(){
     return error;
 }
 
-bool webAPI::socialAPI::checkVideo(const Video & video) const {
+bool webAPI::socialAPI::checkVideo(const Video & video,unsigned short& score) const {
     // webAPI::setVideo(&video);
     // const auto* group = crawlTask::getGroup();
     // const char* groupName = group == nullptr ? "" : group -> name;
     // if (duplicateVideo(video,groupName,this -> support().c_str()))
     //     return false;
-    return roughCheckVideo(video) && finalCheckVideo(video);
+    return roughCheckVideo(video) && finalCheckVideo(video,score);
 }

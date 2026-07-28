@@ -533,9 +533,11 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 if (!list.contains(SEARCH_BILIBILI_VIDEOS_SUB))
                     return;
                 if (const auto& videos =  list[SEARCH_BILIBILI_VIDEOS_SUB]; videos.is_array())
-                    for (const auto& video : videos)
-                        if(const auto& v = Video::fromJson(video); checkVideo(v))
-                            client -> storeVideo(v,*task);
+                    for (const auto& video : videos){
+                        unsigned short score = 0;
+                        if(const auto& v = Video::fromJson(video); checkVideo(v,score))
+                            client -> storeVideo(v,*task,score);
+                    }
             };
             forEachWhileData(crawlData) {
                 auto stringData = crawlData.dump();
@@ -569,9 +571,11 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_CATEGORY];
                 if (!videos.is_array())
                     return;
-                for (const auto& video : videos)
-                    if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        client -> storeVideo(v,*task);
+                for (const auto& video : videos){
+                    unsigned short score = 0;
+                    if(const auto& v = Video::fromJson(video); checkVideo(v,score))
+                        client -> storeVideo(v,*task,score);
+                }
             };
             forEachWhileData(data) {
                 auto stringData = data.dump();
@@ -606,9 +610,10 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 const auto& videos = getDataFromJson(data)[SEARCH_BILIBILI_VIDEOS_SEARCH];
                 if (!videos.is_array())
                     return;
-                for (const auto& video : videos) {
-                    if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        client -> storeVideo(v,*task);
+                for (const auto& video : videos){
+                    unsigned short score = 0;
+                    if(const auto& v = Video::fromJson(video); checkVideo(v,score))
+                        client -> storeVideo(v,*task,score);
                 }
             };
             forEachWhileData(data) {
@@ -646,8 +651,9 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 for (const auto& video : videos) {
                     if (!isHomePageVideo(video))
                         continue;
-                    if(const auto& v = Video::fromJson(video); checkVideo(v))
-                        client -> storeVideo(v,*task);
+                    unsigned short score = 0;
+                    if(const auto& v = Video::fromJson(video); checkVideo(v,score))
+                        client -> storeVideo(v,*task,score);
                 }
             };
             forEachWhileData(data) {
