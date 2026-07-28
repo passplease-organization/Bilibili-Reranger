@@ -180,7 +180,7 @@ namespace webAPI {
             stop = timer;
         }
 
-        API [[nodiscard]] bool checkVideo(const Video& video) const;
+        API [[nodiscard]] bool checkVideo(const Video& video,unsigned short& score) const;
 
         API [[nodiscard]] BrowseWorkingContext* const& getContext() const noexcept {
             return context;
@@ -199,7 +199,7 @@ namespace webAPI {
 
         SimpleESA esa;
 
-        unordered_map<crawlTask::Task,vector<Video>> preCrawlVideos = {};
+        unordered_map<crawlTask::Task,vector<pair<Video,unsigned short>>> preCrawlVideos = {};
 
     protected:
         socialAPI* _handler;
@@ -283,7 +283,7 @@ namespace webAPI {
 
         API [[nodiscard]] bool crawlEnough(Nullable crawlTask::Task const* const& task) const;
 
-        API bool storeVideo(const Video& video,const crawlTask::Task& task);
+        API bool storeVideo(const Video& video,const crawlTask::Task& task,const unsigned short& score);
 
         API [[nodiscard]] vector<Video> getVideos(crawlTask::Task const* const& task,unsigned int offset = 0) const;
     };

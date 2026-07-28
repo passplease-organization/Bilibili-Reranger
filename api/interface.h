@@ -22,6 +22,12 @@ REQUIRED PluginStatus load();
 REQUIRED typedef PluginStatus (FUNCTION_CALLER *LOAD)();
 
 /**
+ * Exit the plugin, not promised be called everytime, such as stopping container directly
+ */
+OPTIONAL void unload();
+OPTIONAL typedef void (FUNCTION_CALLER *UNLOAD)();
+
+/**
  * Register all video group and tasks you want to crawl for.
  * */
 OPTIONAL void registerGroups();
@@ -35,9 +41,15 @@ typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)(const webAPI::Video& video);
 
 /**
  * Judge keep or throw this video away
- * */
-OPTIONAL VideoStatus judge(const webAPI::Video& video);
-typedef VideoStatus (FUNCTION_CALLER *JUDGE)(const webAPI::Video& video);
+ * @param video the video to be judged
+ * @param score how values are of videos, must have value if judged to be kept, max is 100, min is 0, normal should be 50
+ * @return if we should keep this video
+ */
+#define MAX_VIDEO_SCORE 100
+#define NORMAL_VIDEO_SCORE 50
+#define MIN_VIDEO_SCORE 0
+OPTIONAL VideoStatus judge(const webAPI::Video& video,unsigned short& score);
+typedef VideoStatus (FUNCTION_CALLER *JUDGE)(const webAPI::Video& video,unsigned short& score);
 
 /**
  * Now deprecated

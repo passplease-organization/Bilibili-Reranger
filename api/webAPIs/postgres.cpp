@@ -130,11 +130,14 @@ namespace webAPI {
   video              jsonb NOT NULL,
   crawled_at         timestamptz NOT NULL DEFAULT now(),
   recommend_count    integer NOT NULL DEFAULT 0,
+  score              smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (client_id, platform, task_keyword, task_mode, task_published_day, video_key)
 ))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_precrawl_task_lookup ON develop_client_precrawl_videos(client_id, platform, task_keyword, task_mode, task_published_day, crawled_at))sql",
+            R"sql(CREATE INDEX IF NOT EXISTS develop_idx_precrawl_task_score_lookup ON develop_client_precrawl_videos(client_id, platform, task_keyword, task_mode, task_published_day, score DESC, crawled_at ASC))sql",
             R"sql(CREATE INDEX IF NOT EXISTS develop_idx_precrawl_client_platform_oldest ON develop_client_precrawl_videos(client_id, platform, crawled_at))sql",
             R"sql(ALTER TABLE develop_client_precrawl_videos ADD COLUMN IF NOT EXISTS recommend_count integer NOT NULL DEFAULT 0)sql",
+            R"sql(ALTER TABLE develop_client_precrawl_videos ADD COLUMN IF NOT EXISTS score smallint NOT NULL DEFAULT 0)sql",
             R"sql(DELETE FROM develop_client_precrawl_videos p
 WHERE NOT EXISTS (
   SELECT 1 FROM develop_clients c WHERE c.client_id = p.client_id
@@ -244,11 +247,14 @@ $$)sql"
   video              jsonb NOT NULL,
   crawled_at         timestamptz NOT NULL DEFAULT now(),
   recommend_count    integer NOT NULL DEFAULT 0,
+  score              smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (client_id, platform, task_keyword, task_mode, task_published_day, video_key)
 ))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_precrawl_task_lookup ON client_precrawl_videos(client_id, platform, task_keyword, task_mode, task_published_day, crawled_at))sql",
+            R"sql(CREATE INDEX IF NOT EXISTS idx_precrawl_task_score_lookup ON client_precrawl_videos(client_id, platform, task_keyword, task_mode, task_published_day, score DESC, crawled_at ASC))sql",
             R"sql(CREATE INDEX IF NOT EXISTS idx_precrawl_client_platform_oldest ON client_precrawl_videos(client_id, platform, crawled_at))sql",
             R"sql(ALTER TABLE client_precrawl_videos ADD COLUMN IF NOT EXISTS recommend_count integer NOT NULL DEFAULT 0)sql",
+            R"sql(ALTER TABLE client_precrawl_videos ADD COLUMN IF NOT EXISTS score smallint NOT NULL DEFAULT 0)sql",
             R"sql(DO $$
 BEGIN
   IF EXISTS (
@@ -724,14 +730,15 @@ $$)sql"
                 txn.exec(
                     std::string("INSERT INTO ") + kPreCrawlVideosTable + " "
                     "(client_id, platform, task_keyword, task_mode, task_published_day, "
-                    "task_video_count, task, video_key, video, crawled_at) "
-                    "VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, now()) "
+                    "task_video_count, task, video_key, video, crawled_at, score) "
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, now(), $10) "
                     "ON CONFLICT (client_id, platform, task_keyword, task_mode, task_published_day, video_key) "
                     "DO UPDATE SET "
                     "task_video_count = EXCLUDED.task_video_count, "
                     "task = EXCLUDED.task, "
                     "video = EXCLUDED.video, "
-                    "crawled_at = now()",
+                    "crawled_at = now(), "
+                    "score = EXCLUDED.score",
                     pqxx::params{
                         client_id,
                         platform,
@@ -741,7 +748,8 @@ $$)sql"
                         video.task_video_count,
                         task_json,
                         video.video_key,
-                        video.video_json
+                        video.video_json,
+                        video.score
                     }
                 );
             }
@@ -763,15 +771,73 @@ $$)sql"
             pqxx::work txn(*connection_);
             txn.exec(std::string("DELETE FROM ") + kPreCrawlVideosTable + " WHERE crawled_at < now() - interval '3 days'");
             pqxx::result result;
-            if (limit > 0) {
+            if (task != nullptr && limit > 0) {
                 if (offset > 0) {
                     result = txn.exec(
                         "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
                         "task_video_count, task::text AS task, video_key, video::text AS video, "
-                        "crawled_at, recommend_count "
+                        "crawled_at, recommend_count, score "
                         "FROM " + std::string(kPreCrawlVideosTable) + " "
                         "WHERE client_id = $1 AND platform = $2 "
-                        "ORDER BY crawled_at ASC "
+                        "AND task_keyword = $3 AND task_mode = $4 AND task_published_day = $5 "
+                        "ORDER BY score DESC, crawled_at ASC "
+                        "LIMIT $6 OFFSET $7",
+                        pqxx::params{
+                            client_id,
+                            platform,
+                            task->keyword == nullptr ? "" : task->keyword,
+                            static_cast<int>(task->mode),
+                            task->publishedDay,
+                            limit,
+                            offset
+                        }
+                    );
+                } else {
+                    result = txn.exec(
+                        "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
+                        "task_video_count, task::text AS task, video_key, video::text AS video, "
+                        "crawled_at, recommend_count, score "
+                        "FROM " + std::string(kPreCrawlVideosTable) + " "
+                        "WHERE client_id = $1 AND platform = $2 "
+                        "AND task_keyword = $3 AND task_mode = $4 AND task_published_day = $5 "
+                        "ORDER BY score DESC, crawled_at ASC "
+                        "LIMIT $6",
+                        pqxx::params{
+                            client_id,
+                            platform,
+                            task->keyword == nullptr ? "" : task->keyword,
+                            static_cast<int>(task->mode),
+                            task->publishedDay,
+                            limit
+                        }
+                    );
+                }
+            } else if (task != nullptr) {
+                result = txn.exec(
+                    "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
+                    "task_video_count, task::text AS task, video_key, video::text AS video, "
+                    "crawled_at, recommend_count, score "
+                    "FROM " + std::string(kPreCrawlVideosTable) + " "
+                    "WHERE client_id = $1 AND platform = $2 "
+                    "AND task_keyword = $3 AND task_mode = $4 AND task_published_day = $5 "
+                    "ORDER BY score DESC, crawled_at ASC",
+                    pqxx::params{
+                        client_id,
+                        platform,
+                        task->keyword == nullptr ? "" : task->keyword,
+                        static_cast<int>(task->mode),
+                        task->publishedDay
+                    }
+                );
+            } else if (limit > 0) {
+                if (offset > 0) {
+                    result = txn.exec(
+                        "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
+                        "task_video_count, task::text AS task, video_key, video::text AS video, "
+                        "crawled_at, recommend_count, score "
+                        "FROM " + std::string(kPreCrawlVideosTable) + " "
+                        "WHERE client_id = $1 AND platform = $2 "
+                        "ORDER BY score DESC, crawled_at ASC "
                         "LIMIT $3 OFFSET $4",
                         pqxx::params{client_id, platform, limit, offset}
                     );
@@ -779,10 +845,10 @@ $$)sql"
                     result = txn.exec(
                         "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
                         "task_video_count, task::text AS task, video_key, video::text AS video, "
-                        "crawled_at, recommend_count "
+                        "crawled_at, recommend_count, score "
                         "FROM " + std::string(kPreCrawlVideosTable) + " "
                         "WHERE client_id = $1 AND platform = $2 "
-                        "ORDER BY crawled_at ASC "
+                        "ORDER BY score DESC, crawled_at ASC "
                         "LIMIT $3",
                         pqxx::params{client_id, platform, limit}
                     );
@@ -791,10 +857,10 @@ $$)sql"
                 result = txn.exec(
                     "SELECT client_id, platform, task_keyword, task_mode, task_published_day, "
                     "task_video_count, task::text AS task, video_key, video::text AS video, "
-                    "crawled_at, recommend_count "
+                    "crawled_at, recommend_count, score "
                     "FROM " + std::string(kPreCrawlVideosTable) + " "
                     "WHERE client_id = $1 AND platform = $2 "
-                    "ORDER BY crawled_at ASC",
+                    "ORDER BY score DESC, crawled_at ASC",
                     pqxx::params{client_id, platform}
                 );
             }
@@ -815,25 +881,8 @@ $$)sql"
                 entry.video_json = row["video"].as<std::string>();
                 entry.crawled_at = row["crawled_at"].as<std::string>();
                 entry.recommend_count = row["recommend_count"].as<int>();
+                entry.score = row["score"].as<int>();
                 out.push_back(std::move(entry));
-            }
-
-            // 直接使用 Task::operator== 在内存中匹配
-            if (task != nullptr && !out.empty()) {
-                std::vector<PreCrawlVideoRow> filtered;
-                filtered.reserve(out.size());
-                for (const auto& row : out) {
-                    crawlTask::Task row_task(
-                        row.task.keyword.c_str(),
-                        0,
-                        static_cast<crawlTask::WorkingMode>(row.task.mode),
-                        row.task.published_day
-                    );
-                    if (row_task == *task) {
-                        filtered.push_back(row);
-                    }
-                }
-                out = std::move(filtered);
             }
 
             return true;

@@ -34,11 +34,13 @@ public:
 
     PluginStatus load();
 
+    void unload();
+
     PluginStatus registerGroups();
 
     VideoStatus roughJudge(const webAPI::Video& video);
 
-    VideoStatus judge(const webAPI::Video& video);
+    VideoStatus judge(const webAPI::Video& video,unsigned short& score);
 
     [[deprecated]] string getURL();
 
@@ -101,7 +103,7 @@ private:
 
 bool roughCheckVideo(const webAPI::Video& video);
 
-bool finalCheckVideo(const webAPI::Video& video);
+bool finalCheckVideo(const webAPI::Video& video,unsigned short& score);
 
 bool pluginDealJson(string& tempData);
 

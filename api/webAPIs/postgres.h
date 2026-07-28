@@ -65,6 +65,7 @@ namespace webAPI {
         std::string video_json;
         std::string crawled_at;
         int recommend_count = 0;
+        int score = 0;
     };
 
     class postgres {

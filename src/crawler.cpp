@@ -257,9 +257,11 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
                 const auto& videos = crawlInfo -> client -> getVideos(task,i);
                 if (videos.empty())
                     break;
-                for (const auto& v : videos)
-                    if (finalCheckVideo(v))
+                for (const auto& v : videos) {
+                    unsigned short score = 0;
+                    if (finalCheckVideo(v, score))
                         result.push_back(v);
+                }
             }
             webAPI::rememberVideos(result);
             nextTask(true);
@@ -351,11 +353,11 @@ bool checkEnv(){
     return error;
 }
 
-bool webAPI::socialAPI::checkVideo(const Video & video) const {
+bool webAPI::socialAPI::checkVideo(const Video & video,unsigned short& score) const {
     // webAPI::setVideo(&video);
     // const auto* group = crawlTask::getGroup();
     // const char* groupName = group == nullptr ? "" : group -> name;
     // if (duplicateVideo(video,groupName,this -> support().c_str()))
     //     return false;
-    return roughCheckVideo(video) && finalCheckVideo(video);
+    return roughCheckVideo(video) && finalCheckVideo(video,score);
 }
