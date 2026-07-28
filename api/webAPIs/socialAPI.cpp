@@ -555,7 +555,7 @@ bool Client::crawlEnough(crawlTask::Task const* const& task) const {
     if (!dataBase.countPreCrawlVideos(ID, platform, key, stored_count)) {
         return false;
     }
-    return staged_count + stored_count >= target_count;
+    return staged_count + stored_count / 100 >= target_count;
 }
 
 vector<Video> Client::getVideos(crawlTask::Task const* const& task,unsigned int offset) const {
