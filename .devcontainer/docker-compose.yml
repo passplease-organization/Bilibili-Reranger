@@ -6,7 +6,9 @@ services:
     domainname: frontend
     volumes:
       - ./session/codex:/home/vscode/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/home/vscode/.codex/auth.json
       - ./session/codex:/root/.codex # You can change to C:\Users\username\.codex
+      - C:/Users/Administrator/.codex/auth.json:/root/.codex/auth.json
       - ./session/gemini:/home/vscode/.gemini # You can change to C:\Users\username\.gemini
       - ./session/gemini:/root/.gemini # You can change to C:\Users\username\.gemini
       - ./session/codebuddy:/root/.codebuddy
@@ -24,7 +26,7 @@ services:
     domainname: backend
     volumes:
       - ./backend_config:/bilibili-backend/config
-      #- ./backend_plugin:/bilibili-backend/plugins
+      - ./backend_plugins:/bilibili-backend/plugins
     environment:
       DB_NAME: ${POSTGRES_DB:-postgres}
       DB_USER: ${POSTGRES_USER:-noname}

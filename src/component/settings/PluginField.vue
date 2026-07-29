@@ -3,6 +3,7 @@ import {computed} from "vue";
 import type {PluginFieldDefinition, PluginScalarValue} from "@/component/utils/pluginProtocol.js";
 
 const props = defineProps<{
+  inputId: string;
   field: PluginFieldDefinition;
   modelValue: PluginScalarValue;
 }>();
@@ -57,12 +58,12 @@ function updateSelectValue(event: Event): void {
 
 <template>
   <div class="plugin-field">
-    <label class="plugin-field-label" :for="field.key">{{ field.label }}</label>
+    <label class="plugin-field-label" :for="inputId">{{ field.label }}</label>
     <p v-if="field.description" class="plugin-field-description">{{ field.description }}</p>
 
     <span v-if="field.type === 'string'" class="plugin-field-shell">
       <input
-        :id="field.key"
+        :id="inputId"
         class="plugin-field-input"
         :type="field.input ?? 'text'"
         :placeholder="field.placeholder"
@@ -73,7 +74,7 @@ function updateSelectValue(event: Event): void {
 
     <span v-else-if="field.type === 'number'" class="plugin-field-shell">
       <input
-        :id="field.key"
+        :id="inputId"
         class="plugin-field-input"
         type="number"
         :placeholder="field.placeholder"
@@ -82,9 +83,9 @@ function updateSelectValue(event: Event): void {
       />
     </span>
 
-    <label v-else-if="field.type === 'boolean'" class="plugin-boolean-shell" :for="field.key">
+    <label v-else-if="field.type === 'boolean'" class="plugin-boolean-shell" :for="inputId">
       <input
-        :id="field.key"
+        :id="inputId"
         class="plugin-checkbox"
         type="checkbox"
         :checked="booleanValue"
@@ -95,7 +96,7 @@ function updateSelectValue(event: Event): void {
 
     <span v-else-if="field.type === 'select'" class="plugin-field-shell">
       <select
-        :id="field.key"
+        :id="inputId"
         class="plugin-field-input plugin-field-select"
         :value="selectValue"
         @change="updateSelectValue"

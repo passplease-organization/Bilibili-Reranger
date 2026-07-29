@@ -108,11 +108,6 @@ html.dark .card{
     border-radius calc(var(--transition-time) * 1.3) cubic-bezier(0.22, 1, 0.36, 1);
   overflow-wrap: anywhere;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--dark-font-color) transparent;
-}
-html.dark .card{
-  scrollbar-color: var(--dark-font-color) transparent;
 }
 
 .card:hover{

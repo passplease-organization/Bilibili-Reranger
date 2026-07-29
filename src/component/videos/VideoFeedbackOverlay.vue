@@ -4,6 +4,7 @@ import type {Video} from "@/component/videos/interfaces.ts";
 
 type Direction = "more" | "less";
 type Intent = Direction | "none";
+type CategoryFeedbackType = "match" | "suggest" | "exclude";
 
 interface FeedbackTemplate {
   id: string;
@@ -28,6 +29,11 @@ const props = defineProps<{
   availableTags: string[];
   selectedMoreTags: string[];
   selectedLessTags: string[];
+  categories: string[];
+  categoryFeedbackType: CategoryFeedbackType;
+  suggestedCategory: string;
+  quality: number;
+  qualityInput: string;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +49,9 @@ const emit = defineEmits<{
   (e: "update:authorWeightInput", value: string): void;
   (e: "update:tagWeightInput", value: string): void;
   (e: "toggle-tag", payload: { direction: Direction; value: string }): void;
+  (e: "update:categoryFeedbackType", value: CategoryFeedbackType): void;
+  (e: "update:suggestedCategory", value: string): void;
+  (e: "update:qualityInput", value: string): void;
   (e: "submit"): void;
 }>();
 
@@ -61,6 +70,9 @@ const activeSummaryLabel = computed(() => {
   }
   if (props.overallIntent === "less") {
     return "想看更少";
+  }
+  if (props.quality !== 0) {
+    return props.quality > 0 ? "质量较好" : "质量较差";
   }
   return "待选择";
 });
@@ -129,12 +141,12 @@ onBeforeUnmount(() => {
           <div class="feedback-hero">
             <div class="feedback-copy">
               <h2 id="feedback-title" class="feedback-title">对这条视频做反馈</h2>
-              <p class="feedback-desc">这次提交会把当前视频原始对象、总分、作者倾向、整体总结和标签名单一起写进同一个 body，方便后端插件直接判断。</p>
+              <p class="feedback-desc">这次提交会把当前视频原始对象、总分、作者倾向、整体总结、标签名单和分类判断一起写进同一个 body，方便后端插件直接判断。</p>
             </div>
             <div class="feedback-score-badge">
               <span>当前概览</span>
               <strong>{{ activeSummaryLabel }}</strong>
-              <em>整体强度 {{ overallWeight }}</em>
+              <em>{{ overallIntent === "none" ? `质量评分 ${quality}` : `整体强度 ${overallWeight}` }}</em>
             </div>
           </div>
 
@@ -193,6 +205,23 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
+          <div class="feedback-custom">
+            <div class="feedback-custom-head">
+              <h3>视频质量</h3>
+              <span>{{ quality > 0 ? "质量较好" : quality < 0 ? "质量较差" : "尚未评价" }}</span>
+            </div>
+            <p class="feedback-help">用于单独评价这条视频本身：`-16` 表示垃圾视频，`16` 表示质量极好，`0` 表示不评价。</p>
+            <div class="feedback-custom-controls">
+              <input class="feedback-range" type="range" min="-16" max="16" step="1" :value="quality" :disabled="submitting" @input="emit('update:qualityInput', ($event.target as HTMLInputElement).value)" />
+              <input class="feedback-number" type="number" min="-16" max="16" step="1" :value="qualityInput" :disabled="submitting" @input="emit('update:qualityInput', ($event.target as HTMLInputElement).value)" />
+            </div>
+            <div class="feedback-strength-legend">
+              <span>垃圾视频 -16</span>
+              <span>中性 0</span>
+              <span>质量极好 16</span>
+            </div>
+          </div>
+
           <div v-if="hasAuthorControl" class="feedback-custom">
             <div class="feedback-custom-head">
               <h3>作者倾向</h3>
@@ -214,6 +243,30 @@ onBeforeUnmount(() => {
               <span>明确</span>
               <span>强烈</span>
             </div>
+          </div>
+
+          <div class="feedback-custom">
+            <div class="feedback-custom-head">
+              <h3>分类判断</h3>
+              <span>当前分类：{{ video.category || "未提供" }}</span>
+            </div>
+            <div class="feedback-segmented">
+              <button type="button" class="feedback-chip" :class="{ active: categoryFeedbackType === 'match' }" :disabled="submitting" @click="emit('update:categoryFeedbackType', 'match')">符合当前分类</button>
+              <button type="button" class="feedback-chip" :class="{ active: categoryFeedbackType === 'suggest' }" :disabled="submitting" @click="emit('update:categoryFeedbackType', 'suggest')">建议调整分类</button>
+              <button type="button" class="feedback-chip" :class="{ active: categoryFeedbackType === 'exclude' }" :disabled="submitting" @click="emit('update:categoryFeedbackType', 'exclude')">不应出现在此分类</button>
+            </div>
+            <label v-if="categoryFeedbackType === 'suggest'" class="feedback-category-field">
+              <span class="feedback-tag-head">建议分类</span>
+              <select
+                class="feedback-category-select"
+                :value="suggestedCategory"
+                :disabled="submitting"
+                @change="emit('update:suggestedCategory', ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="" disabled>请选择分类</option>
+                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+              </select>
+            </label>
           </div>
 
           <div class="feedback-custom">
@@ -522,6 +575,44 @@ onBeforeUnmount(() => {
 .feedback-inline-field {
   margin-top: 18px;
   max-width: 160px;
+}
+
+.feedback-category-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.feedback-category-select {
+  appearance: none;
+  width: 100%;
+  padding: 12px 42px 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--focus-color) 34%, var(--surface-border));
+  border-radius: 16px;
+  background-color: var(--surface-elevated);
+  background-image: linear-gradient(45deg, transparent 50%, var(--focus-color) 50%), linear-gradient(135deg, var(--focus-color) 50%, transparent 50%);
+  background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%;
+  background-repeat: no-repeat;
+  background-size: 6px 6px, 6px 6px;
+  box-shadow: var(--surface-shadow-soft);
+  color: var(--font-color);
+  cursor: pointer;
+  font: inherit;
+}
+
+.feedback-category-select:focus {
+  outline: 2px solid color-mix(in srgb, var(--focus-color) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.feedback-category-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.feedback-category-select option {
+  background: var(--surface-elevated);
+  color: var(--font-color);
 }
 
 .feedback-inline-value {

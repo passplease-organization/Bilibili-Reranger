@@ -43,6 +43,10 @@ function updateField(key: string, value: PluginScalarValue): void {
   });
 }
 
+function fieldInputId(plugin: string, fieldKey: string): string {
+  return `plugin-field-${encodeURIComponent(plugin)}-${encodeURIComponent(fieldKey)}`;
+}
+
 function statusLabel(entry: PluginCardEntry): string {
   if (entry.state === "loading") {
     return "正在读取插件配置";
@@ -97,7 +101,8 @@ function statusLabel(entry: PluginCardEntry): string {
         <div v-if="entry.fields.length" class="plugin-fields">
           <PluginField
             v-for="field in entry.fields"
-            :key="field.key"
+            :key="`${entry.plugin}-${field.key}`"
+            :input-id="fieldInputId(entry.plugin, field.key)"
             :field="field"
             :model-value="entry.values[field.key] ?? null"
             @update:model-value="updateField(field.key, $event)"
@@ -132,7 +137,8 @@ function statusLabel(entry: PluginCardEntry): string {
 .plugin-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  min-height: 100%;
+  gap: 18px;
 }
 
 .plugin-card-head {
@@ -141,6 +147,8 @@ function statusLabel(entry: PluginCardEntry): string {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .plugin-badge {
@@ -193,13 +201,17 @@ function statusLabel(entry: PluginCardEntry): string {
 .plugin-fields {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
+  padding: 4px 0;
 }
 
 .plugin-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--surface-border);
 }
 
 .plugin-action {

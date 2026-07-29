@@ -26,7 +26,13 @@ export interface VideoJson {
 export interface FeedbackRequest {
   platform: string;
   video: RawVideoPayload;
+  category: {
+    value: string;
+    type: "match" | "suggest" | "exclude";
+    suggestion?: string;
+  };
   score: number;
+  quality: number;
   overall?: {
     value: number;
     score: number;

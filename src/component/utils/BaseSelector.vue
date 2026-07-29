@@ -334,25 +334,6 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(18px);
   box-shadow: var(--panel-shadow);
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--dark-font-color) transparent;
-}
-
-.base-selector-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.base-selector-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.base-selector-panel::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.28);
-  border-radius: 999px;
-}
-
-.base-selector-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.42);
 }
 
 .base-selector-option {
@@ -430,15 +411,6 @@ html.dark .base-selector-panel {
   --panel-option-hover: rgba(255, 255, 255, 0.07);
   --panel-option-active: color-mix(in srgb, var(--focus-color) 20%, rgba(255, 255, 255, 0.06));
   --panel-option-selected: color-mix(in srgb, var(--focus-color) 24%, rgba(255, 255, 255, 0.08));
-  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
-}
-
-html.dark .base-selector-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-html.dark .base-selector-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.36);
 }
 
 @media (max-width: 640px) {

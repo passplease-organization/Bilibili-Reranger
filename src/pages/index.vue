@@ -73,11 +73,19 @@ function normalizeWeightInput(raw: string, fallback: number): number {
   return Math.max(1, Math.min(16, Math.trunc(value)));
 }
 
+function normalizeScoreInput(raw: string, fallback = 0): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(-16, Math.min(16, Math.trunc(value)));
+}
+
 function uniq(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function mapVideo(raw: unknown): Video | null {
+function mapVideo(raw: unknown, fallbackCategory = ""): Video | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
   }
@@ -95,7 +103,7 @@ function mapVideo(raw: unknown): Video | null {
   return {
     author: readString(source, "author"),
     authorId: readString(source, "authorId") || readString(source, "mid") || readString(source, "uid"),
-    category: readString(source, "category"),
+    category: readString(source, "category") || fallbackCategory,
     description: readString(source, "description"),
     keywords,
     popups: readNumber(source, "popups"),
@@ -115,10 +123,14 @@ function normalizeVideos(source: unknown, category: string | null): Video[] {
     return [];
   }
   const json = source as VideoJson;
-  const records = category
-    ? json[category] ?? []
-    : Object.values(json).flat();
-  return records.map(mapVideo).filter((item): item is Video => item !== null);
+  if (category) {
+    return (json[category] ?? [])
+      .map((item) => mapVideo(item, category))
+      .filter((item): item is Video => item !== null);
+  }
+  return Object.entries(json).flatMap(([itemCategory, records]) =>
+    records.map((item) => mapVideo(item, itemCategory)),
+  ).filter((item): item is Video => item !== null);
 }
 
 const categories: Ref<string[] | null> = ref(null);
@@ -136,16 +148,25 @@ const authorWeightInput = ref(String(defaultAuthorWeight));
 const tagWeightInput = ref(String(defaultTagWeight));
 const selectedMoreTags = ref<string[]>([]);
 const selectedLessTags = ref<string[]>([]);
+const categoryFeedbackType = ref<"match" | "suggest" | "exclude">("match");
+const suggestedCategory = ref("");
+const qualityInput = ref("0");
 
 const overallWeight = computed(() => normalizeWeightInput(overallWeightInput.value, defaultOverallWeight));
 const authorWeight = computed(() => normalizeWeightInput(authorWeightInput.value, defaultAuthorWeight));
 const tagWeight = computed(() => normalizeWeightInput(tagWeightInput.value, defaultTagWeight));
+const quality = computed(() => normalizeScoreInput(qualityInput.value));
 const availableTags = computed(() => {
   const video = activeFeedbackVideo.value;
   if (!video) {
     return [];
   }
-  return uniq([...video.tags, ...video.keywords, ...(video.category ? [video.category] : [])]);
+  return uniq([
+    ...video.tags,
+    ...video.keywords,
+    ...(video.category ? [video.category] : []),
+    ...(categoryFeedbackType.value === "suggest" && suggestedCategory.value ? [suggestedCategory.value] : []),
+  ]);
 });
 const derivedScore = computed(() => {
   let score = 0;
@@ -184,6 +205,9 @@ function resetFeedbackDraft(): void {
   tagWeightInput.value = String(defaultTagWeight);
   selectedMoreTags.value = [];
   selectedLessTags.value = [];
+  categoryFeedbackType.value = "match";
+  suggestedCategory.value = "";
+  qualityInput.value = "0";
 }
 
 function openFeedback(video: Video): void {
@@ -206,6 +230,15 @@ function toggleTag(direction: Direction, value: string): void {
   source.value = source.value.includes(value)
     ? source.value.filter((item) => item !== value)
     : [...source.value, value];
+}
+
+function updateSuggestedCategory(value: string): void {
+  suggestedCategory.value = value;
+  if (!value) {
+    return;
+  }
+  selectedLessTags.value = selectedLessTags.value.filter((item) => item !== value);
+  selectedMoreTags.value = uniq([...selectedMoreTags.value, value]);
 }
 
 function applyFeedbackTemplate(templateId: string): void {
@@ -340,7 +373,23 @@ async function submitFeedback(): Promise<void> {
     platform: nowPlatform.value,
     video: video.raw,
     score,
+    quality: quality.value,
+    category: {
+      value: video.category,
+      type: categoryFeedbackType.value,
+    },
   };
+  if (categoryFeedbackType.value === "suggest") {
+    if (!suggestedCategory.value) {
+      showPopup("请选择建议分类后再提交", {
+        type: "info",
+        durationMs: 2800,
+      });
+      feedbackSubmitting.value = false;
+      return;
+    }
+    payload.category.suggestion = suggestedCategory.value;
+  }
   const overallScore = overallIntent.value === "more"
     ? overallWeight.value
     : overallIntent.value === "less"
@@ -380,6 +429,7 @@ async function submitFeedback(): Promise<void> {
   }
   if (
     score === 0 &&
+    quality.value === 0 &&
     !favorite.value &&
     !dislike.value &&
     !payload.overall &&
@@ -499,6 +549,11 @@ async function submitFeedback(): Promise<void> {
       :available-tags="availableTags"
       :selected-more-tags="selectedMoreTags"
       :selected-less-tags="selectedLessTags"
+      :categories="categories ?? []"
+      :category-feedback-type="categoryFeedbackType"
+      :suggested-category="suggestedCategory"
+      :quality="quality"
+      :quality-input="qualityInput"
       @close="closeFeedback"
       @apply-template="applyFeedbackTemplate"
       @reset="resetFeedbackDraft"
@@ -511,6 +566,9 @@ async function submitFeedback(): Promise<void> {
       @update:author-weight-input="authorWeightInput = $event"
       @update:tag-weight-input="tagWeightInput = $event"
       @toggle-tag="toggleTag($event.direction, $event.value)"
+      @update:category-feedback-type="categoryFeedbackType = $event"
+      @update:suggested-category="updateSuggestedCategory($event)"
+      @update:quality-input="qualityInput = $event"
       @submit="submitFeedback"
     />
   </div>

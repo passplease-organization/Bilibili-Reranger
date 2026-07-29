@@ -67,6 +67,11 @@ export interface BackendRequestInit extends RequestInit {
   loading?: LoadingStateInput | null;
 }
 
+const POLL_TIMEOUT = 120_000;
+const INITIAL_POLL_INTERVAL = 500;
+const MAX_POLL_INTERVAL = 3_000;
+const POLL_BACKOFF_MULTIPLIER = 1.5;
+
 function isAbortLike(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -144,8 +149,6 @@ export async function fetchBackend(url: string,init?: BackendRequestInit): Promi
     fullUrl.searchParams.set("id", id);
   }
   const response = await fetch(fullUrl.toString(),_init)
-  const POLL_TIMEOUT = 120_000;
-  const POLL_INTERVAL = 15_000;
   const encrypted = await response.text();
   if (encrypted === "") {
     return new Response("", {
@@ -183,8 +186,11 @@ export async function fetchBackend(url: string,init?: BackendRequestInit): Promi
       },
     }) : null;
     try {
+      let pollInterval = 0;
       while (Date.now() - startTime < POLL_TIMEOUT) {
-        await createAbortableDelay(POLL_INTERVAL, controller.signal);
+        if (pollInterval > 0) {
+          await createAbortableDelay(pollInterval, controller.signal);
+        }
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
@@ -212,7 +218,9 @@ export async function fetchBackend(url: string,init?: BackendRequestInit): Promi
         });
         const pollEncrypted = await pollResponse.text();
         if (pollEncrypted === "") {
-          await createAbortableDelay(POLL_INTERVAL, controller.signal);
+          pollInterval = pollInterval === 0
+            ? INITIAL_POLL_INTERVAL
+            : Math.min(MAX_POLL_INTERVAL, Math.ceil(pollInterval * POLL_BACKOFF_MULTIPLIER));
           continue;
         }
         const pollDecrypted = decrypt(pollEncrypted, true) as ResponseFromSession;
@@ -223,6 +231,9 @@ export async function fetchBackend(url: string,init?: BackendRequestInit): Promi
             headers,
           });
         }
+        pollInterval = pollInterval === 0
+          ? INITIAL_POLL_INTERVAL
+          : Math.min(MAX_POLL_INTERVAL, Math.ceil(pollInterval * POLL_BACKOFF_MULTIPLIER));
       }
     } finally {
       if (loadingToken !== null) {
@@ -321,20 +332,22 @@ export async function initBackend(){
     });
     if(response.ok){
       supportPlatform.value = JSON.parse(await response.text()) as string[];
-      const r = await fetchBackend("/init", {
-        loading: {
-          title: "正在初始化推荐后端",
-          detail: "后端正在准备推荐与抓取环境，这一步通常比普通请求更慢。",
-        },
-      });
+      // backend refracted, now no need to init backend first
+      // const r = await fetchBackend("/init", {
+      //   loading: {
+      //     title: "正在初始化推荐后端",
+      //     detail: "后端正在准备推荐与抓取环境，这一步通常比普通请求更慢。",
+      //   },
+      // });
       const r2 = await fetchBackend(`/set?platform=${nowPlatform.value}`, {
         loading: {
           title: "正在同步当前平台",
           detail: "后端正在切换当前平台设置，请稍等。",
         },
       });
-      showPopup(`当前平台：${supportPlatform.value}，初始化情况：${r.ok}，当前平台为${nowPlatform.value}，后端平台配置情况：${r2.ok}`);
-      if(!r.ok || !r2.ok)
+      // showPopup(`当前平台：${supportPlatform.value}，初始化情况：${r.ok}，当前平台为${nowPlatform.value}，后端平台配置情况：${r2.ok}`);
+      showPopup(`当前平台为${nowPlatform.value}，后端平台配置情况：${r2.ok}`);
+      if(/*!r.ok || */!r2.ok)
         router.push("/login");
       return;
     }

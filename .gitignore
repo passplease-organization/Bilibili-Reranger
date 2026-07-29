@@ -1,5 +1,6 @@
 !.idea/runConfigurations/
 .idea/
+.run
 .env
 .codebuddy
 exclude
@@ -8,7 +9,7 @@ exclude
 build/
 session/
 backend_config/
-backend_plugin/
+backend_plugins/
 exclude/
 .devcontainer/postgres-data/
 

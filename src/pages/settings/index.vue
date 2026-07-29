@@ -228,8 +228,8 @@ onMounted(async () => {
       />
     </div>
 
-    <section class="plugin-section settings-hero-panel">
-      <div class="plugin-section-head">
+    <section class="plugin-section">
+      <div class="plugin-section-head settings-hero-panel">
         <div class="plugin-section-copy">
           <span class="settings-kicker">Plugins</span>
           <h2 class="plugin-section-title">插件设置</h2>
@@ -323,8 +323,10 @@ onMounted(async () => {
 }
 
 .plugin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   width: min(1320px, 100%);
-  box-sizing: border-box;
 }
 
 .plugin-section-head {
@@ -332,7 +334,8 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 22px;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .plugin-section-copy {
@@ -381,7 +384,12 @@ onMounted(async () => {
 }
 
 .plugin-page-message {
-  margin: 0 0 20px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  background: var(--surface-color);
+  box-shadow: var(--surface-shadow-soft);
   color: var(--dark-font-color);
   font-size: 14px;
   line-height: 1.7;
@@ -392,11 +400,17 @@ onMounted(async () => {
 }
 
 .plugin-categories {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 20px;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: min(960px, 100%);
+  align-self: center;
+}
+
+.plugin-categories .card {
+  max-height: none;
+  overflow-y: visible;
+  padding: 26px 28px;
 }
 
 .category {
@@ -417,13 +431,16 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
-  .categories,
-  .plugin-categories {
+  .categories {
     grid-template-columns: 1fr;
   }
 
   .plugin-section-head {
     flex-direction: column;
+  }
+
+  .plugin-categories .card {
+    padding: 22px;
   }
 }
 </style>

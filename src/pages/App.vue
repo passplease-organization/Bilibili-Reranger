@@ -90,6 +90,9 @@ html{
   --focus-ring: 0 0 0 4px rgba(0,114,245,0.18);
   --page-gutter: clamp(18px, 3vw, 32px);
   --header-height: 80px;
+  --scrollbar-track: color-mix(in srgb, var(--font-color) 5%, transparent);
+  --scrollbar-thumb: color-mix(in srgb, var(--dark-font-color) 58%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--focus-color) 72%, var(--dark-font-color));
 }
 
 html.dark {
@@ -111,6 +114,9 @@ html.dark {
     rgba(0,0,0,0.22) 0 10px 20px -16px,
     rgba(255,255,255,0.03) 0 1px 0 inset;
   --focus-ring: 0 0 0 4px rgba(91,167,255,0.18);
+  --scrollbar-track: rgba(255,255,255,0.06);
+  --scrollbar-thumb: rgba(255,255,255,0.32);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--focus-color) 72%, white);
 }
 
 html, body, #app {
@@ -126,6 +132,38 @@ body{
   background-image:
     radial-gradient(circle at top left, color-mix(in srgb, var(--focus-color) 8%, transparent), transparent 28%),
     radial-gradient(circle at top right, color-mix(in srgb, var(--font-color) 4%, transparent), transparent 22%);
+}
+
+/* Keep every independently scrollable surface visually consistent. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 a {
