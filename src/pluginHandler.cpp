@@ -72,6 +72,12 @@ void PluginHandler::unload() {
         plugin();
 }
 
+void PluginHandler::unloadAll() {
+    if(!plugins -> empty())
+        for(const auto & plugin : *plugins)
+            plugin -> unload();
+}
+
 PluginStatus PluginHandler::registerGroups() {
     auto plugin = (REGISTER) getFunction("registerGroups");
     if(plugin == nullptr)
@@ -88,10 +94,16 @@ VideoStatus PluginHandler::roughJudge(const webAPI::Video& video) {
 }
 
 VideoStatus PluginHandler::judge(const webAPI::Video& video,unsigned short& score) {
-    auto plugin = (JUDGE) getFunction("judge");
+    auto plugin = (JUDGE) getFunction(webAPI::schedules::isPreCrawlThread() ? "judge" : "judgeAndRecommend");
     if(plugin == nullptr)
         return VideoStatus::UNKNOWN;
     return plugin(video,score);
+}
+
+void PluginHandler::tagVideo(const webAPI::Video &video, std::function<bool(const char *)> tagger, int) {
+    auto plugin = (TAG_VIDEO) getFunction("tagVideo");
+    if (plugin != nullptr)
+        plugin(video,tagger);
 }
 
 string PluginHandler::getURL() {
@@ -101,18 +113,18 @@ string PluginHandler::getURL() {
     return string(plugin());
 }
 
-webAPI::BrowseWorker PluginHandler::getWorker() {
+webAPI::BrowseWorker PluginHandler::getWorker(crawlTask::Task* const& task) {
     auto plugin = (GETWORKER) getFunction("getWorker");
     if(plugin == nullptr)
         return webAPI::nullWorker();
-    return plugin();
+    return plugin(task);
 }
 
-bool PluginHandler::dealJson(const string &tempdata) {
-    auto plugin = (DEAL_JSON) getFunction("dealJson");
+bool PluginHandler::dealJson(const Json& data,crawlTask::Task* const& task,vector<crawlTask::Task>& tempTasks,const unsigned short& workCount) {
+    auto plugin = (DEAL_JSON) getFunction("pluginDealJson");
     if(plugin == nullptr)
         return false;
-    return plugin(tempdata.c_str());
+    return plugin(data,task,tempTasks,workCount);
 }
 
 int PluginHandler::dealRequest(boost::asio::ip::tcp::socket &socket,const Json& data) {
@@ -170,17 +182,28 @@ void PluginHandler::forEachPlugin(PluginStatus function(PluginHandler &)) {
 
 bool PluginHandler::checkVideo(const std::function<VideoStatus(PluginHandler &)> &function) {
     if(!plugins -> empty()) {
+        short count = 0;
         for(const auto & plugin : *plugins){
             switch(function(*plugin)){
-                case VideoStatus::KEEP : return true;
-                case VideoStatus::THROW : return false;
+                case VideoStatus::HARD_KEEP : return true;
+                case VideoStatus::HARD_THROW : return false;
+                case VideoStatus::SOFT_KEEP : count++;
+                case VideoStatus::SOFT_THROW : count--;
                 case VideoStatus::UNKNOWN : continue;
                 default :
                     cppUtil::throwError("Invalid video status return value !");
             }
         }
+        return count >= 0;
     }
+    cppUtil::warn("没有安装插件，无法进行视频判断！");
     return true;
+}
+
+void PluginHandler::tagVideo(const webAPI::Video &video, std::function<bool(const char *)> tagger) {
+    for(const auto & plugin : *plugins) {
+        plugin -> tagVideo(video,tagger,0);
+    }
 }
 
 void PluginHandler::loadAll() {
@@ -230,6 +253,25 @@ vector<webAPI::formater::PlatformFormater> PluginHandler::getFormater(const stri
     return formater;
 }
 
+bool PluginHandler::allDealJson(const Json &data, crawlTask::Task *const &task,const unsigned short& workCount){
+    vector<crawlTask::Task> tempTasks;
+    bool back = false;
+    for(const auto& plugin : *plugins)
+        back |= plugin -> dealJson(data,task,tempTasks,workCount);
+    if (workCount < MAX_TEMP_TASK_WORK_COUNT)
+        for(const auto& tempTask : tempTasks)
+            back &= webAPI::schedules::registerTempScheduleTask(tempTask);
+    return back;
+}
+
+void PluginHandler::exportEvent(Event::Event *const &event) {
+    for(const auto& plugin : *plugins) {
+        auto f = (EVENT_LISTENER)plugin -> getFunction("eventListener");
+        if (f != nullptr)
+            f(event);
+    }
+}
+
 vector<string> *PluginHandler::searchPlugin(vector<string> *back) {
     string path = string();
 #ifdef WIN32
@@ -271,18 +313,6 @@ bool finalCheckVideo(const webAPI::Video& video,unsigned short& score) {
     });
 }
 
-bool pluginDealJson(string& tempData) {
-    return PluginHandler::forEachPlugin<bool>(
-            false,
-            [tempData](PluginHandler& handler) -> bool{
-                return handler.dealJson(tempData);
-            },[](bool& back,bool& now) -> bool{
-                back |= now;
-                return back;
-            }
-    );
-}
-
 string pluginGetURL() {
     auto back = PluginHandler::forEachPlugin<string>(
             "",
@@ -300,11 +330,11 @@ string pluginGetURL() {
     return back;
 }
 
-webAPI::BrowseWorker pluginGetWorker() {
+webAPI::BrowseWorker pluginGetWorker(crawlTask::Task* const& task) {
     auto back = PluginHandler::forEachPlugin<webAPI::BrowseWorker>(
             webAPI::nullWorker(),
-            [](PluginHandler& handler) -> webAPI::BrowseWorker{
-                return handler.getWorker();
+            [&task](PluginHandler& handler) -> webAPI::BrowseWorker{
+                return handler.getWorker(task);
             },[](webAPI::BrowseWorker& back,webAPI::BrowseWorker& now) -> bool{
                 if(now == webAPI::nullWorker())
                     return true;

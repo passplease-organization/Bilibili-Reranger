@@ -42,11 +42,13 @@ public:
 
     VideoStatus judge(const webAPI::Video& video,unsigned short& score);
 
+    void tagVideo(const webAPI::Video& video,std::function<bool(const char*)> tagger,int);
+
     [[deprecated]] string getURL();
 
-    webAPI::BrowseWorker getWorker();
+    webAPI::BrowseWorker getWorker(crawlTask::Task* const& task);
 
-    bool dealJson(const string& tempdata);
+    bool dealJson(const Json& data,crawlTask::Task* const& task,vector<crawlTask::Task>& tempTasks,const unsigned short& workCount);
 
     int dealRequest(boost::asio::ip::tcp::socket& socket,const Json& data);
 
@@ -79,7 +81,11 @@ public:
 
     static bool checkVideo(const std::function<VideoStatus(PluginHandler &)> &function);
 
+    static void tagVideo(const webAPI::Video& video,std::function<bool(const char*)> tagger);
+
     static void loadAll();
+
+    static void unloadAll();
 
     static int handleRequest(boost::asio::ip::tcp::socket& socket,const string& name,const Json& data);
 
@@ -97,6 +103,10 @@ public:
         return true;
     }
 
+    static bool allDealJson(const Json& data,crawlTask::Task* const& task,const unsigned short& workCount);
+
+    static void exportEvent(Event::Event* const& event);
+
 private:
     static vector<string>* searchPlugin(NotNull vector<string>* back);
 };
@@ -105,8 +115,6 @@ bool roughCheckVideo(const webAPI::Video& video);
 
 bool finalCheckVideo(const webAPI::Video& video,unsigned short& score);
 
-bool pluginDealJson(string& tempData);
-
 [[deprecated]] string pluginGetURL();
 
-webAPI::BrowseWorker pluginGetWorker();
+webAPI::BrowseWorker pluginGetWorker(crawlTask::Task* const& task);

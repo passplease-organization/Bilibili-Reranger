@@ -407,6 +407,13 @@ BrowseWorker bilibiliHandler::getWorker(const crawlTask::Task *task) const {
                 CrawlAction{BrowseAction::BrowseDataMode::HTTP_REQUEST,"api.bilibili.com/x/web-interface/wbi"},
             };
         }
+        case crawlTask::WorkingMode::FIND_MORE: {
+            return {
+                context,
+                UrlAction{task -> keyword},
+                CrawlAction{BrowseAction::BrowseDataMode::SCRIPT,"window.__INITIAL_STATE__.related"}
+            };
+        }
         default: return nullWorker();
     }
 }
@@ -516,13 +523,17 @@ bool bilibiliHandler::dealJson(CrawlerHelper& helper, const Json& json, const cr
 }
 
 bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Client *const& client) const {
+    #define WRONG_JSON_AND_WARN(j) {\
+        cppUtil::warn("解析Json不正确，收到：",(j).dump()); \
+        return false; \
+    }
     if (!validWorkerData(json))
-        return false;
+        WRONG_JSON_AND_WARN(json)
     switch (task -> mode) {
         case crawlTask::WorkingMode::SUBSCRIBE : {
             const auto& crawlData = json[2];
             if (!validWhileData(crawlData))
-                return false;
+                WRONG_JSON_AND_WARN(crawlData)
             bool empty = true;
             auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
@@ -540,7 +551,6 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                     }
             };
             forEachWhileData(crawlData) {
-                auto stringData = crawlData.dump();
                 const auto& _data = _crawlData[0];
                 if (_data.is_object()) {
                     if (!EmptyCrawlData(_data))
@@ -561,7 +571,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
         case crawlTask::WorkingMode::CATEGORY : {
             const auto& data = json[2];
             if (!validWhileData(data))
-                return false;
+                WRONG_JSON_AND_WARN(data)
             bool empty = true;
             auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
@@ -578,7 +588,6 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 }
             };
             forEachWhileData(data) {
-                auto stringData = data.dump();
                 const auto& _data = _crawlData[0];
                 if (_data.is_object()) {
                     if (!EmptyCrawlData(_data))
@@ -600,7 +609,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
         case crawlTask::WorkingMode::SEARCH : {
             const auto& data = json[2];
             if (!validWhileData(data))
-                return false;
+                WRONG_JSON_AND_WARN(data)
             bool empty = true;
             auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
@@ -617,7 +626,6 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 }
             };
             forEachWhileData(data) {
-                auto stringData = data.dump();
                 const auto& _data = _crawlData[0];
                 if (_data.is_object()) {
                     if (!EmptyCrawlData(_data))
@@ -638,7 +646,7 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
         case crawlTask::WorkingMode::HOME_PAGE_FILTER : {
             const auto& data = json[2];
             if (!validWhileData(data))
-                return false;
+                WRONG_JSON_AND_WARN(data)
             bool empty = true;
             auto resolver = [this,&empty,&task,&client](const Json& data) -> void {
                 empty = false;
@@ -657,7 +665,6 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                 }
             };
             forEachWhileData(data) {
-                auto stringData = data.dump();
                 const auto& _data = _crawlData[0];
                 if (_data.is_object()) {
                     if (!EmptyCrawlData(_data))
@@ -673,6 +680,22 @@ bool bilibiliHandler::dealJson(const Json &json, const crawlTask::Task *task, Cl
                    resolver(j[CrawlData]);
             if (empty)
                 cppUtil::warn("浏览器爬取的数据都是空的！",data);
+            return !empty;
+        }
+        case crawlTask::WorkingMode::FIND_MORE: {
+            const auto& data_ = json[1];
+            if (!data_.contains(CrawlData))
+                WRONG_JSON_AND_WARN(data_)
+            const auto& data = data_[CrawlData];
+            if (!data.is_array())
+                WRONG_JSON_AND_WARN(data)
+            bool empty = true;
+            for (const auto& _data : data) {
+                empty = false;
+                unsigned short score = 0;
+                if (const auto& v = Video::fromJson(_data); checkVideo(v,score))
+                    client -> storeVideo(v,*task,score);
+            }
             return !empty;
         }
         default: return false;

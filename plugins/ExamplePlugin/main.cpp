@@ -1,6 +1,7 @@
 #include <vector>
 #include "tasks.h"
 #include "interface.h"
+#include "utils/schedules.h"
 
 using namespace std;
 using namespace crawlTask;
@@ -43,7 +44,7 @@ PluginStatus load(){
     return PluginStatus::FAIL;
 }
 
-void registerGroups(){
+void registerGroups(){// All task should be TAG mode and search tag of video which tagged in function tagVideo
     if (CONFIG -> contains(GROUPS_LABEL)) {
         vector<dataStore::Data> array = (*CONFIG)[GROUPS_LABEL].get<vector<dataStore::Data>>();
         if(!array.empty()){
@@ -58,6 +59,20 @@ void registerGroups(){
     cppUtil::warn("空配置文件！请填写配置文件！文件：" CONFIG_PATH ".json");
 }
 
+static unsigned int scheduleIndex = 0;
+
+vector<webAPI::schedules::ScheduleTask> scheduleCrawl(){
+    vector<webAPI::schedules::ScheduleTask> tasks;
+    if (CONFIG -> contains(GROUPS_LABEL) && !(*CONFIG)[GROUPS_LABEL].empty())
+        tasks.push_back([](std::tm* const&, const webAPI::Client*) -> crawlTask::Group {
+            auto& array = (*CONFIG)[GROUPS_LABEL];
+            crawlTask::Group group("",BILIBILI,0);
+            crawlTask::group_from_data(array[scheduleIndex++ % array.size()],&group);
+            return group;
+        });
+    return tasks;
+}
+
 VideoStatus roughJudge(const webAPI::Video& video){
     return VideoStatus::UNKNOWN;
 }
@@ -65,6 +80,10 @@ VideoStatus roughJudge(const webAPI::Video& video){
 VideoStatus judge(const webAPI::Video& video,unsigned short& score){
     score = 50;
     return VideoStatus::UNKNOWN;
+}
+
+void unload() {
+    cppUtil::say("卸载示例插件");
 }
 
 #ifdef DEVELOP

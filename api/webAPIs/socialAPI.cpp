@@ -1,5 +1,6 @@
 #include "socialAPI.h"
 
+#include <algorithm>
 #include <map>
 #include <mutex>
 
@@ -20,28 +21,21 @@ using namespace webAPI;
 extern ::webAPI::postgres dataBase;
 
 namespace {
-    webAPI::PreCrawlTaskKey preCrawlTaskKey(const crawlTask::Task& task) {
-        return {
-            task.keyword == nullptr ? "" : task.keyword,
-            static_cast<int>(task.mode),
-            task.publishedDay
-        };
-    }
-
-    Json preCrawlTaskJson(const crawlTask::Task& task) {
-        Json json;
-        crawlTask::task_to_data(json, &task);
-        json["publishedDay"] = task.publishedDay;
-        json["working_mode_id"] = static_cast<int>(task.mode);
-        return json;
-    }
-
     string preCrawlVideoKey(const webAPI::Video& video) {
         if (const string url = video.url(); !url.empty())
             return url;
         if (video.mid() != WRONG_MID)
             return to_string(video.mid());
         return string(video.title()) + "\n" + video.author();
+    }
+
+    void appendMissingTags(vector<string>& target, const vector<string>& source) {
+        for (const auto& tag : source) {
+            if (tag.empty())
+                continue;
+            if (std::find(target.begin(), target.end(), tag) == target.end())
+                target.push_back(tag);
+        }
     }
 
     string preCrawlPlatform(const webAPI::Client& client) {
@@ -82,8 +76,9 @@ void webAPI::socialAPI::init(){}
 
 void webAPI::socialAPI::writeToDataBase(::webAPI::HandlerRow& data) const {
     data.platform = support();
-    if (validBrowse())
+    if (!config<bool>(COOKIE_STORE_CHECK) || validBrowse())
         data.browse = *context;
+    else cppUtil::warn("不合法的cookie：",context -> cookie);
     if (data.data_json.empty())
         data.data_json = "{}";
 }
@@ -486,16 +481,19 @@ std::string Client::ESAKey(const std::string &adminKey) const {
 
 bool Client::storeVideo(const Video &video,const crawlTask::Task& task,const unsigned short& score) {
     auto& videos = preCrawlVideos[task];
+    vector<string> tags;
+    appendMissingTags(tags, tagVideo(video));
     const auto key = preCrawlVideoKey(video);
-    const auto stored_score = score > 100 ? 100 : score;
+    const auto stored_score = static_cast<unsigned short>(score > 100 ? 100 : score);
     for (auto& old : videos) {
-        if (preCrawlVideoKey(old.first) == key) {
-            if (old.second < stored_score)
-                old.second = stored_score;
+        if (preCrawlVideoKey(old.video) == key) {
+            appendMissingTags(old.tags, tags);
+            if (old.score < stored_score)
+                old.score = stored_score;
             return true;
         }
     }
-    videos.emplace_back(video, stored_score);
+    videos.push_back({video, std::move(tags), stored_score});
     return true;
 }
 
@@ -513,24 +511,31 @@ void Client::syncPreCrawlDataBase() {
 
     vector<::webAPI::PreCrawlVideoRow> rows;
     for (const auto& [task, videos] : preCrawlVideos) {
-        const auto key = preCrawlTaskKey(task);
-        const auto task_json = preCrawlTaskJson(task).dump();
         if (config<bool>(DETAILS))
             cppUtil::say(task.keyword,"任务存入",videos.size(),"个视频");
-        for (const auto& [video, score] : videos) {
+        for (const auto& stored : videos) {
             Json video_json;
-            video.write_all(video_json);
+            stored.video.write_all(video_json);
+            const auto video_key = preCrawlVideoKey(stored.video);
+            const auto old = std::find_if(rows.begin(), rows.end(), [&video_key](const auto& row) {
+                return row.video_key == video_key;
+            });
+            if (old != rows.end()) {
+                old->video_json = video_json.dump();
+                appendMissingTags(old->tags, stored.tags);
+                if (old->score < stored.score)
+                    old->score = stored.score;
+                continue;
+            }
             rows.push_back({
                 ID,
                 platform,
-                key,
-                task.videoCount,
-                task_json,
-                preCrawlVideoKey(video),
+                video_key,
                 video_json.dump(),
+                stored.tags,
                 "",
                 0,
-                score
+                stored.score
             });
         }
     }
@@ -541,7 +546,7 @@ void Client::syncPreCrawlDataBase() {
 }
 
 bool Client::crawlEnough(crawlTask::Task const* const& task) const {
-    if (task == nullptr) {
+    if (task == nullptr || (task -> mode == crawlTask::WorkingMode::FIND_MORE && task -> workCount() >= 1)) {
         return true;
     }
 
@@ -557,8 +562,7 @@ bool Client::crawlEnough(crawlTask::Task const* const& task) const {
     }
 
     std::size_t stored_count = 0;
-    const auto key = preCrawlTaskKey(*task);
-    if (!dataBase.countPreCrawlVideos(ID, platform, key, stored_count)) {
+    if (!dataBase.countPreCrawlVideos(ID, platform, task, stored_count)) {
         return false;
     }
     return staged_count + stored_count / 100 >= target_count;

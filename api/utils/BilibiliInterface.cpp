@@ -59,6 +59,33 @@ namespace {
         return !json.contains(field) || json[field].is_null();
     }
 
+    // Fallback for "views"/"play"-like numeric fields: null, missing or
+    // wrongly-typed values become 0 instead of throwing type_error.302.
+    unsigned int getUnsignedIntOrZero(const Json& json, const char* field) {
+        if (missingOrNull(json, field))
+            return 0;
+        const auto& value = json[field];
+        if (value.is_number_unsigned())
+            return value.get<unsigned int>();
+        if (value.is_number_integer()) {
+            const long long number = value.get<long long>();
+            return number > 0 ? static_cast<unsigned int>(number) : 0;
+        }
+        if (value.is_number_float()) {
+            const double number = value.get<double>();
+            return number > 0 ? static_cast<unsigned int>(number) : 0;
+        }
+        if (value.is_string()) {
+            try {
+                const auto number = std::stoull(value.get<string>());
+                return static_cast<unsigned int>(number);
+            } catch (const std::exception&) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     Json normalizeVideoJson(Json json) {
         if (!json.is_object())
             return json;
@@ -87,11 +114,17 @@ namespace {
 
         if (json.contains("stat") && json["stat"].is_object()) {
             const auto& stat = json["stat"];
-            if (missingOrNull(json, "play") && stat.contains("view"))
+            if (missingOrNull(json, "play") && stat.contains("view") && stat["view"].is_number())
                 json["play"] = stat["view"];
-            if (missingOrNull(json, "video_review") && stat.contains("danmaku"))
+            if (missingOrNull(json, "video_review") && stat.contains("danmaku") && stat["danmaku"].is_number())
                 json["video_review"] = stat["danmaku"];
         }
+
+        // Fallback: normalize null/missing numeric fields to 0
+        if (missingOrNull(json, "play"))
+            json["play"] = 0;
+        if (missingOrNull(json, "video_review"))
+            json["video_review"] = 0;
 
         if (missingOrNull(json, "length") && json.contains("duration")) {
             const auto& duration = json["duration"];
@@ -135,7 +168,6 @@ namespace {
             cppUtil::throwError("Invalid Bilibili video json. Expected object, now json content: ", json.dump());
 
         string missing;
-        requireAnyField(json, {"created", "pubdate", "senddate", "ctime"}, "created/pubdate/senddate/ctime", missing);
         requireField(json, "title", missing);
         requireField(json, "author", missing);
         requireField(json, "description", missing);
@@ -168,13 +200,15 @@ namespace {
 #endif
 
     long long getPublishTimeFromJson(const Json& json) {
-        if (json.contains("created"))
+        if (json.contains("created") && json["created"].is_number())
             return json["created"].get<long long>();
-        if (json.contains("pubdate"))
+        if (json.contains("pubdate") && json["pubdate"].is_number())
             return json["pubdate"].get<long long>();
-        if (json.contains("senddate"))
+        if (json.contains("senddate") && json["senddate"].is_number())
             return json["senddate"].get<long long>();
-        return json["ctime"].get<long long>();
+        if (json.contains("ctime") && json["ctime"].is_number())
+            return json["ctime"].get<long long>();
+        return -1;
     }
 
     string getVideoDurationFromJson(const Json& json) {
@@ -246,8 +280,11 @@ namespace webAPI{
             _duration = this -> json["videoTime"].get<std::string>();
             _image = this -> json["videoURL"].get<std::string>();
             _string_publishTime = getFeedbackPublishTimeStringFromJson(this -> json);
-            _views = this -> json["views"].get<unsigned int>();
-            _popups = this -> json["popups"].get<unsigned int>();
+            _views = getUnsignedIntOrZero(this -> json, "views");
+            _popups = getUnsignedIntOrZero(this -> json, "popups");
+            // normalize null data to 0 so the stored json stays consistent
+            this -> json["views"] = _views;
+            this -> json["popups"] = _popups;
             format();
             return;
         }
@@ -260,13 +297,14 @@ namespace webAPI{
         _title = this -> json["title"].get<std::string>();
         _author = this -> json["author"].get<std::string>();
         _description = this -> json["description"].get<std::string>();
-        _mid = this -> json.contains("mid") ? this -> json["mid"].get<long long>() : WRONG_MID;
+        _mid = (missingOrNull(this -> json, "mid") || !this -> json["mid"].is_number())
+                   ? WRONG_MID : this -> json["mid"].get<long long>();
         _url = getVideoURLFromJson(this -> json);
         _duration = getVideoDurationFromJson(this -> json);
         _image = getImageURLFromJson(this -> json);
-        _string_publishTime = toReadableTime(publishTime());
-        _views = this -> json["play"].get<unsigned int>();
-        _popups = this -> json["video_review"].get<unsigned int>();
+        _string_publishTime = publishTime() >= 0 ? toReadableTime(publishTime()) : "";
+        _views = getUnsignedIntOrZero(this -> json, "play");
+        _popups = getUnsignedIntOrZero(this -> json, "video_review");
         format();
     }
 

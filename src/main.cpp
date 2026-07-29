@@ -21,6 +21,7 @@ void clean(){
 }
 
 int work(const CrawlInfo info,shared_ptr<const atomic<bool>> cancel,boost::asio::ip::tcp::socket socket){
+    blockSignal();
     setThreadId(info.id);
     crawlInfo = &info;
     dataBase.updateClientLastSeen(info.clientId);

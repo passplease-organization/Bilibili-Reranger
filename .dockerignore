@@ -1,0 +1,8 @@
+.run
+cmake-build-*
+browser
+.claude
+.codex
+.devcontainer/browser
+.devcontainer/postgres-data
+.devcontainer/session

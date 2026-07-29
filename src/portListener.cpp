@@ -1,6 +1,5 @@
 #include "PortListener.h"
 #include "PluginHandler.h"
-#include "utils/BilibiliInterface.h"
 #include "Crawler.h"
 #include "utils/config.h"
 #include <iostream>
@@ -11,17 +10,16 @@
 
 #include "platforms/bilibiliHandler.h"
 #include "subFeatures/requestHelper.h"
+#include "utils/Event.h"
 #include "webAPIs/postgres.h"
 
 #ifdef TEST
     #include "test/testCode.h"
 #endif
 
-#define SERVER_HEADER NAME_STR "/" VERSION_STR
 namespace http = boost::beast::http;
 namespace ip = boost::asio::ip;
 
-thread_local CrawlInfo const* crawlInfo;
 thread_local shared_ptr<const atomic<bool>> stop;
 
 CrawlInfo::CrawlInfo(std::string clientId,const string& body,boost::urls::params_view params,std::string url,std::string target, long long id)
@@ -70,6 +68,8 @@ int startWork() {
     if(checkEnv()) {
         return 1;
     }
+    registerExitListener();
+    Event::setExporter(PluginHandler::exportEvent);
     webAPI::registerBilibili();
     webAPI::Client::initAndDataBase();
     PluginHandler::loadAll();
@@ -132,6 +132,7 @@ int startWork() {
             auto cancel = make_shared<atomic<bool>>(false);
             auto working = std::async(std::launch::async,WorkFunction,std::move(info),cancel,std::move(socket));
             std::thread newThread([](future<int> worker,const shared_ptr<atomic<bool>> cancel,long long id,const long long& timeout) {
+                blockSignal();
                 setThreadId(id);
                 cppUtil::say({false, nullptr}, "Thread has created.");
                 cppUtil::say({false, BLUE}, "Id: ");
@@ -157,33 +158,25 @@ int startWork() {
     return 0;
 }
 
-bool sendMessage(ip::tcp::socket& socket, string data, bool failed, bool releaseOutput) {
-    if (data.empty()) {
-        cppUtil::warn("空返回数据！");
-        return false;
+void stopWork() {
+    cppUtil::say(GREEN,"退出信号监听器已注册");
+    const int signal = waitForExitSignal();
+    cppUtil::say(GREEN,"收到退出信号，即将退出程序，信号",signal);
+    webAPI::schedules::stopScheduleThread();
+    for (int i = 0; i < 100; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (!webAPI::schedules::isScheduleThreadRunning())
+            break;
     }
-    http::response<http::string_body> response;
-    response.version(11);
-    response.result(failed ? http::status::internal_server_error : http::status::ok);
-    response.set(http::field::server,SERVER_HEADER);
-    response.set(http::field::content_type, "application/json; charset=utf-8");
-    response.set(http::field::connection, "close");
-    response.body() = crawlInfo -> client == nullptr ? data : crawlInfo -> client -> encrypt(data);
-    if (releaseOutput && config<bool>(DETAILS))
-        cppUtil::say("本次工作结果（未加密）：",data);
-    response.prepare_payload();
-    boost::system::error_code error;
-    http::write(socket,response,error);
-    bool back = true;
-    if (error) {
-        cppUtil::warn({false, nullptr}, "Error to send response, error code: ",error.message());
-        back = false;
+    if (webAPI::schedules::isScheduleThreadRunning()) {
+        cppUtil::warn("定时线程仍未退出，将自动进行后续插件卸载，卸载插件后将会强制退出");
     }
-    socket.shutdown(ip::tcp::socket::shutdown_both,error);
-    socket.close();
-    if (error) {
-        cppUtil::warn("Cannot close socket",error.message());
-        back = false;
+    PluginHandler::unloadAll();
+#ifdef TEST
+    markExitCleanupFinished();
+#endif
+    if (webAPI::schedules::isScheduleThreadRunning()) {
+        cppUtil::warn("定时线程仍未结束，将强制退出");
+        raise(SIGKILL);
     }
-    return back;
 }

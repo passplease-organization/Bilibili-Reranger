@@ -46,14 +46,14 @@ void readConfig() {
         _setConfig(MAX_CLIENT,32,"后台支持的最大客户端数量");
         _setConfig(ADMIN_CLIENT_KEY,randomString(16),"管理员密码");
         _setConfig(POSTGRES_SSL_MODE,string("prefer"),"数据库连接方式");
-    #ifndef DEVELOP
-        _setConfig(POSTGRES_ENCRYPT_KEY,webAPI::SimpleESA::randomKey(),"数据写入数据库使用加密秘钥");
-    #endif
         _setConfig(BROWSER_WORK_MAX_TIME,120,"Browser为每一次请求视频工作最大时长，单位：秒。若为负值则不限时");
     #ifdef DEVELOP
         _setConfig(SCHEDULE_CRAWL_INTERNAL,1,"固定爬取数据间隔的均值，用于分割静默状态时程序爬取的速度，单位是分钟，只能是整数");
+        _setConfig(COOKIE_STORE_CHECK,false,"收到cookie存入请求时是否进行cookie有效性验证，默认不进行");
     #else
+        _setConfig(POSTGRES_ENCRYPT_KEY,webAPI::SimpleESA::randomKey(),"数据写入数据库使用加密秘钥");
         _setConfig(SCHEDULE_CRAWL_INTERNAL,5,"固定爬取数据间隔的均值，用于分割静默状态时程序爬取的速度，单位是分钟，只能是整数");
+        _setConfig(COOKIE_STORE_CHECK,false,"收到cookie存入请求时是否进行cookie有效性验证，默认不进行");
     #endif
         cppUtil::saveConfig(path,config);
         defaultConfigs = config;

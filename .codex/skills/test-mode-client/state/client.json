@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "base_url": "http://localhost:23223",
-  "client_id": "IiFelCbttF7eAY36apYkWw",
-  "esa_key_b64": "5m+qiOTBPb8dJluDt5f8DKcZP6Cwe0AbR62jL6xsgoI=",
-  "created_at": "2026-05-17T01:39:36Z",
-  "updated_at": "2026-05-17T01:40:17Z",
-  "last_verified_at": "2026-05-17T01:40:17Z"
+  "client_id": "K46TbYaT8tCQKhbbvvZERA",
+  "esa_key_b64": "6mHrDFmt1JHGCo0WOHRRdzglGhqRcvF80xcRmXSQ73U=",
+  "created_at": "2026-08-05T22:34:34Z",
+  "updated_at": "2026-08-05T22:39:38Z",
+  "last_verified_at": "2026-08-05T22:39:38Z"
 }

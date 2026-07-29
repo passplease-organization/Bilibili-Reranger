@@ -3,11 +3,11 @@
 #include <random>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <cpr/api.h>
 
-#ifdef TEST
-    #include <condition_variable>
-    #include <mutex>
-#endif
+#include "utils/Event.h"
 
 #include "PortListener.h"
 #include "../Crawler.h"
@@ -21,6 +21,8 @@ namespace webAPI::schedules {
     namespace {
         std::jthread scheduleThread;
         std::atomic<bool> scheduleRunning{false};
+        std::condition_variable_any scheduleWakeup;
+        std::mutex scheduleWakeupMutex;
     }
 
 #ifdef TEST
@@ -49,18 +51,23 @@ namespace webAPI::schedules {
     }
 
     void startScheduleThread() {
+        blockSignal();
         scheduleRunning = true;
         scheduleThread = std::jthread([](const std::stop_token& st) {
+            blockSignal();
+            preCrawl = true;
             try {
                 cppUtil::say("Schedule thread start");
                 PluginHandler::registerAllScheduleTasks();
                 time_t time;
                 std::default_random_engine random;
                 auto range = std::uniform_real_distribution<float>(0.8, 1.2);
+                const auto info = new CrawlInfo("","",{},"","",0);
+                crawlInfo = info;
                 while (!st.stop_requested()) {
-                    while (!st.stop_requested() && !finishClient()) {
+                    while (!st.stop_requested() && !finishClient(&st)) {
                         const auto& client = nextClient();
-                        if (client == nullptr)
+                        if (client == nullptr || (info -> clientId = client -> getID(),info -> client = client,!client -> prepare()))
                             continue;
                     #ifdef WIN32
                         Sleep(config<int>(SCHEDULE_CRAWL_INTERNAL) * 60000 * range(random));
@@ -72,7 +79,7 @@ namespace webAPI::schedules {
                         cppUtil::say("定时爬取，工作客户端ID: ",client -> getID());
                         for (const ScheduleTask& task : scheduleTasks) {
                             ::time(&time);
-                            if (!crawlAndStore(task(std::localtime(&time),client),client))
+                            if (!crawlAndStore(task(std::localtime(&time),client),client,st))
                                 cppUtil::warn("定时爬取",client -> handler() -> support(),"失败，客户端ID: ",client -> getID());
                         }
                         client -> syncPreCrawlDataBase();
@@ -87,8 +94,10 @@ namespace webAPI::schedules {
                         delete crawlInfo;
                         crawlInfo = nullptr;
                     }
-                    if (st.stop_requested())
+                    if (st.stop_requested()) {
+                        cppUtil::say("收到退出请求，进行退出");
                         break;
+                    }
                     say("一轮自动工作已完成，自动同步客户端");
                     Client::syncWithDatabase();
                 }
@@ -98,12 +107,15 @@ namespace webAPI::schedules {
                 cppUtil::warn("Schedule thread unknown error");
             }
             scheduleRunning = false;
+            cpr::Post(cpr::Url("http://localhost:" + to_string(config<int>(PORT))));
+            cppUtil::warn("退出定时工作线程，已同步清除主线程");
         });
     }
 
     void stopScheduleThread() {
         if (scheduleThread.joinable())
             scheduleThread.request_stop();
+        scheduleWakeup.notify_all();
     }
 
     bool isScheduleThreadRunning() {
@@ -113,6 +125,7 @@ namespace webAPI::schedules {
     static int index = 0;
 
     Client *nextClient() {
+        Event::exportEvent(Event::NextPreCrawlClientEvent());
         for (const auto& clients = Client::allClients();index < clients.size(); index++) {
             const auto client = clients[index];
             if (client -> handler() == nullptr)
@@ -123,17 +136,18 @@ namespace webAPI::schedules {
         return nullptr;
     }
 
-    bool finishClient() {
+    bool finishClient(const std::stop_token* stopToken) {
         const auto& clients = Client::allClients();
         const bool& back = index >= clients.size();
         index = 0;
         if (clients.empty() || nextClient() == nullptr) {
             cppUtil::warn("当前没有客户端可爬取，定时任务线程休眠",config<int>(SCHEDULE_CRAWL_INTERNAL),"分钟");
-            #ifdef WIN32
-                Sleep(config<int>(SCHEDULE_CRAWL_INTERNAL) * 60000);
-            #elifdef __linux__
-                sleep(config<int>(SCHEDULE_CRAWL_INTERNAL) * 60);
-            #endif
+            std::unique_lock lock(scheduleWakeupMutex);
+            const auto delay = std::chrono::minutes(config<int>(SCHEDULE_CRAWL_INTERNAL));
+            if (stopToken != nullptr)
+                scheduleWakeup.wait_for(lock,*stopToken,delay,[] { return false; });
+            else
+                scheduleWakeup.wait_for(lock,delay);
         }
         index = 0;
         return back;

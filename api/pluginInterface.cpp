@@ -44,13 +44,10 @@ thread_local vector<Group*> groups = vector<Group*>();
 thread_local map<GroupKey,Group*> groupIndex = map<GroupKey,Group*>();
 thread_local unsigned int workingOn = 0;
 
-Task::Task(const char *keyword,unsigned int videoCount, WorkingMode mode,int publishedDay) {
-    _workCount = 0;
-    this -> keyword = duplicateCString(keyword);
-    this -> mode = mode;
-    this -> videoCount = (int)videoCount;
-    this -> publishedDay = publishedDay >= 0 ? publishedDay : defaultDaytime(mode);
-}
+Task::Task(const char *keyword,unsigned int videoCount, WorkingMode mode,int publishedDay,dataStore::Data data)
+: _workCount(0),keyword(duplicateCString(keyword)),mode(mode),videoCount(videoCount),
+publishedDay(publishedDay >= 0 ? publishedDay : defaultDaytime(mode)),
+extraData(std::move(data)){}
 
 Task::~Task() {
     releaseCString(keyword);
@@ -72,6 +69,9 @@ const char* crawlTask::getName(WorkingMode mode){
         }
         case WorkingMode::HOME_PAGE_FILTER: {
             return "主页筛选";
+        }
+        case WorkingMode::FIND_MORE: {
+            return "视频衍生";
         }
         default: {
             cppUtil::throwError("Unknown WorkingMode Type !");
@@ -98,6 +98,8 @@ WorkingMode crawlTask::byName(const char *name) {
         return WorkingMode::TAG;
     if(mode == "主页筛选")
         return WorkingMode::HOME_PAGE_FILTER;
+    if (mode == "视频衍生")
+        return WorkingMode::FIND_MORE;
     cppUtil::warn("未匹配的模式名称");
     return WorkingMode::SEARCH;
 }

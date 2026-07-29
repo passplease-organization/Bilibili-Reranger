@@ -10,7 +10,7 @@ using namespace std;
 
 extern bool roughCheckVideo();
 extern bool finalCheckVideo();
-extern bool pluginDealJson(string&);
+// extern bool pluginDealJson(string&); //deprecated
 extern string pluginGetURL();
 
 #define CLIENT_COOKIE (crawlInfo -> client -> handler() -> getCOOKIE().c_str())
@@ -29,13 +29,13 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
  * @param client Preparing for client
  * @return Success or not
  */
-bool crawlAndStore(const crawlTask::Group& group,webAPI::Client* const& client);
+bool crawlAndStore(const crawlTask::Group& group,webAPI::Client* const& client,const std::stop_token& st);
 
-[[deprecated]] string getURL(const crawlTask::Task* task = crawlTask::nowTask());
+[[deprecated]] string getURL(crawlTask::Task* const& task = crawlTask::nowTask());
 
 namespace webAPI {
     class BrowseWorker;
 }
-webAPI::BrowseWorker getWorker(const crawlTask::Task* task = crawlTask::nowTask());
+webAPI::BrowseWorker getWorker(crawlTask::Task* const& task = crawlTask::nowTask());
 
 bool checkEnv();

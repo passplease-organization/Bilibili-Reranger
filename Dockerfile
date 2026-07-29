@@ -27,7 +27,7 @@ FROM ubuntu:24.04
 
 WORKDIR /bilibili-backend
 
-RUN apt update && apt install -y libboost-url1.83.0 ca-certificates
+RUN apt update && apt install -y libboost-url1.83.0 ca-certificates && apt clean
 COPY --from=compiler /compiler/build/release/Release ./
 
 CMD ["sh","-c","stdbuf -oL -eL ./BiliBili_Reranger"]

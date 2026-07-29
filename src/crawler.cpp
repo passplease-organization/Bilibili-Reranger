@@ -16,6 +16,8 @@
 #include <utility>
 #include <cpr/api.h>
 
+#include "utils/Event.h"
+
 CrawlerHelper::CrawlerHelper(){
     if (crawlInfo != nullptr && crawlInfo -> client != nullptr) {
         const auto* handler = crawlInfo -> client -> handler();
@@ -100,8 +102,8 @@ bool CrawlerHelper::dealJson() {
     #endif
 
     if(!tempData.empty()) {
-        if(pluginDealJson(tempData))
-            return true;
+        // if(pluginDealJson(tempData))
+        //     return true;
 
         try {
             json = Json::parse(tempData);
@@ -276,20 +278,61 @@ bool crawl(const std::shared_ptr<const std::atomic<bool>>& cancel,boost::asio::i
     }
 }
 
-bool crawlAndStore(const crawlTask::Group& group,webAPI::Client* const& client) {
-    if (client == nullptr || client -> handler() == nullptr)
-        return false;
-    for (const auto& task : group.tasks) {
-        while (!client -> crawlEnough(task)) {
-            if (!client -> handler() -> dealJson(webAPI::getController().perform(client -> handler() -> getWorker(task)),task,client))
-                return false;
-            task -> workOnce();
-        }
-    }
+thread_local vector<Task> scheduleTempTasks;
+bool webAPI::schedules::registerTempScheduleTask(Task const& task) {
+    scheduleTempTasks.push_back(task);
     return true;
 }
 
-string getURL(const crawlTask::Task* task){
+#undef PLUGIN
+bool crawlAndStore(const crawlTask::Group& group,webAPI::Client* const& client,const std::stop_token& st) {
+    if (client == nullptr || client -> handler() == nullptr)
+        return false;
+    unsigned short tempTaskWorkCount;
+    #define PRECRAWL_RESOLVER(task) { \
+        const auto& json = webAPI::getController().perform(getWorker(task)); \
+        if (PluginHandler::allDealJson(json,task,tempTaskWorkCount) && (task) -> mode == WorkingMode::PLUGIN) \
+            continue; \
+        if (!client -> handler() -> dealJson(json,task,client)) \
+            return false;\
+    }
+
+    for (tempTaskWorkCount = 0;const auto& task : group.tasks) {
+        Event::exportEvent(Event::NextPreCrawlClientEvent());
+        if (config<bool>(DETAILS))
+            cppUtil::say(BLUE,"进入预定工作爬取，当前task模式：",crawlTask::getName(task -> mode),"，工作标签：",task -> keyword);
+        while (!client -> crawlEnough(task) && !st.stop_requested()) {
+            task -> workOnce();
+            PRECRAWL_RESOLVER(task)
+        }
+        if (config<bool>(DETAILS))
+            cppUtil::say(BLUE,"临时注册爬取工作开始");
+        do {
+            auto tempTasks(std::move(scheduleTempTasks));
+            scheduleTempTasks.clear();
+            for (auto& _task : tempTasks)
+                PRECRAWL_RESOLVER(&_task)
+        }while (tempTaskWorkCount++ < MAX_TEMP_TASK_WORK_COUNT && !st.stop_requested());
+        scheduleTempTasks.clear();
+        if (config<bool>(DETAILS))
+            cppUtil::say(BLUE,"本轮全部工作完成，进入下一轮工作");
+        if (st.stop_requested())
+            return false;
+    }
+    cppUtil::say(BLUE,client -> getID(),"已完成一个group的工作");
+    return true;
+}
+
+vector<string> webAPI::tagVideo(const Video &video) {
+    vector<string> tags;
+    PluginHandler::tagVideo(video,[&tags](const char* key) -> bool {
+        tags.push_back(key);
+        return true;
+    });
+    return tags;
+}
+
+string getURL(crawlTask::Task* const& task){
     auto url = pluginGetURL();
     if(!url.empty())
         return url;
@@ -305,9 +348,8 @@ string getURL(const crawlTask::Task* task){
     return handler -> getWorker(task).context -> cookie;
 }
 
-webAPI::BrowseWorker getWorker(const crawlTask::Task* task) {
-    auto worker = pluginGetWorker();
-    if (worker.valid())
+webAPI::BrowseWorker getWorker(crawlTask::Task* const& task) {
+    if (auto worker = pluginGetWorker(task);worker.valid())
         return worker;
     if (crawlInfo == nullptr || crawlInfo -> client == nullptr) {
         cppUtil::warn("Client not initialized, cannot get url");

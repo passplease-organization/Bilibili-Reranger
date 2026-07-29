@@ -26,6 +26,18 @@ namespace webAPI::formater {
                 author.has = true;
             }
         }
+        if (json.contains("category")) {
+            const auto& j = json["category"];
+            category.nowValue = j["value"].get<string>();
+            const auto& type = j["type"].get<string>();
+            if (type == "match")
+                category.type = Category::Type::MATCH;
+            else if (type == "suggest") {
+                category.type = Category::Type::SUGGEST;
+                category.suggestion = j["suggestion"].get<string>();
+            }else if (type == "exclude")
+                category.type = Category::Type::EXCLUDE;
+        }
         if (json.contains("overall")) {
             if (const auto& o = json["overall"];o.contains("value") && o.contains(BODY_PARAMS_SCORE)) {
                 overall.score = clamp(o["value"].get<int>(),-MAX_SCORE,MAX_SCORE);
@@ -36,6 +48,10 @@ namespace webAPI::formater {
         if (json.contains("tags")) {
             if (const auto& t = json["tags"]; t.is_array())
                 tags = t.get<vector<string>>();
+        }
+        if (json.contains("quality")) {
+            quality.score = json["quality"].get<int>();
+            quality.has = true;
         }
     }
 }

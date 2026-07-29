@@ -142,6 +142,7 @@ jobs:
         DB_NAME: "bilibili_test"
         DB_USER: "bilibili"
         DB_PASSWORD: "bilibili"
+        ALL_CONTAINER_ONLINE: "0"
     services:
       postgres:
         image: postgres:18

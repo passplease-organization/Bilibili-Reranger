@@ -248,6 +248,8 @@ int init(boost::asio::ip::tcp::socket& socket){
         auto&& newContext = Json::parse(response.text);
         if (SUCCESS_BROWSE_REQUEST(newContext)) {
             const auto& cookie = newContext[CONTEXT]["cookie"];
+            if (config<bool>(DETAILS))
+                cppUtil::say("收集得到新cookie：",cookie);
             ok = crawlInfo -> client -> setHandlerContext({
                 cookie["value"].get<string>(),
                 cookie["domain"].get<string>(),
@@ -264,7 +266,8 @@ int init(boost::asio::ip::tcp::socket& socket){
         goto Back;
     }
     Prepare:
-        ok &= crawlInfo -> client -> prepare();
+        // ok &= crawlInfo -> client -> prepare();
+        cppUtil::say(BLUE,"手动触发准备工作已废弃，改为自动任务触发");
     Back:
     return back(writeSession(session,ok ? "准备过程完成" : "准备过程失败", !ok));
 }

@@ -22,6 +22,7 @@ export namespace SelectMode {
 
 export enum BrowseDataMode{
     DOM,
+    SCRIPT,
     HTTP_REQUEST,
     NODATA,
     OTHER
@@ -34,6 +35,7 @@ export namespace BrowseDataMode {
             case 'HTTP_REQUEST': return BrowseDataMode.HTTP_REQUEST;
             case 'NODATA': return BrowseDataMode.NODATA;
             case 'OTHER': return BrowseDataMode.OTHER;
+            case 'SCRIPT': return BrowseDataMode.SCRIPT;
             default: throw new Error(`Unknown BrowseDataMode of ${name}`);
         }
     }
@@ -154,7 +156,7 @@ class CrawlAction extends Worker {
             data: string | object;
             clean_data?: string;
         }
-        const returner = (data: string) => {
+        const returner = (data: any) => {
             try{
                 return {
                     data: JSON.parse(data)
@@ -188,6 +190,14 @@ class CrawlAction extends Worker {
                 }catch(e){
                     throw new Error(`错误的DOM元素描述，得到的：${this.description}`)
                 }
+            }
+            case BrowseDataMode.SCRIPT: {
+                handler.logger.info({script: this.description},"按照程序获取数据");
+                const result = await handler.page.evaluate(this.description);
+                if(typeof result === "string" || typeof result === "object")
+                    return returner(result);
+                else handler.logger.warn(`程序工作结果不是字符串，结果如下${result}`);
+                return {};
             }
             case BrowseDataMode.HTTP_REQUEST: {
                 handler.logger.info({target: this.description, recordedResponseCount: handler.records.size}, "匹配请求数据开始");

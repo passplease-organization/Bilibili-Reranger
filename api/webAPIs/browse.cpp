@@ -72,6 +72,7 @@ bool CrawlAction::validDescription(const BrowseDataMode &mode, const Json &json)
         case BrowseDataMode::HTTP_REQUEST:
         case BrowseDataMode::OTHER:
         case BrowseDataMode::NODATA:
+        case BrowseDataMode::SCRIPT:
             return description.is_string();
         default:
             return false;

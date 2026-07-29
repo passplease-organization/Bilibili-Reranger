@@ -50,12 +50,29 @@ namespace webAPI::formater {
         /**
          * @memberof video 反馈的主要视频
          * @memberof score 笼统评分，负为讨厌，最大16，最小-16
+         * @memberof category 视频所属类别
          * @memberof author 关于作者的字段，可能有，可能无
          * @memberof overall 总览，基本情况，一般部分的情况总结
          * @memberof tags 可能传递了的客户端发来的需要处理和关注的视频标签
          */
         webAPI::Video video;
         int score;
+        struct Category {
+            /**
+             * @memberof nowValue 视频被分类的类型
+             * @memberof type 本次建议的类型，MATCH指很好，SUGGEST指需要更改为建议类型，EXCLUDE单纯指应该从这个分类中剔除
+             * @memberof suggestion SUGGEST类型时的建议值
+             */
+            string nowValue;
+            enum struct Type {
+                MATCH,
+                SUGGEST,
+                EXCLUDE
+            };
+            Type type;
+            string suggestion;
+        };
+        Category category;
 
         struct Author {
             /**
@@ -74,7 +91,7 @@ namespace webAPI::formater {
         Author author{"",0,false};
         struct Overall {
             /**
-             * @memberof score 此项重要程度专门打分
+             * @memberof score 此项重要程度专门打分，最大16，最小-16
              * @memberof once 是否只是针对这一个视频
              * @memberof has 有没有这一项
              */
@@ -84,10 +101,20 @@ namespace webAPI::formater {
         };
         Overall overall{0,false,false};
 
+        struct Quality {
+            /**
+             * @memberof score 质量评分，负数表示低质量，最大16，最小-16
+             * @memberof has 有没有这一项
+             */
+            bool has;
+            int score;
+        };
+        Quality quality{false,0};
+
         vector<string> tags;
 
         #define MAX_SCORE 16
-        FeedBack(webAPI::Video video,const int& score):video(std::move(video)),score(clamp(score,-MAX_SCORE,MAX_SCORE)) {}
+        FeedBack(webAPI::Video video,const int& score):video(std::move(video)),score(clamp(score,-MAX_SCORE,MAX_SCORE)),category() {}
         explicit FeedBack(const Json& json);
 
         ~FeedBack() = default;

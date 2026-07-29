@@ -37,3 +37,6 @@ RUN apt-get update && apt-get install -y curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @playwright/cli && npx playwright install chrome && npx playwright install-deps
+
+USER vscode
+WORKDIR /IdeaProjects/backend

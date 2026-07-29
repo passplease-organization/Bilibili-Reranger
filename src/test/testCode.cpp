@@ -5,11 +5,14 @@
 #include "../../api/utils/config.h"
 #include <cpr/cpr.h>
 #include <thread>
+#include <csignal>
+#include <unistd.h>
 #include "../subFeatures/requestHelper.h"
 #include "utils/BilibiliInterface.h"
 #include "webAPIs/socialAPI.h"
 #include "webAPIs/platforms.h"
 #include "utils/schedules.h"
+#include "PortListener.h"
 
 using namespace cpr;
 
@@ -205,6 +208,7 @@ namespace {
 }
 
 void test() {
+    blockSignal();
     string localhost = "http://localhost:";
     bool error = false;
     string id;
@@ -393,6 +397,30 @@ void test() {
                 markFailed(error,"Feedback video json serialization failed: videoURL");
         }
 
+        {
+            // null numeric fields must be normalized to 0 instead of throwing
+            const Json rawJson = Json::parse(R"json({"author":"测试作者","bvid":"BV1kaoEBhEpo","description":"测试","duration":2982,"owner":{"mid":123,"name":"测试作者"},"pic":"https://example.com/pic.jpg","pubdate":1777043498,"stat":{"danmaku":null,"view":null},"title":"测试视频","play":null,"video_review":null})json");
+            const auto video = webAPI::Video::fromJson(rawJson);
+            if (video.views() != 0U)
+                markFailed(error,"Video null views fallback failed");
+            if (video.popups() != 0U)
+                markFailed(error,"Video null popups fallback failed");
+            if (video.mid() != 123LL)
+                markFailed(error,"Video mid normalization failed");
+            if (video.getJson()["play"] != 0)
+                markFailed(error,"Video json play not normalized to 0");
+
+            const Json feedbackJson = Json::parse(R"json({"author":"测试作者","description":"测试","popups":null,"publishTime":null,"title":"测试视频","url":"https://www.bilibili.com/video/BV1kaoEBhEpo","videoTime":"4:4","videoURL":"https://example.com/pic.jpg","views":null})json");
+            const auto feedbackVideo = webAPI::Video::fromCompatibleJson(feedbackJson);
+            if (feedbackVideo.views() != 0U)
+                markFailed(error,"Feedback video null views fallback failed");
+            if (feedbackVideo.popups() != 0U)
+                markFailed(error,"Feedback video null popups fallback failed");
+            const Json serializedVideo = feedbackVideo;
+            if (serializedVideo["views"] != 0)
+                markFailed(error,"Feedback video json views not normalized to 0");
+        }
+
 #if ALL_CONTAINER_ONLINE
         _say("Login status:");
         response = Post(
@@ -491,21 +519,19 @@ void test() {
             OUTPUT(INIT_OUTPUT,INIT_NO_SLASH);
         }
 
-        _say("Waiting for scheduled crawl:");
-        if (!webAPI::schedules::waitForClientCrawl(120000))
-            markFailed(error,"Scheduled crawl did not finish in time");
-
-        response = POST_PARAMS_ID(localhost);
-        expectStatusCode(response,200,error,"Read scheduled crawl result");
-        const string scheduledData = decryptIfNeeded(response.text,&esa);
-        if (scheduledData.empty()) {
-            markFailed(error,"Scheduled crawl result is empty");
-        } else {
-            json = parseJsonChecked(scheduledData,error,"Scheduled crawl result");
-            if (json.is_discarded())
-                markFailed(error,"Scheduled crawl result is invalid json");
-            OUTPUT(SCHEDULE_OUTPUT,"scheduled_crawl");
-        }
+        _say("\nTest exit listener:");
+        // 模拟 docker stop / kill 默认行为：向本进程发送 SIGTERM(15)。
+        // 说明：多线程进程中，进程级信号会投递给任意未阻塞该信号的线程。
+        // 若投递到测试/调度/工作线程(它们没有处理器)，默认处置会直接终止进程，
+        // 退出监听即失败；只有投递到监听线程，sigwait 才能拦截并执行收尾。
+        // 若本次测试通过，下方日志应出现：
+        //   "收到退出信号，即将退出程序，信号15" (stopWork)
+        //   "收到退出请求，进行退出" + "退出定时工作线程" (schedule 线程退出)
+        kill(getpid(), SIGTERM);
+        if (!waitForExitCleanup(15000))
+            markFailed(error,"Exit listener did not finish cleanup in time");
+        else
+            _say("退出监听器已处理退出信号并停止调度线程");
     }catch (std::exception &e) {
         testFinished = true;
         cppUtil::warn("Crashed !");

@@ -11,7 +11,7 @@
 #define STR(x) STR_IMPL(x)
 #define NAME BiliBili_Reranger
 #define NAME_STR STR(NAME)
-#define VERSION 1.0
+#define VERSION 3.1
 #define VERSION_STR STR(VERSION)
 
 #define SUBSCRIBE_PUBLISH_TIME "subscriber_publish_time"
@@ -29,6 +29,7 @@
     #define POSTGRES_ENCRYPT_KEY "postgres_encrypt_key"
 #endif
 #define BROWSER_WORK_MAX_TIME "browser_timeout"
+#define COOKIE_STORE_CHECK "cookie_check"
 
 extern API Config defaultConfigs;
 

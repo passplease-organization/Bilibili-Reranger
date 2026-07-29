@@ -38,6 +38,8 @@ add_library(${PROJECT_NAME} SHARED
         webAPIs/frontend/PlatformFormater.h
         webAPIs/browse.cpp
         utils/schedules.h
+        portListener.cpp
+        utils/Event.h
 )
 add_library(BiliBiliRerangerAPI::API ALIAS ${PROJECT_NAME})
 

@@ -14,6 +14,9 @@
    #define FUNCTION_CALLER
 #endif
 
+namespace Event {
+ class Event;
+}
 extern "C" {
 /**
  * Called at program starting
@@ -40,7 +43,7 @@ OPTIONAL VideoStatus roughJudge(const webAPI::Video& video);
 typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)(const webAPI::Video& video);
 
 /**
- * Judge keep or throw this video away
+ * Judge keep or throw this video away, called in pre-crawl
  * @param video the video to be judged
  * @param score how values are of videos, must have value if judged to be kept, max is 100, min is 0, normal should be 50
  * @return if we should keep this video
@@ -50,6 +53,19 @@ typedef VideoStatus (FUNCTION_CALLER *ROUGH_JUDGE)(const webAPI::Video& video);
 #define MIN_VIDEO_SCORE 0
 OPTIONAL VideoStatus judge(const webAPI::Video& video,unsigned short& score);
 typedef VideoStatus (FUNCTION_CALLER *JUDGE)(const webAPI::Video& video,unsigned short& score);
+
+/**
+ * Same as above, but called when client asked, so need to be fast
+ */
+OPTIONAL VideoStatus judgeAndRecommend(const webAPI::Video& video,unsigned short& score);
+
+/**
+ * Tag each video, which will be used to search it from database
+ * @param video the video will be stored into database
+ * @param tagger tag function
+ */
+OPTIONAL void tagVideo(const webAPI::Video& video,std::function<bool(const char*)> tagger);
+typedef void (FUNCTION_CALLER *TAG_VIDEO)(const webAPI::Video& video,std::function<bool(const char*)> tagger);
 
 /**
  * Now deprecated
@@ -63,15 +79,8 @@ namespace webAPI {
  class Video;
  class BrowseWorker;
 }
-OPTIONAL webAPI::BrowseWorker getWorker();
-typedef webAPI::BrowseWorker (FUNCTION_CALLER *GETWORKER)();
-
-/**
- * Deal this specific json for now crawling
- * @return true means crawl succeed
- * */
-OPTIONAL bool dealJson(const char* data);
-typedef bool (FUNCTION_CALLER *DEAL_JSON)(const char* data);
+OPTIONAL webAPI::BrowseWorker getWorker(crawlTask::Task* const& task);
+typedef webAPI::BrowseWorker (FUNCTION_CALLER *GETWORKER)(crawlTask::Task* const& task);
 
 /**
  * Allow plugin to handle network request from client
@@ -93,6 +102,20 @@ typedef void (FUNCTION_CALLER *FEED_BACK)(const webAPI::formater::FeedBack& feed
  */
 OPTIONAL vector<webAPI::schedules::ScheduleTask> scheduleCrawl();
 typedef vector<webAPI::schedules::ScheduleTask> (FUNCTION_CALLER *ScheduleCrawl)();
+
+/**
+ * Deal data, might got by task working mode PLUGIN, or comes from normal crawl including all origins
+ * @param data The json data
+ * @param task Now working task, might be registered by other plugin and also can be temp task
+ * @param tempTasks This turn your temp tasks want to be registered
+ * @param workCount Temp task work count, can't bigger than MAX_TEMP_TASK_WORK_COUNT
+ * @return Ignored when task working mode is not PLUGIN, true means dealt, default by false, but won't skip any plugin even received true
+ */
+OPTIONAL bool pluginDealJson(const Json& data,crawlTask::Task* const& task,vector<crawlTask::Task>& tempTasks,const unsigned short& workCount);
+typedef bool (FUNCTION_CALLER *DEAL_JSON)(const Json& data,crawlTask::Task* const& task,vector<crawlTask::Task>& tempTasks,const unsigned short& workCount);
+
+OPTIONAL void eventListener(Event::Event* const& event);
+typedef void (FUNCTION_CALLER *EVENT_LISTENER)(Event::Event* const& event);
 }
 
 namespace webAPI::formater {

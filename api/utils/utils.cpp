@@ -5,6 +5,8 @@
 #include <random>
 
 #include "configUtil.h"
+#include "Event.h"
+#include "../develop/flags.h"
 #include "Util.h"
 
 using namespace std;
@@ -343,4 +345,29 @@ value *LinkedMap<key, value>::remove(const key *k) {
         }
     }
     return nullptr;
+}
+
+void(FUNCTION_CALLER* eventHandler)(Event::Event* const&) = nullptr;
+void Event::setExporter(void (FUNCTION_CALLER* exporter)(Event *const &)) {
+    if (eventHandler == nullptr) {
+        eventHandler = exporter;
+        cppUtil::say(BLUE,"事件处理器已设置");
+    }
+}
+
+inline thread_local bool exporting = false;
+void Event::exportEvent(Event *const &event) {
+#if MORE_DETAILS
+    cppUtil::say(BLUE,"广播事件：",event -> description());
+#endif
+    if (eventHandler == nullptr)
+        cppUtil::throwError("错误事件触发，事件广播器还未设置，事件：",event -> description());
+    if (exporting)
+        cppUtil::throwError("不正确事件广播，正在处理上一个事件！");
+    exporting = true;
+    eventHandler(event);
+    exporting = false;
+#if MORE_DETAILS
+    cppUtil::say(BLUE,"广播完成！");
+#endif
 }

@@ -90,6 +90,7 @@ namespace webAPI {
     public:
         enum struct BrowseDataMode {
             DOM,
+            SCRIPT,
             HTTP_REQUEST,
             OTHER,
             NODATA
@@ -107,6 +108,7 @@ namespace webAPI {
         inline static std::string modeToString(const BrowseDataMode& mode) {
             switch (mode) {
                 case BrowseDataMode::DOM: return "DOM";
+                case BrowseDataMode::SCRIPT: return "SCRIPT";
                 case BrowseDataMode::HTTP_REQUEST: return "HTTP_REQUEST";
                 case BrowseDataMode::OTHER: return "OTHER";
                 default: return "NODATA";

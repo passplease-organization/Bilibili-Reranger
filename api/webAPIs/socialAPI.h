@@ -8,6 +8,7 @@
 
 #include "../utils/config.h"
 #include "../interface.h"
+#include "../utils/Event.h"
 
 namespace cpr {
     class Url;
@@ -199,7 +200,13 @@ namespace webAPI {
 
         SimpleESA esa;
 
-        unordered_map<crawlTask::Task,vector<pair<Video,unsigned short>>> preCrawlVideos = {};
+        struct PreCrawlVideo {
+            Video video;
+            vector<string> tags;
+            unsigned short score = 0;
+        };
+
+        unordered_map<crawlTask::Task,vector<PreCrawlVideo>> preCrawlVideos = {};
 
     protected:
         socialAPI* _handler;
@@ -252,10 +259,13 @@ namespace webAPI {
 
         API [[nodiscard]] bool prepare() const {
         #if ALL_CONTAINER_ONLINE
-            return _handler && _handler -> prepare();
+            const bool& back = _handler && _handler -> prepare();
         #else
-            return true;
+            bool back = true;
         #endif
+            if (_handler)
+                Event::exportEvent(Event::PrePareEvent(_handler -> subscribers()));
+            return back;
         }
 
         API [[nodiscard]] bool check() const noexcept;
@@ -286,7 +296,13 @@ namespace webAPI {
         API bool storeVideo(const Video& video,const crawlTask::Task& task,const unsigned short& score);
 
         API [[nodiscard]] vector<Video> getVideos(crawlTask::Task const* const& task,unsigned int offset = 0) const;
+
+        inline API const unordered_map<crawlTask::Task,vector<PreCrawlVideo>>& allCrawledVideos() const {
+            return preCrawlVideos;
+        }
     };
+
+    vector<string> tagVideo(const Video& video);// helper method
 
     API Nullable Client* client(const std::string& ID);
 

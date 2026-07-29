@@ -14,8 +14,13 @@ enum struct PluginStatus {
 };
 
 enum struct VideoStatus {
-    KEEP,
-    THROW,
+    /**
+     * HARD means keep/throw immediately, SOFT means act after all plugin's judgement.
+     */
+    HARD_KEEP,
+    SOFT_KEEP,
+    HARD_THROW,
+    SOFT_THROW,
     UNKNOWN
 };
 
@@ -24,8 +29,19 @@ namespace crawlTask{
         SEARCH,
         SUBSCRIBE,
         CATEGORY,
+        /**
+         * Based on one video, use the platform's recommendation gather the videos platform offered, you should offer video's URL
+         */
+        FIND_MORE,
+        /**
+         * TAG mode, used on pre-crawl means search by video tags; or used on recommend to client where it should always be
+         */
         TAG,
-        HOME_PAGE_FILTER
+        HOME_PAGE_FILTER,
+        /**
+         * For plugin to get data they needed, not for browser
+         */
+        PLUGIN
     };
 
     API int defaultDaytime(WorkingMode mode);
@@ -45,14 +61,15 @@ namespace crawlTask{
         WorkingMode mode;
         int videoCount;
         int publishedDay;
-        Task(const char* keyword,unsigned int videoCount,WorkingMode mode = WorkingMode::SEARCH,int publishedDay = -1);
+        dataStore::Data extraData;// any data the plugin want to write down
+        Task(const char* keyword,unsigned int videoCount,WorkingMode mode = WorkingMode::SEARCH,int publishedDay = -1,dataStore::Data extraData = dataStore::Data());
         ~Task();
 
         bool operator==(const Task &other) const {
             return string(keyword) == string(other.keyword) && mode == other.mode && publishedDay == other.publishedDay;
         }
 
-        Task(const Task &other):keyword(nullptr),mode(other.mode),videoCount(other.videoCount),publishedDay(other.publishedDay) {
+        Task(const Task &other):keyword(nullptr),mode(other.mode),videoCount(other.videoCount),publishedDay(other.publishedDay),extraData(other.extraData){
             if (other.keyword) {
                 const auto temp = new char[std::strlen(other.keyword) + 1];
                 std::strcpy(temp, other.keyword);
@@ -92,7 +109,7 @@ namespace crawlTask{
          * */
         API Nullable Task* nextTask(bool move = false);
 
-        API NotNull Task* nowTask() const;
+        [[nodiscard]] API NotNull Task* nowTask() const;
 
         [[nodiscard]] API bool validIndex() const;
 

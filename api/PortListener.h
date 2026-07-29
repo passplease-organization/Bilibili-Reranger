@@ -35,5 +35,15 @@ extern thread_local std::shared_ptr<const std::atomic<bool>> stop;
 
 int startWork();
 
+void stopWork();
+void registerExitListener();
+
+API void blockSignal();
+API int waitForExitSignal();
+
+#ifdef TEST
+API bool waitForExitCleanup(int timeoutMs);
+API void markExitCleanupFinished();
+#endif
 
 extern "C" API bool sendMessage(boost::asio::ip::tcp::socket& socket, std::string data = "", bool failed = false, bool releaseOutput = true);
