@@ -1,0 +1,4 @@
+interface:
+  display_name: "前端插件设置协议"
+  short_description: "为 Bilibili-Reranger 插件实现前端通用设置接口"
+  default_prompt: "Use $frontend-plugin-settings to implement a plugin settings interface compatible with Bilibili-Reranger frontend."
